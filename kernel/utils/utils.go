@@ -15,13 +15,17 @@ var pid int = 0
 
 func HelloWorld(w http.ResponseWriter, r *http.Request) {
 	var request BodyRequest
+	// MANDO LA REQUEST Y DECODIFICO
 	err := json.NewDecoder(r.Body).Decode(&request)
+	// ESTE IF ESTA POR SI NO PUDO PEGAR A LA API
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Rompi todo %s", err.Error()), http.StatusBadRequest)
 		return
 	}
-
+	// EN CASO DE QUE PASA ESE IF, IMPRIMO HOLA (NOMBRE) COMO ANDAS
 	respuesta, err := json.Marshal(fmt.Sprintf("Hola %s! Como andas?", request.Name))
+
+	// ESTE IF ESTA EN CASO DE QUE POR EJEMPLO EL NOMBRE ESTE MAL Y NO PUEDA DECODIFICARLO
 	if err != nil {
 		http.Error(w, "Error al codificar los datos como JSON", http.StatusInternalServerError)
 		return
@@ -44,8 +48,4 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(respuesta)
-}
-
-func ListarProcesos(w http.ResponseWriter, r *http.Request) {
-
 }
