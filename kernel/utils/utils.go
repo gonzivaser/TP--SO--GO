@@ -67,7 +67,7 @@ func EstadoProceso(w http.ResponseWriter, r *http.Request) {
 
 	stateResponse, _ := json.Marshal(BodyResponse)
 
-	log.Printf("PID: %s - Estado Anterior: <ESTADO_ANTERIOR> - Estado Actual: <ESTADO_ACTUAL>", pid) // A checkear
+	log.Printf("PID: %s - Estado Anterior: <ESTADO_ANTERIOR> - Estado Actual: %v", pid, BodyResponse.State) // A checkear
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(stateResponse)
@@ -111,7 +111,7 @@ func ListarProcesos(w http.ResponseWriter, r *http.Request) {
 }
 
 func ConfigurarLogger() {
-	logFile, err := os.OpenFile("tp0.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+	logFile, err := os.OpenFile("kernel.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
 	if err != nil {
 		panic(err)
 	}
