@@ -117,5 +117,5 @@ func ConfigurarLogger() {
 	}
 	mw := io.MultiWriter(os.Stdout, logFile)
 	log.SetOutput(mw)
-	//
+	//test
 }
