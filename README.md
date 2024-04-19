@@ -31,31 +31,45 @@ antes de subir el tag.
 ### Checkpoint 2
 
 - Módulo Kernel:
+  
     - [ ] Es capaz de crear un PCB y planificarlo por FIFO y RR.
     - [ ] Es capaz de enviar un proceso a la CPU para que sea procesado.
+
 - Módulo CPU:
+  
     - [ ] Se conecta a Kernel y recibe un PCB.
     - [ ] Es capaz de conectarse a la memoria y solicitar las instrucciones.
     - [ ] Es capaz de ejecutar un ciclo básico de instrucción.
     - [ ] Es capaz de resolver las operaciones: SET, SUM, SUB, JNZ e IO_GEN_SLEEP.
+
 - Módulo Memoria:
+  
     - [ ] Se encuentra creado y acepta las conexiones.
     - [ ] Es capaz de abrir los archivos de pseudocódigo y envía las instrucciones al CPU.
+
 - Módulo Interfaz I/O:
+- 
     - [ ] Se encuentra desarrollada la Interfaz Genérica.
 
 
 ### Checkpoint 3
 
 - Módulo Kernel:
+
     - [ ] Es capaz de planificar por VRR.
     - [ ] Es capaz de realizar manejo de recursos.
     - [ ] Es capaz de manejar el planificador de largo plazo
+
 - Módulo CPU:
+
     - [ ] Es capaz de resolver las operaciones: MOV_IN, MOV_OUT, RESIZE, COPY_STRING, IO_STDIN_READ, IO_STDOUT_WRITE.
+
 - Módulo Memoria:
+
     - [ ] Se encuentra completamente desarrollada.
+
 - Módulo Interfaz I/O:
+
     - [ ] Se encuentran desarrolladas las interfaces STDIN y STDOUT.
 
 ## Entregas finales

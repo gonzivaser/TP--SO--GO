@@ -26,6 +26,50 @@ type BodyRequest struct {
 	Path string `json:"path"`
 }
 
+type BodyResponsePCB struct { //ESTO NO VA ACA
+	Pcb PCB `json:"pcb"`
+}
+
+type PCB struct { //ESTO NO VA ACA
+	Pid            int
+	ProgramCounter int
+	Quantum        int
+	CpuReg         RegisterCPU
+}
+
+type RegisterCPU struct { //ESTO NO VA ACA
+	PC  uint32
+	AX  uint8
+	BX  uint8
+	CX  uint8
+	DX  uint8
+	EAX uint32
+	EBX uint32
+	ECX uint32
+	EDX uint32
+	SI  uint32
+	DI  uint32
+}
+
+var pcb1 = PCB{ //ESTO NO VA ACA
+	Pid:            1,
+	ProgramCounter: 0,
+	Quantum:        0,
+	CpuReg: RegisterCPU{
+		PC:  0,
+		AX:  0,
+		BX:  0,
+		CX:  0,
+		DX:  0,
+		EAX: 0,
+		EBX: 0,
+		ECX: 0,
+		EDX: 0,
+		SI:  0,
+		DI:  0,
+	},
+}
+
 func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 
 	var request BodyRequest
@@ -117,4 +161,16 @@ func ConfigurarLogger() {
 	}
 	mw := io.MultiWriter(os.Stdout, logFile)
 	log.SetOutput(mw)
+}
+
+func LlamarCPU(w http.ResponseWriter, r *http.Request) {
+
+	//pcbResponse := BodyResponsePCB{
+	//	Pcb: pcb1,
+	//}
+
+	pcbResponseTest, _ := json.Marshal(pcb1)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(pcbResponseTest)
 }
