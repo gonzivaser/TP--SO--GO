@@ -70,6 +70,8 @@ var pcb1 = PCB{ //ESTO NO VA ACA
 	},
 }
 
+var savedPath BodyRequest
+
 func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 
 	var request BodyRequest
@@ -79,13 +81,17 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	savedPath = request
+
+	log.Printf("Datos recibidos: %+v", request)
+
 	BodyResponse := BodyResponsePid{
 		Pid: 0,
 	}
 
 	pidResponse, _ := json.Marshal(BodyResponse)
 
-	log.Printf("Se crea el proceso %d en NEW", BodyResponse.Pid)
+	log.Printf("Se crea el proceso %d ", BodyResponse.Pid)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(pidResponse)

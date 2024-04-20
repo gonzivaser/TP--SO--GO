@@ -18,4 +18,4 @@ func main() {
 	http.ListenAndServe(":8080", nil)
 }
 
-//Esta es la ptra rama
+//Con el path del endpoint anterior, buscamos el archivo en Memoria (file system de Linux(?))
