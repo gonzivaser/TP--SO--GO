@@ -12,6 +12,10 @@ type PruebaMensaje struct {
 	Mensaje string `json:"Prueba"`
 }
 
+type BodyRequest struct {
+	Path string `json:"path"`
+}
+
 func ConfigurarLogger() {
 	logFile, err := os.OpenFile("memoria.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
 	if err != nil {
@@ -31,4 +35,20 @@ func Prueba(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(pruebaResponse)
+}
+
+func ProcesarSavedPathFromKernel(w http.ResponseWriter, r *http.Request) {
+	var savedPath BodyRequest
+	err := json.NewDecoder(r.Body).Decode(&savedPath)
+	if err != nil {
+		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
+		return
+	}
+
+	// Hacer algo con el savedPath recibido
+	log.Printf("SavedPath recibido desde el kernel: %+v", savedPath)
+
+	// Responder al kernel si es necesario
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("SavedPath recibido exitosamente"))
 }

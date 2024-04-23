@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -73,7 +74,6 @@ var pcb1 = PCB{ //ESTO NO VA ACA
 var savedPath BodyRequest
 
 func IniciarProceso(w http.ResponseWriter, r *http.Request) {
-
 	var request BodyRequest
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
@@ -85,6 +85,9 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Datos recibidos: %+v", request)
 
+	// Aquí envías el savedPath al paquete de memoria
+	enviarSavedPathAMemoria(savedPath)
+
 	BodyResponse := BodyResponsePid{
 		Pid: 0,
 	}
@@ -95,6 +98,15 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(pidResponse)
+}
+
+func enviarSavedPathAMemoria(savedPath BodyRequest) {
+	memoriaURL := "http://localhost:8085/savedPath" // Reemplaza con la URL adecuada
+	savedPathJSON, _ := json.Marshal(savedPath)
+	_, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(savedPathJSON))
+	if err != nil {
+		log.Println("Error al enviar savedPath a memoria:", err)
+	}
 }
 
 func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
