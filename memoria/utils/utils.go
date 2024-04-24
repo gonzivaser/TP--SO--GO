@@ -61,3 +61,29 @@ func ProcessSavedPathFromKernel(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("SavedPath recibido exitosamente"))
 }
+
+/*
+------OTRA FORMA DE HACER EL PROCESSSAVEDPATHFROMKERNEL------
+
+func ProcessSavedPathFromKernel(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost && r.Method != http.MethodPut {
+		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
+		return
+	}
+
+	log.Printf("Recibiendo solicitud de path desde el kernel")
+
+	var savedPath BodyRequest
+	err := json.NewDecoder(r.Body).Decode(&savedPath)
+	if err != nil {
+		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("Path recibido desde el kernel: %s", savedPath.Path)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(savedPath.Path))
+}
+
+*/
