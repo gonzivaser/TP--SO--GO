@@ -37,7 +37,14 @@ func Prueba(w http.ResponseWriter, r *http.Request) {
 	w.Write(pruebaResponse)
 }
 
-func ProcesarSavedPathFromKernel(w http.ResponseWriter, r *http.Request) {
+func ProcessSavedPathFromKernel(w http.ResponseWriter, r *http.Request) {
+
+	if r.Method != http.MethodGet {
+		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
+		return
+	}
+	log.Printf("entre")
+
 	var savedPath BodyRequest
 	err := json.NewDecoder(r.Body).Decode(&savedPath)
 	if err != nil {
