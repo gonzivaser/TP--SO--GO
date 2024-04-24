@@ -9,6 +9,6 @@ import (
 func main() {
 	utils.ConfigurarLogger()
 	http.HandleFunc("GET /input", utils.Prueba)
-	http.HandleFunc("GET /savedPath", utils.ProcessSavedPathFromKernel)
+	http.HandleFunc("GET /savedPath/{path}", utils.ProcessSavedPathFromKernel)
 	http.ListenAndServe(":8085", nil)
 }

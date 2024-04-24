@@ -43,17 +43,19 @@ func ProcessSavedPathFromKernel(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
 		return
 	}
-	log.Printf("entre")
+	path := r.PathValue("path")
+	log.Printf(path)
 
-	var savedPath BodyRequest
-	err := json.NewDecoder(r.Body).Decode(&savedPath)
-	if err != nil {
-		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
-		return
-	}
+	/*
+		err := json.NewDecoder(r.Body).Decode(&savedPath)
+		if err != nil {
+			http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
+			return
+		}
+	*/
 
 	// Hacer algo con el savedPath recibido
-	log.Printf("SavedPath recibido desde el kernel: %+v", savedPath)
+	log.Printf("SavedPath recibido desde el kernel: %+v", path)
 
 	// Responder al kernel si es necesario
 	w.WriteHeader(http.StatusOK)

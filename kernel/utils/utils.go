@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -114,7 +113,8 @@ func enviarSavedPathAMemoria(savedPath BodyRequest) {
 */
 
 func enviarPath(savedPath BodyRequest) {
-	memoriaURL := "http://localhost:8085/savedPath"
+	recievedPath := savedPath
+	memoriaURL := "http://localhost:8085/savedPath/" + recievedPath.Path
 	savedPathJSON, err := json.Marshal(savedPath)
 	if err != nil {
 		log.Println("Error al serializar:", err)
@@ -124,7 +124,7 @@ func enviarPath(savedPath BodyRequest) {
 	// Registra el contenido que se está enviando
 	log.Println("Enviando solicitud con contenido:", string(savedPathJSON))
 
-	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(savedPathJSON))
+	resp, err := http.Get(memoriaURL)
 	if err != nil {
 		log.Println("Error al enviar solicitud:", err)
 		return
