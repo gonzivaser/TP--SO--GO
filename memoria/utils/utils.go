@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 
 	"github.com/sisoputnfrba/tp-golang/memoria/globals"
 )
@@ -50,7 +49,7 @@ func ProcessSavedPathFromKernel(w http.ResponseWriter, r *http.Request) {
 	}
 	path := r.PathValue("path")
 
-	searchFileInMemoria(path, "nombreDeArchivo")
+	//Buscar el path en el filesystem y asignar instrucciones a cada proceso
 
 	// Hacer algo con el savedPath recibido
 	log.Printf("SavedPath recibido desde el kernel: %+v", path)
@@ -58,35 +57,4 @@ func ProcessSavedPathFromKernel(w http.ResponseWriter, r *http.Request) {
 	// Responder al kernel si es necesario
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("SavedPath recibido exitosamente"))
-}
-
-func searchFileInMemoria(rootPath string, targetFileName string) (string, error) { //Probable desencadenacion de la ruta en path y nombre de archivo
-	log.Printf("Buscando archivo en Memoria con path: %s", rootPath)
-	var targetPath string
-
-	// Recorre todos los archivos y directorios dentro de rootPath
-	err := filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
-		// Si hay un error al acceder al archivo o directorio, regresa el error
-		if err != nil {
-			return err
-		}
-
-		// Si el nombre del archivo coincide con el objetivo, establece targetPath
-		if info.Name() == targetFileName {
-			targetPath = path
-			return nil // Detiene la búsqueda
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return "", err
-	}
-
-	if targetPath == "" {
-		log.Fatalf("archivo no encontrado: %s", targetFileName)
-	}
-
-	return targetPath, nil
 }
