@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/sisoputnfrba/tp-golang/entradasalida/globals"
 )
 
 type PruebaMensaje struct {
@@ -19,6 +21,20 @@ func ConfigurarLogger() {
 	}
 	mw := io.MultiWriter(os.Stdout, logFile)
 	log.SetOutput(mw)
+}
+
+func IniciarConfiguracion(filePath string) *globals.Config {
+	var config *globals.Config
+	configFile, err := os.Open(filePath)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	defer configFile.Close()
+
+	jsonParser := json.NewDecoder(configFile)
+	jsonParser.Decode(&config)
+
+	return config
 }
 
 func Prueba(w http.ResponseWriter, r *http.Request) {

@@ -6,6 +6,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
+
+	"github.com/sisoputnfrba/tp-golang/memoria/globals"
 )
 
 type PruebaMensaje struct {
@@ -14,6 +17,20 @@ type PruebaMensaje struct {
 
 type BodyRequest struct {
 	Path string `json:"path"`
+}
+
+func IniciarConfiguracion(filePath string) *globals.Config {
+	var config *globals.Config
+	configFile, err := os.Open(filePath)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	defer configFile.Close()
+
+	jsonParser := json.NewDecoder(configFile)
+	jsonParser.Decode(&config)
+
+	return config
 }
 
 func ConfigurarLogger() {
@@ -26,22 +43,50 @@ func ConfigurarLogger() {
 }
 
 func ProcessSavedPathFromKernel(w http.ResponseWriter, r *http.Request) {
+
 	if r.Method != http.MethodGet {
 		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
 		return
 	}
+	path := r.PathValue("path")
 
-	log.Printf("Recibiendo solicitud de path desde el kernel")
+	searchFileInMemoria(path, "nombreDeArchivo")
 
-	var savedPath BodyRequest
-	err := json.NewDecoder(r.Body).Decode(&savedPath)
+	// Hacer algo con el savedPath recibido
+	log.Printf("SavedPath recibido desde el kernel: %+v", path)
+
+	// Responder al kernel si es necesario
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("SavedPath recibido exitosamente"))
+}
+
+func searchFileInMemoria(rootPath string, targetFileName string) (string, error) { //Probable desencadenacion de la ruta en path y nombre de archivo
+	log.Printf("Buscando archivo en Memoria con path: %s", rootPath)
+	var targetPath string
+
+	// Recorre todos los archivos y directorios dentro de rootPath
+	err := filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
+		// Si hay un error al acceder al archivo o directorio, regresa el error
+		if err != nil {
+			return err
+		}
+
+		// Si el nombre del archivo coincide con el objetivo, establece targetPath
+		if info.Name() == targetFileName {
+			targetPath = path
+			return nil // Detiene la búsqueda
+		}
+
+		return nil
+	})
+
 	if err != nil {
-		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
-		return
+		return "", err
 	}
 
-	log.Printf("Path recibido desde el kernel: %s", savedPath.Path)
+	if targetPath == "" {
+		log.Fatalf("archivo no encontrado: %s", targetFileName)
+	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(savedPath.Path))
+	return targetPath, nil
 }
