@@ -2,10 +2,12 @@ package utils
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/sisoputnfrba/tp-golang/memoria/globals"
 )
@@ -42,19 +44,39 @@ func ConfigurarLogger() {
 }
 
 func ProcessSavedPathFromKernel(w http.ResponseWriter, r *http.Request) {
+	globals.ClientConfig = IniciarConfiguracion("config.json")
 
 	if r.Method != http.MethodGet {
 		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
 		return
 	}
-	path := r.PathValue("path")
+	//path := r.PathValue("path")
 
 	//Buscar el path en el filesystem y asignar instrucciones a cada proceso
+	p := filepath.Join(globals.ClientConfig.InstructionsPath, "instru.txt")
+	f, err := os.Open(p)
+	check(err)
+
+	fi, err := f.Stat()
+	check(err)
+
+	b1 := make([]byte, fi.Size())
+	n1, err := f.Read(b1)
+	check(err)
+	fmt.Printf("%d bytes: %s\n", n1, string(b1[:n1]))
+
+	f.Close()
 
 	// Hacer algo con el savedPath recibido
-	log.Printf("SavedPath recibido desde el kernel: %+v", path)
+	log.Printf("SavedPath recibido desde el kernel: %+v", p)
 
 	// Responder al kernel si es necesario
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("SavedPath recibido exitosamente"))
+}
+
+func check(e error) {
+	if e != nil {
+		panic(e)
+	}
 }
