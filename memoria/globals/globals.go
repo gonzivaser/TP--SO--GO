@@ -1,7 +1,7 @@
 package globals
 
 type Config struct {
-	Port             string `json:"puerto"`
+	Puerto           string `json:"puerto"`
 	MemorySize       int    `json:"memory_size"`
 	PageSize         int    `json:"page_size"`
 	InstructionsPath string `json:"instructions_path"`
