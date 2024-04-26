@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/json"
 	"io"
 	"log"
 	"net/http"
@@ -25,35 +26,7 @@ func ConfigurarLogger() {
 }
 
 func ProcessSavedPathFromKernel(w http.ResponseWriter, r *http.Request) {
-
 	if r.Method != http.MethodGet {
-		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
-		return
-	}
-	path := r.PathValue("path")
-	log.Print(path)
-
-	/*
-		err := json.NewDecoder(r.Body).Decode(&savedPath)
-		if err != nil {
-			http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
-			return
-		}
-	*/
-
-	// Hacer algo con el savedPath recibido
-	log.Printf("SavedPath recibido desde el kernel: %+v", path)
-
-	// Responder al kernel si es necesario
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("SavedPath recibido exitosamente"))
-}
-
-/*
-------OTRA FORMA DE HACER EL PROCESSSAVEDPATHFROMKERNEL------
-
-func ProcessSavedPathFromKernel(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost && r.Method != http.MethodPut {
 		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
 		return
 	}
@@ -72,5 +45,3 @@ func ProcessSavedPathFromKernel(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(savedPath.Path))
 }
-
-*/
