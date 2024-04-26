@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"encoding/json"
 	"io"
 	"log"
 	"net/http"
@@ -25,18 +24,6 @@ func ConfigurarLogger() {
 	log.SetOutput(mw)
 }
 
-func Prueba(w http.ResponseWriter, r *http.Request) {
-
-	Prueba := PruebaMensaje{
-		Mensaje: "Todo OK Memoria",
-	}
-
-	pruebaResponse, _ := json.Marshal(Prueba)
-
-	w.WriteHeader(http.StatusOK)
-	w.Write(pruebaResponse)
-}
-
 func ProcessSavedPathFromKernel(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodGet {
@@ -44,7 +31,7 @@ func ProcessSavedPathFromKernel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	path := r.PathValue("path")
-	log.Printf(path)
+	log.Print(path)
 
 	/*
 		err := json.NewDecoder(r.Body).Decode(&savedPath)
