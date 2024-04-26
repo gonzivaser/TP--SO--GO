@@ -17,3 +17,5 @@ func main() {
 	http.HandleFunc("GET /helloWorld", utils.LlamarCPU)
 	http.ListenAndServe(":8080", nil)
 }
+
+//Con el path del endpoint anterior, buscamos el archivo en Memoria (file system de Linux(?))
