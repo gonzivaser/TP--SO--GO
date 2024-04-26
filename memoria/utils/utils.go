@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 
 	"github.com/sisoputnfrba/tp-golang/memoria/globals"
 )
@@ -53,7 +52,9 @@ func ProcessSavedPathFromKernel(w http.ResponseWriter, r *http.Request) {
 	//path := r.PathValue("path")
 
 	//Buscar el path en el filesystem y asignar instrucciones a cada proceso
-	p := filepath.Join(globals.ClientConfig.InstructionsPath, "instru.txt")
+	//p := filepath.Join(globals.ClientConfig.InstructionsPath, "instru.txt")
+	queryParams := r.URL.Query()
+	p := queryParams.Get("path")
 	f, err := os.Open(p)
 	check(err)
 
