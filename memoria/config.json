@@ -2,6 +2,6 @@
     "port": 8085,
     "memory_size": 4096,
     "page_size": 16,
-    "instructions_path": "/home/utnso/mappa-pruebas",
+    "instructions_path": "C:/Users/user/Desktop/instruccionesPruebas",
     "delay_response": 1000
 }
