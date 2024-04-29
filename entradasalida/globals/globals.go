@@ -14,3 +14,8 @@ type Config struct {
 }
 
 var ClientConfig *Config
+
+type Interfaces struct {
+	Nombre string
+	Config *Config
+}

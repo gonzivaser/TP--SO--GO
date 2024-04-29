@@ -2,7 +2,10 @@ package utils
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
+	"time"
+
 	"log"
 	"net/http"
 	"os"
@@ -48,3 +51,42 @@ func Prueba(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write(pruebaResponse)
 }
+
+type Config struct {
+	Tipo           string `json:"type"`
+	Port           int    `json:"port"`
+	UnidadDeTiempo int    `json:"unit_work_time"`
+	IPKernel       string `json:"ip_kernel"`
+}
+
+// InterfazIO es la estructura para la interfaz de entrada/salida
+type InterfazIO struct {
+	Nombre string
+	Config Config
+}
+
+// Carga la configuración desde un archivo JSON
+func CargarConfiguracion(configFile string) (Config, error) {
+	data, err := os.ReadFile(configFile)
+	if err != nil {
+		return Config{}, fmt.Errorf("error al leer el archivo: %v", err)
+	}
+
+	var config Config
+	if err := json.Unmarshal(data, &config); err != nil {
+		return Config{}, fmt.Errorf("error al deserializar JSON: %v", err)
+	}
+
+	return config, nil
+}
+
+// Inicia la interfaz
+func (io *InterfazIO) Iniciar() {
+	fmt.Printf("Interfaz '%s' iniciada en :%d %d '%s'\n", io.Nombre, io.Config.Port, io.Config.UnidadDeTiempo, io.Config.IPKernel)
+}
+
+func IO_GEN_SLEEP(io *InterfazIO, N int) time.Duration {
+	return time.Duration(N*io.Config.UnidadDeTiempo) * time.Millisecond
+}
+
+//time.Sleep(time.Duration(io.Config.UnidadDeTiempo) * time.Millisecond(n))
