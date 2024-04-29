@@ -2,7 +2,6 @@ package utils
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -43,41 +42,21 @@ func ConfigurarLogger() {
 }
 
 func ProcessSavedPathFromKernel(w http.ResponseWriter, r *http.Request) {
-	globals.ClientConfig = IniciarConfiguracion("config.json")
 
-	if r.Method != http.MethodGet {
-		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
+	log.Printf("Recibiendo solicitud de path desde el kernel")
+	var savedPath BodyRequest
+	err := json.NewDecoder(r.Body).Decode(&savedPath)
+	if err != nil {
+		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
 		return
 	}
-	//path := r.PathValue("path")
-
-	//Buscar el path en el filesystem y asignar instrucciones a cada proceso
-	//p := filepath.Join(globals.ClientConfig.InstructionsPath, "instru.txt")
-	queryParams := r.URL.Query()
-	p := queryParams.Get("path")
-	f, err := os.Open(p)
-	check(err)
-
-	fi, err := f.Stat()
-	check(err)
-
-	b1 := make([]byte, fi.Size())
-	n1, err := f.Read(b1)
-	check(err)
-	fmt.Printf("%d bytes: %s\n", n1, string(b1[:n1]))
-
-	f.Close()
-
-	// Hacer algo con el savedPath recibido
-	log.Printf("SavedPath recibido desde el kernel: %+v", p)
-
-	// Responder al kernel si es necesario
+	log.Printf("Path recibido desde el kernel: %s", savedPath.Path)
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("SavedPath recibido exitosamente"))
+	w.Write([]byte(savedPath.Path))
 }
 
-func check(e error) {
+/*func check(e error) {
 	if e != nil {
 		panic(e)
 	}
-}
+}*/

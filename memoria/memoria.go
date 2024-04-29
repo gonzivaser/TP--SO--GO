@@ -16,6 +16,6 @@ func main() {
 		log.Fatalf("No se pudo cargar la configuración")
 	}
 
-	http.HandleFunc("GET /savedPath", utils.ProcessSavedPathFromKernel)
+	http.HandleFunc("/savedPath", utils.ProcessSavedPathFromKernel)
 	http.ListenAndServe(":8085", nil)
 }
