@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/sisoputnfrba/tp-golang/memoria/globals"
 	"github.com/sisoputnfrba/tp-golang/memoria/utils"
@@ -16,6 +17,8 @@ func main() {
 		log.Fatalf("No se pudo cargar la configuración")
 	}
 
-	http.HandleFunc("GET /savedPath", utils.ProcessSavedPathFromKernel)
-	http.ListenAndServe(":8085", nil)
+	puerto := globals.ClientConfig.Puerto
+
+	http.HandleFunc("/savedPath", utils.ProcessSavedPathFromKernel)
+	http.ListenAndServe(":"+strconv.Itoa(puerto), nil)
 }

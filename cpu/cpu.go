@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/sisoputnfrba/tp-golang/cpu/globals"
 	"github.com/sisoputnfrba/tp-golang/cpu/utils"
@@ -15,7 +16,9 @@ func main() {
 	if globals.ClientConfig == nil {
 		log.Fatalf("No se pudo cargar la configuración")
 	}
+	puerto := globals.ClientConfig.Puerto
 
 	http.HandleFunc("GET /input", utils.Prueba)
-	http.ListenAndServe(globals.ClientConfig.Puerto, nil)
+	http.HandleFunc("/savePCB", utils.ProcessSavedPCBFromKernel)
+	http.ListenAndServe(":"+strconv.Itoa(puerto), nil)
 }

@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -86,63 +87,148 @@ var pcb1 = PCB{ //ESTO NO VA ACA
 	},
 }
 
-var savedPath BodyRequest
+//var savedPath BodyRequest
+
+/*func IniciarProceso(w http.ResponseWriter, r *http.Request) {
+
+	// HAGO UNA REQUEST TIPO PUT PARA TENER EL path DEL ARCHIVO DE PROCESOS
+	var request BodyRequest
+	err := json.NewDecoder(r.Body).Decode(&request)
+	// HAGO PRIMER CHEQUEO
+	if err != nil {
+		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
+		return
+	}
+	// PASA EL 1ER CHEQUEO
+	log.Printf("Datos recibidos: %+v", request)
+
+	LlamarCPU(w, r)
+	BodyResponse := BodyResponsePid{
+		Pid: 0,
+	}
+	pidResponse, _ := json.Marshal(BodyResponse)
+
+	// ASGINO URL de memoria a variable memoriaURL
+	memoriaURL := "http://localhost:8085/savedPath"
+	// GUARDO y JASONEO el path que hice a traves de la request en la variable savedPathJSON
+	savedPathJSON, err := json.Marshal(request)
+	if err != nil {
+		log.Println("Error al serializar:", err)
+		http.Error(w, "Error al serializar los datos JSON", http.StatusInternalServerError)
+		return
+	}
+
+	log.Println("Enviando solicitud con contenido:", string(savedPathJSON))
+
+	// HAGO UN POST EN LA URL DE MEMORIA DEL PATH QUE HICE A TRAVES DE LA REQUEST ANTERIOR
+	// Y LO GUARDO EN LA VARIABLE resp && err
+	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(savedPathJSON))
+
+	if err != nil {
+		log.Println("Error al enviar solicitud:", err)
+		http.Error(w, "Error al enviar la solicitud al módulo de memoria", http.StatusInternalServerError)
+		return
+	}
+
+	// Espero a que se haya terminado la request
+	defer resp.Body.Close()
+
+	// CHEQUEO DE QUE EL ESTADO DE LA RESPUESTA SEA IGUAL AL ESTADO.OK
+	if resp.StatusCode != http.StatusOK {
+		log.Println("Error en la respuesta:", resp.StatusCode)
+		http.Error(w, "Error en la respuesta del módulo de memoria", resp.StatusCode)
+		return
+	}
+	log.Println("Respuesta del módulo de memoria recibida correctamente.")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(pidResponse))
+}
+
+func LlamarCPU(w http.ResponseWriter, r *http.Request) {
+
+	//pcbResponse := BodyResponsePCB{
+	//	Pcb: pcb1,
+	//}
+
+	pcbResponseTest, _ := json.Marshal(pcb1)
+	log.Printf("este es el pcb: %+v", pcb1)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(pcbResponseTest)
+}*/
 
 func IniciarProceso(w http.ResponseWriter, r *http.Request) {
-	// HAGO UNA REQUEST PARA PEDIR EL PATH AL ARCHIVO DE PROCESOS
 	var request BodyRequest
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		http.Error(w, "Error al codificar los datos como JSON", http.StatusInternalServerError)
+		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
 		return
 	}
 
-	// GUARDO LA EL PATH DE LA REQUEST EN LA VARIABLE savedPath
-	savedPath = request
 	log.Printf("Datos recibidos: %+v", request)
 
-	// Aquí envías el savedPath al paquete de memoria
-	// 	BodyResponse := BodyResponsePid{
-	//		Pid: sendPathToMemory(savedPath),
-	//	}
-
-	//Hardcodeado
-	bodyResponse := BodyResponsePid{
-		Pid: 1,
+	BodyResponse := BodyResponsePid{
+		Pid: 0,
 	}
+	pidResponse, _ := json.Marshal(BodyResponse)
 
-	sendPathToMemory(savedPath)
-
-	log.Printf("Se crea el proceso %d ", bodyResponse.Pid)
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("%d", bodyResponse.Pid)))
-}
-
-func sendPathToMemory(savedPath BodyRequest) {
-	memoriaURL := "http://localhost:8085/savedPath/" + savedPath.Path
-	savedPathJSON, err := json.Marshal(savedPath)
-
-	if err != nil {
-		log.Println("Error al serializar:", err)
+	if err := EnviarPath(request); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Registra el contenido que se está enviando
+	if err := LlamarCPU(w); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(pidResponse))
+}
+
+func EnviarPath(request BodyRequest) error {
+	memoriaURL := "http://localhost:8085/savedPath"
+	savedPathJSON, err := json.Marshal(request)
+	if err != nil {
+		return fmt.Errorf("error al serializar los datos JSON: %v", err)
+	}
+
 	log.Println("Enviando solicitud con contenido:", string(savedPathJSON))
 
-	// MANDO A ENDPOINT DE MEMORIA QUE PASO POR QUERYPATHVEL savedPath QUE OBTUVE DE LA FUNCION INICIAR PROCESO
-	resp, err := http.Get(memoriaURL)
-
+	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(savedPathJSON))
 	if err != nil {
-		log.Fatal("Error al enviar solicitud:", err)
+		return fmt.Errorf("error al enviar la solicitud al módulo de memoria: %v", err)
 	}
-
 	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
-		log.Fatal("Error en la respuesta:", resp.StatusCode)
+		return fmt.Errorf("error en la respuesta del módulo de memoria: %v", resp.StatusCode)
 	}
 
+	log.Println("Respuesta del módulo de memoria recibida correctamente.")
+	return nil
+}
+
+func LlamarCPU(w http.ResponseWriter) error {
+	cpuURL := "http://localhost:8075/savePCB"
+	pcbResponseTest, err := json.Marshal(pcb1)
+	if err != nil {
+		return fmt.Errorf("error al serializar el PCB: %v", err)
+	}
+	log.Println("Enviando solicitud con contenido:", string(pcbResponseTest))
+
+	resp, err := http.Post(cpuURL, "application/json", bytes.NewBuffer(pcbResponseTest))
+	if err != nil {
+		return fmt.Errorf("error al enviar la solicitud al módulo de cpu: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("error en la respuesta del módulo de cpu: %v", resp.StatusCode)
+	}
+
+	log.Println("Respuesta del módulo de cpu recibida correctamente.")
+	return nil
 }
 
 func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
@@ -215,16 +301,4 @@ func ConfigurarLogger() {
 	}
 	mw := io.MultiWriter(os.Stdout, logFile)
 	log.SetOutput(mw)
-}
-
-func LlamarCPU(w http.ResponseWriter, r *http.Request) {
-
-	//pcbResponse := BodyResponsePCB{
-	//	Pcb: pcb1,
-	//}
-
-	pcbResponseTest, _ := json.Marshal(pcb1)
-
-	w.WriteHeader(http.StatusOK)
-	w.Write(pcbResponseTest)
 }
