@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strconv"
 	"time"
 
 	"log"
@@ -80,13 +81,39 @@ func CargarConfiguracion(configFile string) (Config, error) {
 	return config, nil
 }
 
-// Inicia la interfaz
-func (io *InterfazIO) Iniciar() {
-	fmt.Printf("Interfaz '%s' iniciada en :%d %d '%s'\n", io.Nombre, io.Config.Port, io.Config.UnidadDeTiempo, io.Config.IPKernel)
+func Iniciar(w http.ResponseWriter, r *http.Request) {
+	var sentInterface InterfazIO
+	err := json.NewDecoder(r.Body).Decode(&sentInterface)
+	if err != nil {
+		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
+		return
+	}
+
+	queryParams := r.URL.Query()
+	N := queryParams.Get("quantUnitWork")
+	NInt, err := strconv.Atoi(N)
+	if err != nil {
+		http.Error(w, "Error al convertir N a entero", http.StatusInternalServerError)
+		return
+	}
+
+	if sentInterface.Nombre == "Generica" {
+		protocoleGeneric(&sentInterface, NInt)
+	}
+	// } else if sentInterface.Nombre == "STDIN"
+
+	// }
 }
 
 func IO_GEN_SLEEP(io *InterfazIO, N int) time.Duration {
 	return time.Duration(N*io.Config.UnidadDeTiempo) * time.Millisecond
+}
+
+func protocoleGeneric(io *InterfazIO, N int) {
+	espera := IO_GEN_SLEEP(io, N)
+	fmt.Printf("Inicio espera:%v\n", espera)
+	time.Sleep(espera)
+	fmt.Println("Fin espera")
 }
 
 //time.Sleep(time.Duration(io.Config.UnidadDeTiempo) * time.Millisecond(n))
