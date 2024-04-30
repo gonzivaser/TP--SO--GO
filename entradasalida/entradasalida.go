@@ -17,6 +17,25 @@ func main() {
 	}
 
 	utils.ConfigurarLogger()
+
+	// configFile := "config.json"
+	// config, err := utils.CargarConfiguracion(configFile)
+	// if err != nil {
+	// 	log.Fatalf("Error al cargar la configuración: %v", err)
+	// }
+
+	// Crear la interfaz y pasar la configuración cargada
+	// interfaz := utils.InterfazIO{
+	// 	Nombre: "Generica",
+	// 	Config: config,
+	// }
+
 	http.HandleFunc("GET /input", utils.Prueba)
-	http.ListenAndServe(globals.ClientConfig.Puerto, nil)
+	http.HandleFunc("GET /interfaz", utils.Iniciar)
+
+	// Cargar la configuración desde el archivo
+
+	// Iniciar la interfaz
+	//interfaz.Iniciar()
+	http.ListenAndServe(":8090", nil)
 }
