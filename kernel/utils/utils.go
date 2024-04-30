@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -86,40 +87,65 @@ var pcb1 = PCB{ //ESTO NO VA ACA
 	},
 }
 
-var savedPath BodyRequest
+//var savedPath BodyRequest
 
 func IniciarProceso(w http.ResponseWriter, r *http.Request) {
-	// HAGO UNA REQUEST PARA PEDIR EL PATH AL ARCHIVO DE PROCESOS
+
+	// HAGO UNA REQUEST TIPO PUT PARA TENER EL path DEL ARCHIVO DE PROCESOS
 	var request BodyRequest
 	err := json.NewDecoder(r.Body).Decode(&request)
+	// HAGO PRIMER CHEQUEO
 	if err != nil {
-		http.Error(w, "Error al codificar los datos como JSON", http.StatusInternalServerError)
+		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
+		return
+	}
+	// PASA EL 1ER CHEQUEO
+	log.Printf("Datos recibidos: %+v", request)
+	BodyResponse := BodyResponsePid{
+		Pid: 0,
+	}
+	pidResponse, _ := json.Marshal(BodyResponse)
+
+
+
+	// ASGINO URL de memoria a variable memoriaURL
+	memoriaURL := "http://localhost:8085/savedPath"
+	// GUARDO y JASONEO el path que hice a traves de la request en la variable savedPathJSON
+	savedPathJSON, err := json.Marshal(request)
+	if err != nil {
+		log.Println("Error al serializar:", err)
+		http.Error(w, "Error al serializar los datos JSON", http.StatusInternalServerError)
 		return
 	}
 
-	// GUARDO LA EL PATH DE LA REQUEST EN LA VARIABLE savedPath
-	savedPath = request
-	log.Printf("Datos recibidos: %+v", request)
+	log.Println("Enviando solicitud con contenido:", string(savedPathJSON))
 
-	// Aquí envías el savedPath al paquete de memoria
-	// 	BodyResponse := BodyResponsePid{
-	//		Pid: sendPathToMemory(savedPath),
-	//	}
 
-	//Hardcodeado
-	bodyResponse := BodyResponsePid{
-		Pid: 1,
+	// HAGO UN POST EN LA URL DE MEMORIA DEL PATH QUE HICE A TRAVES DE LA REQUEST ANTERIOR
+	// Y LO GUARDO EN LA VARIABLE resp && err
+	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(savedPathJSON))
+
+	if err != nil {
+		log.Println("Error al enviar solicitud:", err)
+		http.Error(w, "Error al enviar la solicitud al módulo de memoria", http.StatusInternalServerError)
+		return
 	}
 
-	sendPathToMemory(savedPath)
+	// Espero a que se haya terminado la request
+	defer resp.Body.Close()
 
-	log.Printf("Se crea el proceso %d ", bodyResponse.Pid)
-
+	// CHEQUEO DE QUE EL ESTADO DE LA RESPUESTA SEA IGUAL AL ESTADO.OK
+	if resp.StatusCode != http.StatusOK {
+		log.Println("Error en la respuesta:", resp.StatusCode)
+		http.Error(w, "Error en la respuesta del módulo de memoria", resp.StatusCode)
+		return
+	}
+	log.Println("Respuesta del módulo de memoria recibida correctamente.")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("%d", bodyResponse.Pid)))
+	w.Write([]byte(pidResponse))
 }
 
-func sendPathToMemory(savedPath BodyRequest) {
+/*func sendPathToMemory(savedPath BodyRequest) {
 	memoriaURL := "http://localhost:8085/savedPath/" + savedPath.Path
 	savedPathJSON, err := json.Marshal(savedPath)
 
@@ -143,7 +169,7 @@ func sendPathToMemory(savedPath BodyRequest) {
 		log.Fatal("Error en la respuesta:", resp.StatusCode)
 	}
 
-}
+}*/
 
 func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
 

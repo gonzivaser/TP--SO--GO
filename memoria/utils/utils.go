@@ -43,37 +43,31 @@ func ConfigurarLogger() {
 }
 
 func ProcessSavedPathFromKernel(w http.ResponseWriter, r *http.Request) {
-	globals.ClientConfig = IniciarConfiguracion("config.json")
-
-	if r.Method != http.MethodGet {
-		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
+	//globals.ClientConfig = IniciarConfiguracion("config.json")
+	log.Printf("Recibiendo solicitud de path desde el kernel")
+	var savedPath BodyRequest
+	err := json.NewDecoder(r.Body).Decode(&savedPath)
+	if err != nil {
+		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
 		return
 	}
-	//path := r.PathValue("path")
+	log.Printf("Path recibido desde el kernel: %s", savedPath.Path)
 
-	//Buscar el path en el filesystem y asignar instrucciones a cada proceso
-	//p := filepath.Join(globals.ClientConfig.InstructionsPath, "instru.txt")
-	queryParams := r.URL.Query()
-	p := queryParams.Get("path")
-	f, err := os.Open(p)
+	file, err := os.Open(savedPath.Path)
 	check(err)
 
-	fi, err := f.Stat()
+	fi, err := file.Stat()
 	check(err)
 
-	b1 := make([]byte, fi.Size())
-	n1, err := f.Read(b1)
+	sliceBytes := make([]byte, fi.Size())      //Esta línea crea un slice de bytes
+	numBytesRead, err := file.Read(sliceBytes) //es el número de bytes leídos
 	check(err)
-	fmt.Printf("%d bytes: %s\n", n1, string(b1[:n1]))
+	fmt.Printf("%d bytes: %s\n", numBytesRead, string(sliceBytes[:numBytesRead])) //Esta línea imprime el número de bytes leídos (numBytesRead) y el contenido del slice de bytes sliceBytes. string(sliceBytes[:numBytesRead]) convierte el slice de bytes en una cadena y solo imprime los primeros numBytesRead bytes leídos, ya que el slice puede tener una capacidad mayor que la cantidad real de bytes leídos.
 
-	f.Close()
+	file.Close()
 
-	// Hacer algo con el savedPath recibido
-	log.Printf("SavedPath recibido desde el kernel: %+v", p)
-
-	// Responder al kernel si es necesario
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("SavedPath recibido exitosamente"))
+	w.Write([]byte(savedPath.Path))
 }
 
 func check(e error) {
