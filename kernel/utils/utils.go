@@ -90,6 +90,7 @@ var pcb1 = PCB{ //ESTO NO VA ACA
 //var savedPath BodyRequest
 
 func IniciarProceso(w http.ResponseWriter, r *http.Request) {
+
 	// HAGO UNA REQUEST TIPO PUT PARA TENER EL path DEL ARCHIVO DE PROCESOS
 	var request BodyRequest
 	err := json.NewDecoder(r.Body).Decode(&request)
@@ -105,6 +106,8 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	}
 	pidResponse, _ := json.Marshal(BodyResponse)
 
+
+
 	// ASGINO URL de memoria a variable memoriaURL
 	memoriaURL := "http://localhost:8085/savedPath"
 	// GUARDO y JASONEO el path que hice a traves de la request en la variable savedPathJSON
@@ -116,6 +119,7 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Println("Enviando solicitud con contenido:", string(savedPathJSON))
+
 
 	// HAGO UN POST EN LA URL DE MEMORIA DEL PATH QUE HICE A TRAVES DE LA REQUEST ANTERIOR
 	// Y LO GUARDO EN LA VARIABLE resp && err
@@ -153,6 +157,7 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	// Registra el contenido que se está enviando
 	log.Println("Enviando solicitud con contenido:", string(savedPathJSON))
 
+	// MANDO A ENDPOINT DE MEMORIA QUE PASO POR QUERYPATHVEL savedPath QUE OBTUVE DE LA FUNCION INICIAR PROCESO
 	resp, err := http.Get(memoriaURL)
 
 	if err != nil {
