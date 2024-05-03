@@ -33,23 +33,23 @@ antes de subir el tag.
 - Módulo Kernel:
   
     - [ ] Es capaz de crear un PCB y planificarlo por FIFO y RR.
-    - [ ] Es capaz de enviar un proceso a la CPU para que sea procesado.
+    - [x] Es capaz de enviar un proceso a la CPU para que sea procesado.
 
 - Módulo CPU:
   
-    - [ ] Se conecta a Kernel y recibe un PCB.
-    - [ ] Es capaz de conectarse a la memoria y solicitar las instrucciones.
+    - [x] Se conecta a Kernel y recibe un PCB.
+    - [x] Es capaz de conectarse a la memoria y solicitar las instrucciones.
     - [ ] Es capaz de ejecutar un ciclo básico de instrucción.
     - [ ] Es capaz de resolver las operaciones: SET, SUM, SUB, JNZ e IO_GEN_SLEEP.
 
 - Módulo Memoria:
   
-    - [ ] Se encuentra creado y acepta las conexiones.
+    - [x] Se encuentra creado y acepta las conexiones.
     - [ ] Es capaz de abrir los archivos de pseudocódigo y envía las instrucciones al CPU.
 
 - Módulo Interfaz I/O:
 - 
-    - [x] Se encuentra desarrollada la Interfaz Genérica.
+    - [ ] Se encuentra desarrollada la Interfaz Genérica.
 
 
 ### Checkpoint 3
