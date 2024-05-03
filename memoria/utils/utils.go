@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,7 +15,6 @@ import (
 type PruebaMensaje struct {
 	Mensaje string `json:"Prueba"`
 }
-
 type BodyRequest struct {
 	Path string `json:"path"`
 }
@@ -43,22 +43,30 @@ func ConfigurarLogger() {
 }
 
 func ProcessSavedPathFromKernel(w http.ResponseWriter, r *http.Request) {
-	//globals.ClientConfig = IniciarConfiguracion("config.json")
+	// CHEQUEO CON UN LOG PARA VERIFICAR LA SOLICITUD DEL KERNEL
 	log.Printf("Recibiendo solicitud de path desde el kernel")
+
+	// CREO VARIABLE savedPath
 	var savedPath BodyRequest
 	err := json.NewDecoder(r.Body).Decode(&savedPath)
 	if err != nil {
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
 		return
 	}
+
+	// HAGO UN LOG SI PASO ERRORES PARA RECEPCION DEL PATH
+	globalPath = savedPath.Path
 	log.Printf("Path recibido desde el kernel: %s", savedPath.Path)
 
+	// ABRO ARCHIVO DEL PATH ENVIADO POR EL KERNEL
 	file, err := os.Open(savedPath.Path)
 	check(err)
 
+	// CHEQUEO
 	fi, err := file.Stat()
 	check(err)
 
+	// ESTAS 4 LINEAS SON PARA LEER Y EL ARCHIVO
 	sliceBytes := make([]byte, fi.Size())      //Esta línea crea un slice de bytes
 	numBytesRead, err := file.Read(sliceBytes) //es el número de bytes leídos
 	check(err)
@@ -74,4 +82,59 @@ func check(e error) {
 	if e != nil {
 		panic(e)
 	}
+}
+
+var globalPath string
+
+func ProcessSavedPCFromCPU(w http.ResponseWriter, r *http.Request) {
+	// HAGO UN LOG PARA CHEQUEAR RECEPCION
+	log.Printf("Recibiendo solicitud de contexto de ejecucuion desde el CPU")
+
+	// GUARDO PCB RECIBIDO EN sendPCB
+	var sendPC int
+	err := json.NewDecoder(r.Body).Decode(&sendPC)
+	if err != nil {
+		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
+		return
+	}
+
+	// HAGO UN LOG PARA CHEQUEAR QUE PASO ERRORES
+	log.Printf("PC recibido desde el CPU: %+v", sendPC)
+
+	readInstructions(globalPath, sendPC)
+
+	// MANDO EL PC DIRECTAMENTE A MEMORIA
+	/*if err := SendPCToMemoria(sendPCB.CpuReg.PC); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}*/
+}
+
+func readInstructions(path string, targetLine int) (string, error) {
+	// Open the file for reading
+	readFile, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("error opening file: %w", err)
+	}
+	defer readFile.Close() // Ensure file is closed even on errors
+
+	// Create a new scanner for line-by-line reading
+	fileScanner := bufio.NewScanner(readFile)
+	fileScanner.Split(bufio.ScanLines)
+
+	// Line counter for efficient access
+	lineNumber := 1
+
+	// Read lines until target line is reached or EOF
+	for fileScanner.Scan() {
+		if lineNumber == targetLine {
+			log.Printf("PC: %s", fileScanner.Text())
+			return fileScanner.Text(), nil
+
+		}
+		lineNumber++
+	}
+
+	// Handle case where target line is not found
+	return "", fmt.Errorf("line number %d not found in file", 3)
 }

@@ -54,6 +54,12 @@ type PCB struct { //ESTO NO VA ACA
 	CpuReg         RegisterCPU
 }
 
+type ExecutionContext struct {
+	Pid            int
+	ProgramCounter int
+	CpuReg         RegisterCPU
+}
+
 type RegisterCPU struct { //ESTO NO VA ACA
 	PC  uint32
 	AX  uint8
@@ -68,95 +74,6 @@ type RegisterCPU struct { //ESTO NO VA ACA
 	DI  uint32
 }
 
-var pcb1 = PCB{ //ESTO NO VA ACA
-	Pid:            1,
-	ProgramCounter: 0,
-	Quantum:        0,
-	CpuReg: RegisterCPU{
-		PC:  0,
-		AX:  0,
-		BX:  0,
-		CX:  0,
-		DX:  0,
-		EAX: 0,
-		EBX: 0,
-		ECX: 0,
-		EDX: 0,
-		SI:  0,
-		DI:  0,
-	},
-}
-
-//var savedPath BodyRequest
-
-/*func IniciarProceso(w http.ResponseWriter, r *http.Request) {
-
-	// HAGO UNA REQUEST TIPO PUT PARA TENER EL path DEL ARCHIVO DE PROCESOS
-	var request BodyRequest
-	err := json.NewDecoder(r.Body).Decode(&request)
-	// HAGO PRIMER CHEQUEO
-	if err != nil {
-		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
-		return
-	}
-	// PASA EL 1ER CHEQUEO
-	log.Printf("Datos recibidos: %+v", request)
-
-	LlamarCPU(w, r)
-	BodyResponse := BodyResponsePid{
-		Pid: 0,
-	}
-	pidResponse, _ := json.Marshal(BodyResponse)
-
-	// ASGINO URL de memoria a variable memoriaURL
-	memoriaURL := "http://localhost:8085/savedPath"
-	// GUARDO y JASONEO el path que hice a traves de la request en la variable savedPathJSON
-	savedPathJSON, err := json.Marshal(request)
-	if err != nil {
-		log.Println("Error al serializar:", err)
-		http.Error(w, "Error al serializar los datos JSON", http.StatusInternalServerError)
-		return
-	}
-
-	log.Println("Enviando solicitud con contenido:", string(savedPathJSON))
-
-	// HAGO UN POST EN LA URL DE MEMORIA DEL PATH QUE HICE A TRAVES DE LA REQUEST ANTERIOR
-	// Y LO GUARDO EN LA VARIABLE resp && err
-	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(savedPathJSON))
-
-	if err != nil {
-		log.Println("Error al enviar solicitud:", err)
-		http.Error(w, "Error al enviar la solicitud al módulo de memoria", http.StatusInternalServerError)
-		return
-	}
-
-	// Espero a que se haya terminado la request
-	defer resp.Body.Close()
-
-	// CHEQUEO DE QUE EL ESTADO DE LA RESPUESTA SEA IGUAL AL ESTADO.OK
-	if resp.StatusCode != http.StatusOK {
-		log.Println("Error en la respuesta:", resp.StatusCode)
-		http.Error(w, "Error en la respuesta del módulo de memoria", resp.StatusCode)
-		return
-	}
-	log.Println("Respuesta del módulo de memoria recibida correctamente.")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(pidResponse))
-}
-
-func LlamarCPU(w http.ResponseWriter, r *http.Request) {
-
-	//pcbResponse := BodyResponsePCB{
-	//	Pcb: pcb1,
-	//}
-
-	pcbResponseTest, _ := json.Marshal(pcb1)
-	log.Printf("este es el pcb: %+v", pcb1)
-
-	w.WriteHeader(http.StatusOK)
-	w.Write(pcbResponseTest)
-}*/
-
 func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	var request BodyRequest
 	err := json.NewDecoder(r.Body).Decode(&request)
@@ -167,17 +84,23 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Datos recibidos: %+v", request)
 
+	// CREO EL PCB
+	pcb := createPCB()
+
+	// LA RESPONSE VA A SER EL pid CREADO
 	BodyResponse := BodyResponsePid{
-		Pid: 0,
+		Pid: pcb.Pid,
 	}
 	pidResponse, _ := json.Marshal(BodyResponse)
 
-	if err := EnviarPath(request); err != nil {
+	// CHEQUEO ERRORES
+	if err := SendPathToMemory(request); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if err := LlamarCPU(w); err != nil {
+	// LLAMO A CPU PARA MANDAR EL pid, PC y los registros
+	if err := SendContextToPCU(pcb); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -186,7 +109,32 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(pidResponse))
 }
 
-func EnviarPath(request BodyRequest) error {
+var nextPid = 1
+
+func createPCB() PCB {
+	nextPid++
+
+	return PCB{
+		Pid:            nextPid - 1, // ASIGNO EL VALOR ANTERIOR AL pid
+		ProgramCounter: 0,
+		Quantum:        0,
+		CpuReg: RegisterCPU{
+			PC:  1,
+			AX:  0,
+			BX:  0,
+			CX:  0,
+			DX:  0,
+			EAX: 0,
+			EBX: 0,
+			ECX: 0,
+			EDX: 0,
+			SI:  0,
+			DI:  0,
+		},
+	}
+}
+
+func SendPathToMemory(request BodyRequest) error {
 	memoriaURL := "http://localhost:8085/savedPath"
 	savedPathJSON, err := json.Marshal(request)
 	if err != nil {
@@ -209,17 +157,26 @@ func EnviarPath(request BodyRequest) error {
 	return nil
 }
 
-func LlamarCPU(w http.ResponseWriter) error {
+func SendContextToPCU(pcb PCB) error {
 	cpuURL := "http://localhost:8075/savePCB"
 
-	/*FUNCION CREAR PCB*/
+	// CREO EL CONTEXTO DE EJECUCION -> OSEA LOS DATOS DEL PCB QUE VA A NECESITAR LA CPU PARA EL MOMENTO DE EJECUCION
+	context := ExecutionContext{
+		Pid:            pcb.Pid,
+		ProgramCounter: pcb.ProgramCounter,
+		CpuReg:         pcb.CpuReg,
+	}
+	pcbResponseTest, err := json.Marshal(context)
 
-	pcbResponseTest, err := json.Marshal(pcb1)
+	// CHEQUEO ERRORES
 	if err != nil {
 		return fmt.Errorf("error al serializar el PCB: %v", err)
 	}
+
+	// CONFIRMACION DE QUE PASO ERRORES Y SE MANDA SOLICITUD
 	log.Println("Enviando solicitud con contenido:", string(pcbResponseTest))
 
+	// CREO VARIABLE resp y err CON EL
 	resp, err := http.Post(cpuURL, "application/json", bytes.NewBuffer(pcbResponseTest))
 	if err != nil {
 		return fmt.Errorf("error al enviar la solicitud al módulo de cpu: %v", err)
@@ -231,6 +188,7 @@ func LlamarCPU(w http.ResponseWriter) error {
 		return fmt.Errorf("error en la respuesta del módulo de cpu: %v", resp.StatusCode)
 	}
 
+	// SE CHEQUEA CON UN PRINT QUE LA CPU RECIBIO CORRECTAMENTE EL PCB
 	log.Println("Respuesta del módulo de cpu recibida correctamente.")
 	return nil
 }

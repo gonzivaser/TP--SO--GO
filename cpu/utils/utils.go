@@ -1,7 +1,9 @@
 package utils
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -22,6 +24,12 @@ type PCB struct { //ESTO NO VA ACA
 	Pid            int
 	ProgramCounter int
 	Quantum        int
+	CpuReg         RegisterCPU
+}
+
+type ExecutionContext struct {
+	Pid            int
+	ProgramCounter int
 	CpuReg         RegisterCPU
 }
 
@@ -74,18 +82,32 @@ func Prueba(w http.ResponseWriter, r *http.Request) {
 	w.Write(pruebaResponse)
 }
 
+var programCounter int
+
 func ProcessSavedPCBFromKernel(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Recibiendo solicitud de path desde el kernel")
-	var sendedPCB PCB
-	err := json.NewDecoder(r.Body).Decode(&sendedPCB)
+	// HAGO UN LOG PARA CHEQUEAR RECEPCION
+	log.Printf("Recibiendo solicitud de contexto de ejecucuion desde el kernel")
+
+	// GUARDO PCB RECIBIDO EN sendPCB
+	var sendPCB ExecutionContext
+	err := json.NewDecoder(r.Body).Decode(&sendPCB)
 	if err != nil {
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
 		return
 	}
-	log.Printf("PCB recibido desde el kernel: %+v", sendedPCB)
 
-	// Convertir el PCB recibido de nuevo a JSON para enviarlo en la respuesta
-	responseJSON, err := json.Marshal(sendedPCB)
+	// HAGO UN LOG PARA CHEQUEAR QUE PASO ERRORES
+	log.Printf("PCB recibido desde el kernel: %+v", sendPCB)
+
+	// MANDO EL PC DIRECTAMENTE A MEMORIA
+	programCounter = int(sendPCB.CpuReg.PC)
+	if err := SendPCToMemoria(programCounter); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Convertir el pid PCB recibido de nuevo a JSON para enviarlo en la respuesta
+	responseJSON, err := json.Marshal(sendPCB.Pid)
 	if err != nil {
 		http.Error(w, "Error al serializar el PCB", http.StatusInternalServerError)
 		return
@@ -94,4 +116,38 @@ func ProcessSavedPCBFromKernel(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(responseJSON)
+}
+
+func SendPCToMemoria(pc int) error {
+	memoriaURL := "http://localhost:8085/savePC"
+
+	// CREO VARIABLE DONDE GUARDO EL PROGRAM COUNTER
+	pcProcess, err := json.Marshal(pc)
+
+	// CHEQUEO ERRORES
+	if err != nil {
+		return fmt.Errorf("error al serializar el PCB: %v", err)
+	}
+
+	// CONFIRMACION DE QUE PASO ERRORES Y SE MANDA SOLICITUD
+	log.Println("Enviando Program Counter con valor:", string(pcProcess))
+
+	// CREO VARIABLE resp y err CON EL
+	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(pcProcess))
+	if err != nil {
+		return fmt.Errorf("error al enviar la solicitud al módulo de memoria: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// CHEQUEO STATUS CODE CON MI VARIABLE resp
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("error en la respuesta del módulo de memoria: %v", resp.StatusCode)
+	}
+
+	//llamada a interpretacion de instruccion
+	programCounter += 1
+
+	// SE CHEQUEA CON UN PRINT QUE LA LA MEMORIA RECIBIO CORRECTAMENTE EL pc
+	log.Println("Respuesta del módulo de memoria recibida correctamente.")
+	return nil
 }
