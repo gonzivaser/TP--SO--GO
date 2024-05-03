@@ -211,6 +211,9 @@ func EnviarPath(request BodyRequest) error {
 
 func LlamarCPU(w http.ResponseWriter) error {
 	cpuURL := "http://localhost:8075/savePCB"
+
+	/*FUNCION CREAR PCB*/
+
 	pcbResponseTest, err := json.Marshal(pcb1)
 	if err != nil {
 		return fmt.Errorf("error al serializar el PCB: %v", err)
@@ -223,6 +226,7 @@ func LlamarCPU(w http.ResponseWriter) error {
 	}
 	defer resp.Body.Close()
 
+	// CHEQUEO STATUS CODE CON MI VARIABLE resp
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("error en la respuesta del módulo de cpu: %v", resp.StatusCode)
 	}
