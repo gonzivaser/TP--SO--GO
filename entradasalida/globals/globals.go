@@ -1,16 +1,16 @@
 package globals
 
 type Config struct {
-	Puerto                string `json:"puerto"`
-	Tipo                  string `json:"tipo"`
-	UnidadDeTiempo        int    `json:"unidad_de_tiempo"`
+	Puerto                int    `json:"port"`
+	Tipo                  string `json:"type"`
+	UnidadDeTiempo        int    `json:"unit_work_time"`
 	IPKernel              string `json:"ip_kernel"`
-	PuertoKernel          string `json:"puerto_kernel"`
-	IPMemoria             string `json:"ip_memoria"`
-	PuertoMemoria         string `json:"puerto_memoria"`
-	PathDialFS            string `json:"path_dialfs"`
-	TamanioBloqueDialFS   int    `json:"tamanio_bloque_dialfs"`
-	CantidadBloquesDialFS int    `json:"cantidad_bloques_dialfs"`
+	PuertoKernel          string `json:"port_kernel"`
+	IPMemoria             string `json:"ip_memory"`
+	PuertoMemoria         string `json:"port_memory"`
+	PathDialFS            string `json:"dialfs_path"`
+	TamanioBloqueDialFS   int    `json:"dialfs_block_size"`
+	CantidadBloquesDialFS int    `json:"dialfs_block_cou"`
 }
 
 var ClientConfig *Config
