@@ -5,7 +5,7 @@ type Config struct {
 	Tipo                  string `json:"type"`
 	UnidadDeTiempo        int    `json:"unit_work_time"`
 	IPKernel              string `json:"ip_kernel"`
-	PuertoKernel          string `json:"port_kernel"`
+	PuertoKernel          int    `json:"port_kernel"`
 	IPMemoria             string `json:"ip_memory"`
 	PuertoMemoria         string `json:"port_memory"`
 	PathDialFS            string `json:"dialfs_path"`
