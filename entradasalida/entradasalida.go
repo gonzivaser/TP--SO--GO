@@ -21,37 +21,24 @@ func main() {
 	}
 
 	puerto := globals.ClientConfig.Puerto
-
-	// configFile := "config.json"
-	// config, err := utils.CargarConfiguracion(configFile)
-	// if err != nil {
-	// 	log.Fatalf("Error al cargar la configuración: %v", err)
-	// }
-
-	// Crear la interfaz y pasar la configuración cargada
-	// interfaz := utils.InterfazIO{
-	// 	Nombre: "Generica",
-	// 	Config: config,
-	// }
-
-	http.HandleFunc("GET /input", utils.Prueba)
-	http.HandleFunc("GET /interfaz", utils.Iniciar)
-
-	// Cargar la configuración desde el archivo
-
 	interfaceName := os.Args[1]
 	log.Printf("Nombre de la interfaz: %s", interfaceName)
 	pathToConfig := os.Args[2]
 	log.Printf("Path al archivo de configuración: %s", pathToConfig)
 
-	readConfigFile(pathToConfig)
+	//http.HandleFunc("GET /input", utils.Prueba)
+	http.HandleFunc("GET /interfaz", utils.Iniciar)
 
-	// Iniciar la interfaz
-	//interfaz.Iniciar()
+	// Cargar la configuración desde el archivo
+
 	http.ListenAndServe(":"+strconv.Itoa(puerto), nil)
 }
 
-func readConfigFile(path string) []byte {
+// unidades := 5
+// duración := gi.IO_GEN_SLEEP(unidades)
+// fmt.Printf("La espera por %d unidades para la interfaz '%s' es de %v\n", unidades, gi.Nombre, duración)
+
+/*func readConfigFile(path string) []byte {
 	file, err := os.Open(path)
 	check(err)
 
@@ -64,10 +51,5 @@ func readConfigFile(path string) []byte {
 	log.Printf("%d bytes: %s\n", numBytesRead, string(sliceBytes[:numBytesRead]))
 	file.Close()
 	return sliceBytes
-}
 
-func check(e error) {
-	if e != nil {
-		panic(e)
-	}
-}
+}*/

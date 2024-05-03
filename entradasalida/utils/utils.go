@@ -4,12 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"strconv"
-	"time"
-
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"time"
 
 	"github.com/sisoputnfrba/tp-golang/entradasalida/globals"
 )
@@ -54,41 +53,39 @@ func Prueba(w http.ResponseWriter, r *http.Request) {
 }
 
 type Config struct {
-	Tipo           string `json:"type"`
-	Port           int    `json:"port"`
-	UnidadDeTiempo int    `json:"unit_work_time"`
-	IPKernel       string `json:"ip_kernel"`
+	Type         string `json:"type"`
+	UnitWorkTime int    `json:"unit_work_time"` // Tiempo por unidad de trabajo
+	IPKernel     string `json:"ip_kernel"`      // Dirección IP del Kernel
+	PortKernel   int    `json:"port_kernel"`    // Puerto del Kernel
 }
 
-// InterfazIO es la estructura para la interfaz de entrada/salida
+// Estructura para la interfaz genérica
 type InterfazIO struct {
-	Nombre string
-	Config Config
+	Nombre string // Nombre único
+	Config Config // Configuración
 }
 
-// Carga la configuración desde un archivo JSON
-func CargarConfiguracion(configFile string) (Config, error) {
-	data, err := os.ReadFile(configFile)
+// Método para esperar basado en unidades de trabajo
+func (gi *InterfazIO) IO_GEN_SLEEP(n int) time.Duration {
+	return time.Duration(n*gi.Config.UnitWorkTime) * time.Millisecond
+}
+
+func LoadConfig(filename string) (*Config, error) {
+	data, err := os.ReadFile(filename)
 	if err != nil {
-		return Config{}, fmt.Errorf("error al leer el archivo: %v", err)
+		return nil, err
 	}
 
 	var config Config
-	if err := json.Unmarshal(data, &config); err != nil {
-		return Config{}, fmt.Errorf("error al deserializar JSON: %v", err)
+	err = json.Unmarshal(data, &config)
+	if err != nil {
+		return nil, err
 	}
 
-	return config, nil
+	return &config, nil
 }
 
 func Iniciar(w http.ResponseWriter, r *http.Request) {
-	var sentInterface InterfazIO
-	err := json.NewDecoder(r.Body).Decode(&sentInterface)
-	if err != nil {
-		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
-		return
-	}
-
 	queryParams := r.URL.Query()
 	N := queryParams.Get("quantUnitWork")
 	NInt, err := strconv.Atoi(N)
@@ -97,23 +94,21 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if sentInterface.Nombre == "Generica" {
-		protocoleGeneric(&sentInterface, NInt)
+	interfaceName := os.Args[1]
+	log.Printf("Nombre de la interfaz: %s", interfaceName)
+	pathToConfig := os.Args[2]
+	log.Printf("Path al archivo de configuración: %s", pathToConfig)
+
+	config, err := LoadConfig(pathToConfig)
+	if err != nil {
+		log.Fatalf("Error al cargar la configuración desde '%s': %v", pathToConfig, err)
 	}
-	// } else if sentInterface.Nombre == "STDIN"
-
-	// }
+	gi := &InterfazIO{
+		Nombre: interfaceName,
+		Config: *config,
+	}
+	duracion := gi.IO_GEN_SLEEP(NInt)
+	fmt.Printf("La espera por %d unidades para la interfaz '%s' es de %v\n", NInt, gi.Nombre, duracion)
+	time.Sleep(duracion)
+	fmt.Println("holaaaa")
 }
-
-func IO_GEN_SLEEP(io *InterfazIO, N int) time.Duration {
-	return time.Duration(N*io.Config.UnidadDeTiempo) * time.Millisecond
-}
-
-func protocoleGeneric(io *InterfazIO, N int) {
-	espera := IO_GEN_SLEEP(io, N)
-	fmt.Printf("Inicio espera:%v\n", espera)
-	time.Sleep(espera)
-	fmt.Println("Fin espera")
-}
-
-//time.Sleep(time.Duration(io.Config.UnidadDeTiempo) * time.Millisecond(n))

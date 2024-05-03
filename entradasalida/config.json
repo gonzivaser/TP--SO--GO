@@ -3,7 +3,7 @@
     "type": "STDOUT",
     "unit_work_time": 1000,
     "ip_kernel": "127.0.0.1",
-    "port_kernel": 8001,
+    "port_kernel": 8080,
     "ip_memory": "127.0.0.1",
     "port_memory": 8002,
     "dialfs_path": "/home/utnso/dialfs",
