@@ -44,7 +44,25 @@ func main() {
 	pathToConfig := os.Args[2]
 	log.Printf("Path al archivo de configuración: %s", pathToConfig)
 
+	file, err := os.Open(pathToConfig)
+	check(err)
+
+	fi, err := file.Stat()
+	check(err)
+
+	sliceBytes := make([]byte, fi.Size())      //Esta línea crea un slice de bytes
+	numBytesRead, err := file.Read(sliceBytes) //es el número de bytes leídos
+	check(err)
+	log.Printf("%d bytes: %s\n", numBytesRead, string(sliceBytes[:numBytesRead])) 
+	file.Close()
+
 	// Iniciar la interfaz
 	//interfaz.Iniciar()
 	http.ListenAndServe(":"+strconv.Itoa(puerto), nil)
+}
+
+func check(e error) {
+	if e != nil {
+		panic(e)
+	}
 }
