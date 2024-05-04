@@ -177,6 +177,11 @@ func Decode(instuction []string) error {
 		if err != nil {
 			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
 		}
+	case "SUB":
+		err := Resta(&sendPCB.CpuReg, instuction[1], instuction[2])
+		if err != nil {
+			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
+		}
 	default:
 		fmt.Println("Unknown instruction")
 	}
@@ -279,6 +284,61 @@ func Suma(registerCPU *RegisterCPU, s1, s2 string) error {
 
 		// Asignar el resultado de la suma al campo destino
 		campoDestinoRef.SetUint(suma)
+	}
+	return nil
+}
+
+func Resta(registerCPU *RegisterCPU, s1, s2 string) error {
+	// Suma al Registro Destino el Registro Origen y deja el resultado en el Registro Destino.
+	// Los registros pueden ser AX, BX, CX, DX.
+	// Los registros son de 8 bits, por lo que el resultado de la suma debe ser truncado a 8 bits.
+	// Si el resultado de la suma es mayor a 255, el registro destino debe quedar en 255.
+	// Si el resultado de la suma es menor a 0, el registro destino debe quedar en 0.
+
+	// Obtener el valor reflect.Value de la estructura Persona
+	valorRef := reflect.ValueOf(registerCPU)
+
+	// Obtener el valor reflect.Value del campo destino
+	campoDestinoRef := valorRef.Elem().FieldByName(s1)
+
+	// Verificar si el campo destino existe
+	if !campoDestinoRef.IsValid() {
+		return fmt.Errorf("campo destino '%s' no encontrado en la estructura", s1)
+	}
+
+	// Obtener el tipo de dato del campo destino
+	tipoCampoDestino := campoDestinoRef.Type()
+
+	// Obtener el valor reflect.Value del campo origen
+	campoOrigenRef := valorRef.Elem().FieldByName(s2)
+
+	// Verificar si el campo origen existe
+	if !campoOrigenRef.IsValid() {
+		return fmt.Errorf("campo origen '%s' no encontrado en la estructura", s2)
+	}
+
+	// Obtener el tipo de dato del campo origen
+	tipoCampoOrigen := campoOrigenRef.Type()
+
+	// Verificar que ambos campos sean del mismo tipo
+	if tipoCampoDestino != tipoCampoOrigen {
+		return fmt.Errorf("los campos '%s' y '%s' no son del mismo tipo", s1, s2)
+	}
+
+	// Realizar la suma entre los valores de los campos
+	switch tipoCampoDestino.Kind() {
+	case reflect.Uint8:
+		valorDestino := campoDestinoRef.Uint()
+		valorOrigen := campoOrigenRef.Uint()
+		resta := valorDestino - valorOrigen
+
+		// Truncar el resultado a 8 bits
+		if resta <= 0 {
+			resta = 0
+		}
+
+		// Asignar el resultado de la resta al campo destino
+		campoDestinoRef.SetUint(resta)
 	}
 	return nil
 }
