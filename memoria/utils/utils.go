@@ -115,11 +115,6 @@ func ProcessSavedPCFromCPU(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(jsonResponse)
-	// MANDO EL PC DIRECTAMENTE A MEMORIA
-	/*if err := SendPCToMemoria(sendPCB.CpuReg.PC); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}*/
 }
 
 func readInstructions(path string, targetLine int) (string, error) {

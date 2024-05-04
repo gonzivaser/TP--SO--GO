@@ -97,11 +97,18 @@ func ProcessSavedPCBFromKernel(w http.ResponseWriter, r *http.Request) {
 
 	// MANDO EL PC DIRECTAMENTE A MEMORIA
 	programCounter = int(sendPCB.CpuReg.PC)
-	if err := SendPCToMemoria(programCounter); err != nil {
+	// for i := 1; i < 5; i++ {
+	// 	if err := Fetch(i); err != nil {
+	// 		http.Error(w, err.Error(), http.StatusInternalServerError)
+	// 		return
+	// 	}
+	// }
+
+	if err := Fetch(programCounter); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
-	}
 
+	}
 	// Convertir el pid PCB recibido de nuevo a JSON para enviarlo en la respuesta
 	responseJSON, err := json.Marshal(sendPCB.Pid)
 	if err != nil {
@@ -114,7 +121,7 @@ func ProcessSavedPCBFromKernel(w http.ResponseWriter, r *http.Request) {
 	w.Write(responseJSON)
 }
 
-func SendPCToMemoria(pc int) error {
+func Fetch(pc int) error {
 	memoriaURL := "http://localhost:8085/savePC"
 
 	// CREO VARIABLE DONDE GUARDO EL PROGRAM COUNTER
@@ -147,15 +154,8 @@ func SendPCToMemoria(pc int) error {
 	}
 	instuction := strings.Fields(response.Instruction)
 
-	switch instuction[0] {
-	case "SET": // Change the type of the switch case expression from byte to string
-		err := ModificarCampo(&sendPCB.CpuReg, instuction[1], instuction[2])
-		if err != nil {
-			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
-		}
-	default:
-		fmt.Println("Unknown instruction")
-	}
+	Decode(instuction)
+
 	log.Printf("PCB modificado: %+v", sendPCB)
 	//llamada a interpretacion de instruccion
 	programCounter += 1
@@ -165,7 +165,25 @@ func SendPCToMemoria(pc int) error {
 	return nil
 }
 
-func ModificarCampo(r *RegisterCPU, campo string, valor interface{}) error {
+func Decode(instuction []string) error {
+	switch instuction[0] {
+	case "SET": // Change the type of the switch case expression from byte to string
+		err := SetCampo(&sendPCB.CpuReg, instuction[1], instuction[2])
+		if err != nil {
+			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
+		}
+	case "SUM":
+		err := Suma(&sendPCB.CpuReg, instuction[1], instuction[2])
+		if err != nil {
+			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
+		}
+	default:
+		fmt.Println("Unknown instruction")
+	}
+	return nil
+}
+
+func SetCampo(r *RegisterCPU, campo string, valor interface{}) error {
 	// Obtener el valor reflect.Value de la estructura Persona
 	valorRef := reflect.ValueOf(r)
 
@@ -207,5 +225,60 @@ func ModificarCampo(r *RegisterCPU, campo string, valor interface{}) error {
 		return fmt.Errorf("tipo de dato del campo '%s' no soportado", tipoCampo)
 	}
 
+	return nil
+}
+
+func Suma(registerCPU *RegisterCPU, s1, s2 string) error {
+	// Suma al Registro Destino el Registro Origen y deja el resultado en el Registro Destino.
+	// Los registros pueden ser AX, BX, CX, DX.
+	// Los registros son de 8 bits, por lo que el resultado de la suma debe ser truncado a 8 bits.
+	// Si el resultado de la suma es mayor a 255, el registro destino debe quedar en 255.
+	// Si el resultado de la suma es menor a 0, el registro destino debe quedar en 0.
+
+	// Obtener el valor reflect.Value de la estructura Persona
+	valorRef := reflect.ValueOf(registerCPU)
+
+	// Obtener el valor reflect.Value del campo destino
+	campoDestinoRef := valorRef.Elem().FieldByName(s1)
+
+	// Verificar si el campo destino existe
+	if !campoDestinoRef.IsValid() {
+		return fmt.Errorf("campo destino '%s' no encontrado en la estructura", s1)
+	}
+
+	// Obtener el tipo de dato del campo destino
+	tipoCampoDestino := campoDestinoRef.Type()
+
+	// Obtener el valor reflect.Value del campo origen
+	campoOrigenRef := valorRef.Elem().FieldByName(s2)
+
+	// Verificar si el campo origen existe
+	if !campoOrigenRef.IsValid() {
+		return fmt.Errorf("campo origen '%s' no encontrado en la estructura", s2)
+	}
+
+	// Obtener el tipo de dato del campo origen
+	tipoCampoOrigen := campoOrigenRef.Type()
+
+	// Verificar que ambos campos sean del mismo tipo
+	if tipoCampoDestino != tipoCampoOrigen {
+		return fmt.Errorf("los campos '%s' y '%s' no son del mismo tipo", s1, s2)
+	}
+
+	// Realizar la suma entre los valores de los campos
+	switch tipoCampoDestino.Kind() {
+	case reflect.Uint8:
+		valorDestino := campoDestinoRef.Uint()
+		valorOrigen := campoOrigenRef.Uint()
+		suma := valorDestino + valorOrigen
+
+		// Truncar el resultado a 8 bits
+		if suma > 255 {
+			suma = 255
+		}
+
+		// Asignar el resultado de la suma al campo destino
+		campoDestinoRef.SetUint(suma)
+	}
 	return nil
 }
