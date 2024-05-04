@@ -45,7 +45,7 @@ antes de subir el tag.
 - Módulo Memoria:
   
     - [x] Se encuentra creado y acepta las conexiones.
-    - [ ] Es capaz de abrir los archivos de pseudocódigo y envía las instrucciones al CPU.
+    - [x] Es capaz de abrir los archivos de pseudocódigo y envía las instrucciones al CPU.
 
 - Módulo Interfaz I/O:
 - 

@@ -19,6 +19,10 @@ type BodyRequest struct {
 	Path string `json:"path"`
 }
 
+type InstructionResposne struct {
+	Instruction string `json:"instruction"`
+}
+
 func IniciarConfiguracion(filePath string) *globals.Config {
 	var config *globals.Config
 	configFile, err := os.Open(filePath)
@@ -101,8 +105,16 @@ func ProcessSavedPCFromCPU(w http.ResponseWriter, r *http.Request) {
 	// HAGO UN LOG PARA CHEQUEAR QUE PASO ERRORES
 	log.Printf("PC recibido desde el CPU: %+v", sendPC)
 
-	readInstructions(globalPath, sendPC)
+	instruction, _ := readInstructions(globalPath, sendPC)
 
+	reponse := InstructionResposne{
+		Instruction: instruction,
+	}
+	jsonResponse, _ := json.Marshal(reponse)
+	log.Printf("PC recibido desde el CPU: %s", jsonResponse)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(jsonResponse)
 	// MANDO EL PC DIRECTAMENTE A MEMORIA
 	/*if err := SendPCToMemoria(sendPCB.CpuReg.PC); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -124,17 +136,17 @@ func readInstructions(path string, targetLine int) (string, error) {
 
 	// Line counter for efficient access
 	lineNumber := 1
+	instruction := "" // Declare the variable "instruction" before the loop
 
 	// Read lines until target line is reached or EOF
 	for fileScanner.Scan() {
 		if lineNumber == targetLine {
-			log.Printf("PC: %s", fileScanner.Text())
-			return fileScanner.Text(), nil
-
+			instruction = fileScanner.Text() // Assign the scanned line to the variable instruction
+			log.Printf("PC: %s y tenemos la instuction %s", fileScanner.Text(), instruction)
+			return instruction, nil
 		}
+		log.Printf("Afuera: %s", fileScanner.Text())
 		lineNumber++
 	}
-
-	// Handle case where target line is not found
-	return "", fmt.Errorf("line number %d not found in file", 3)
+	return "", fmt.Errorf("target line not found")
 }

@@ -100,7 +100,7 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// LLAMO A CPU PARA MANDAR EL pid, PC y los registros
-	if err := SendContextToPCU(pcb); err != nil {
+	if err := SendContextToCPU(pcb); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -157,7 +157,7 @@ func SendPathToMemory(request BodyRequest) error {
 	return nil
 }
 
-func SendContextToPCU(pcb PCB) error {
+func SendContextToCPU(pcb PCB) error {
 	cpuURL := "http://localhost:8075/savePCB"
 
 	// CREO EL CONTEXTO DE EJECUCION -> OSEA LOS DATOS DEL PCB QUE VA A NECESITAR LA CPU PARA EL MOMENTO DE EJECUCION

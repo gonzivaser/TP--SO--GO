@@ -8,6 +8,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"reflect"
+	"strconv"
+	"strings"
 
 	"github.com/sisoputnfrba/tp-golang/cpu/globals"
 )
@@ -20,31 +23,23 @@ type BodyResponsePCB struct { //ESTO NO VA ACA
 	Pcb PCB `json:"pcb"`
 }
 
+type BodyResponseInstruction struct {
+	Instruction string `json:"instruction"`
+}
+
 type PCB struct { //ESTO NO VA ACA
-	Pid            int
-	ProgramCounter int
-	Quantum        int
-	CpuReg         RegisterCPU
+	Pid, ProgramCounte, Quantum int
+	CpuReg                      RegisterCPU
 }
 
 type ExecutionContext struct {
-	Pid            int
-	ProgramCounter int
-	CpuReg         RegisterCPU
+	Pid, ProgramCounter int
+	CpuReg              RegisterCPU
 }
 
 type RegisterCPU struct { //ESTO NO VA ACA
-	PC  uint32
-	AX  uint8
-	BX  uint8
-	CX  uint8
-	DX  uint8
-	EAX uint32
-	EBX uint32
-	ECX uint32
-	EDX uint32
-	SI  uint32
-	DI  uint32
+	PC, EAX, EBX, ECX, EDX, SI, DI uint32
+	AX, BX, CX, DX                 uint8
 }
 
 func ConfigurarLogger() {
@@ -83,13 +78,14 @@ func Prueba(w http.ResponseWriter, r *http.Request) {
 }
 
 var programCounter int
+var sendPCB ExecutionContext
 
 func ProcessSavedPCBFromKernel(w http.ResponseWriter, r *http.Request) {
 	// HAGO UN LOG PARA CHEQUEAR RECEPCION
 	log.Printf("Recibiendo solicitud de contexto de ejecucuion desde el kernel")
 
 	// GUARDO PCB RECIBIDO EN sendPCB
-	var sendPCB ExecutionContext
+
 	err := json.NewDecoder(r.Body).Decode(&sendPCB)
 	if err != nil {
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
@@ -137,17 +133,79 @@ func SendPCToMemoria(pc int) error {
 	if err != nil {
 		return fmt.Errorf("error al enviar la solicitud al módulo de memoria: %v", err)
 	}
-	defer resp.Body.Close()
 
 	// CHEQUEO STATUS CODE CON MI VARIABLE resp
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("error en la respuesta del módulo de memoria: %v", resp.StatusCode)
 	}
+	var response BodyResponseInstruction
+	err = json.NewDecoder(resp.Body).Decode(&response)
 
+	defer resp.Body.Close()
+	if err != nil {
+		return fmt.Errorf("error al decodificar la respuesta del módulo de memoria: %v", err)
+	}
+	instuction := strings.Fields(response.Instruction)
+
+	switch instuction[0] {
+	case "SET": // Change the type of the switch case expression from byte to string
+		err := ModificarCampo(&sendPCB.CpuReg, instuction[1], instuction[2])
+		if err != nil {
+			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
+		}
+	default:
+		fmt.Println("Unknown instruction")
+	}
+	log.Printf("PCB modificado: %+v", sendPCB)
 	//llamada a interpretacion de instruccion
 	programCounter += 1
 
 	// SE CHEQUEA CON UN PRINT QUE LA LA MEMORIA RECIBIO CORRECTAMENTE EL pc
 	log.Println("Respuesta del módulo de memoria recibida correctamente.")
+	return nil
+}
+
+func ModificarCampo(r *RegisterCPU, campo string, valor interface{}) error {
+	// Obtener el valor reflect.Value de la estructura Persona
+	valorRef := reflect.ValueOf(r)
+
+	// Obtener el campo especificado por el parámetro campo
+	campoRef := valorRef.Elem().FieldByName(campo)
+
+	// Verificar si el campo existe
+	if !campoRef.IsValid() {
+		return fmt.Errorf("campo '%s' no encontrado en la estructura", campo)
+	}
+
+	// Obtener el tipo de dato del campo
+	tipoCampo := campoRef.Type()
+
+	// Convertir el valor proporcionado al tipo de dato del campo
+	switch tipoCampo.Kind() {
+	case reflect.String:
+		campoRef.SetString(fmt.Sprintf("%v", valor))
+	case reflect.Uint8:
+		valorUint, err := strconv.ParseUint(fmt.Sprintf("%v", valor), 10, 8)
+		if err != nil {
+			return err
+		}
+		campoRef.SetUint(valorUint)
+	case reflect.Uint32:
+		valorUint, err := strconv.ParseUint(fmt.Sprintf("%v", valor), 10, 32)
+		if err != nil {
+			return err
+		}
+		campoRef.SetUint(valorUint)
+	case reflect.Int:
+		valorInt, err := strconv.ParseInt(fmt.Sprintf("%v", valor), 10, 64)
+		if err != nil {
+			return err
+		}
+		campoRef.SetInt(valorInt)
+	// Agrega más casos según sea necesario para otros tipos de datos
+	default:
+		return fmt.Errorf("tipo de dato del campo '%s' no soportado", tipoCampo)
+	}
+
 	return nil
 }
