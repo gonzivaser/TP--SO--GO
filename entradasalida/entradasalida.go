@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
+	"strconv"
 
 	"github.com/sisoputnfrba/tp-golang/entradasalida/globals"
 	"github.com/sisoputnfrba/tp-golang/entradasalida/utils"
@@ -16,26 +18,16 @@ func main() {
 		log.Fatalf("No se pudo cargar la configuración")
 	}
 
-	utils.ConfigurarLogger()
+	puerto := globals.ClientConfig.Puerto
+	interfaceName := os.Args[1]
+	log.Printf("Nombre de la interfaz: %s", interfaceName)
+	pathToConfig := os.Args[2]
+	log.Printf("Path al archivo de configuración: %s", pathToConfig)
 
-	// configFile := "config.json"
-	// config, err := utils.CargarConfiguracion(configFile)
-	// if err != nil {
-	// 	log.Fatalf("Error al cargar la configuración: %v", err)
-	// }
-
-	// Crear la interfaz y pasar la configuración cargada
-	// interfaz := utils.InterfazIO{
-	// 	Nombre: "Generica",
-	// 	Config: config,
-	// }
-
-	http.HandleFunc("GET /input", utils.Prueba)
+	//http.HandleFunc("GET /input", utils.Prueba)
 	http.HandleFunc("GET /interfaz", utils.Iniciar)
 
 	// Cargar la configuración desde el archivo
 
-	// Iniciar la interfaz
-	//interfaz.Iniciar()
-	http.ListenAndServe(":8090", nil)
+	http.ListenAndServe(":"+strconv.Itoa(puerto), nil)
 }

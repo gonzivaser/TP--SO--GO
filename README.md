@@ -49,7 +49,7 @@ antes de subir el tag.
 
 - Módulo Interfaz I/O:
 - 
-    - [x] Se encuentra desarrollada la Interfaz Genérica.
+    - [ ] Se encuentra desarrollada la Interfaz Genérica.
 
 
 ### Checkpoint 3
