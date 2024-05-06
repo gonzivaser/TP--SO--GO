@@ -28,13 +28,15 @@ type BodyResponseInstruction struct {
 }
 
 type PCB struct { //ESTO NO VA ACA
-	Pid, ProgramCounte, Quantum int
-	CpuReg                      RegisterCPU
+	Pid, Quantum int
+	State        string
+	CpuReg       RegisterCPU
 }
 
 type ExecutionContext struct {
-	Pid, ProgramCounter int
-	CpuReg              RegisterCPU
+	Pid    int
+	State  string
+	CpuReg RegisterCPU
 }
 
 type RegisterCPU struct { //ESTO NO VA ACA

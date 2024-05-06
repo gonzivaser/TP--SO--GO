@@ -48,16 +48,16 @@ type BodyResponsePCB struct { //ESTO NO VA ACA
 }
 
 type PCB struct { //ESTO NO VA ACA
-	Pid            int
-	ProgramCounter int
-	Quantum        int
-	CpuReg         RegisterCPU
+	Pid     int
+	State   string
+	Quantum int
+	CpuReg  RegisterCPU
 }
 
 type ExecutionContext struct {
-	Pid            int
-	ProgramCounter int
-	CpuReg         RegisterCPU
+	Pid    int
+	State  string
+	CpuReg RegisterCPU
 }
 
 type RegisterCPU struct { //ESTO NO VA ACA
@@ -74,39 +74,57 @@ type RegisterCPU struct { //ESTO NO VA ACA
 	DI  uint32
 }
 
+// Create a channel to act as a FIFO queue
+var taskQueue = make(chan func(), 100) // Adjust the buffer size as needed
+
+// Start a goroutine to dequeue and execute tasks
+var routineCounter int32 = 0
+	go func() {
+    for task := range taskQueue {
+        routineID := atomic.AddInt32(&routineCounter, 1)
+        log.Printf("Executing task in routine #%d", routineID)
+        task()
+    }
+	}()
+
 func IniciarProceso(w http.ResponseWriter, r *http.Request) {
-	var request BodyRequest
-	err := json.NewDecoder(r.Body).Decode(&request)
-	if err != nil {
-		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
-		return
-	}
+    // Create a closure that encapsulates the request handling logic
+    task := func() {
+        var request BodyRequest
+        err := json.NewDecoder(r.Body).Decode(&request)
+        if err != nil {
+            http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
+            return
+        }
+        log.Printf("Datos recibidos: %+v", request)
 
-	log.Printf("Datos recibidos: %+v", request)
+        // CREO EL PCB
+        pcb := createPCB()
 
-	// CREO EL PCB
-	pcb := createPCB()
+        // LA RESPONSE VA A SER EL pid CREADO
+        BodyResponse := BodyResponsePid{
+            Pid: pcb.Pid,
+        }
+        pidResponse, _ := json.Marshal(BodyResponse)
 
-	// LA RESPONSE VA A SER EL pid CREADO
-	BodyResponse := BodyResponsePid{
-		Pid: pcb.Pid,
-	}
-	pidResponse, _ := json.Marshal(BodyResponse)
+        // CHEQUEO ERRORES
+        if err := SendPathToMemory(request); err != nil {
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
 
-	// CHEQUEO ERRORES
-	if err := SendPathToMemory(request); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+        // LLAMO A CPU PARA MANDAR EL pid, PC y los registros
+        if err := SendContextToCPU(pcb); err != nil {
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
 
-	// LLAMO A CPU PARA MANDAR EL pid, PC y los registros
-	if err := SendContextToCPU(pcb); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+        w.WriteHeader(http.StatusOK)
+        w.Write([]byte(pidResponse))
+    }
 
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(pidResponse))
+    // Enqueue the task to the FIFO queue
+    taskQueue <- task
 }
 
 var nextPid = 1
@@ -115,9 +133,8 @@ func createPCB() PCB {
 	nextPid++
 
 	return PCB{
-		Pid:            nextPid - 1, // ASIGNO EL VALOR ANTERIOR AL pid
-		ProgramCounter: 0,
-		Quantum:        0,
+		Pid:   nextPid - 1, // ASIGNO EL VALOR ANTERIOR AL pid
+		State: "READY",
 		CpuReg: RegisterCPU{
 			PC:  1,
 			AX:  0,
@@ -162,9 +179,9 @@ func SendContextToCPU(pcb PCB) error {
 
 	// CREO EL CONTEXTO DE EJECUCION -> OSEA LOS DATOS DEL PCB QUE VA A NECESITAR LA CPU PARA EL MOMENTO DE EJECUCION
 	context := ExecutionContext{
-		Pid:            pcb.Pid,
-		ProgramCounter: pcb.ProgramCounter,
-		CpuReg:         pcb.CpuReg,
+		Pid:    pcb.Pid,
+		State:  pcb.State,
+		CpuReg: pcb.CpuReg,
 	}
 	pcbResponseTest, err := json.Marshal(context)
 
