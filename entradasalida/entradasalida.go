@@ -4,8 +4,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-
-	// "os"
 	"strconv"
 
 	"github.com/sisoputnfrba/tp-golang/entradasalida/globals"
@@ -33,23 +31,3 @@ func main() {
 
 	http.ListenAndServe(":"+strconv.Itoa(puerto), nil)
 }
-
-// unidades := 5
-// duración := gi.IO_GEN_SLEEP(unidades)
-// fmt.Printf("La espera por %d unidades para la interfaz '%s' es de %v\n", unidades, gi.Nombre, duración)
-
-/*func readConfigFile(path string) []byte {
-	file, err := os.Open(path)
-	check(err)
-
-	fi, err := file.Stat()
-	check(err)
-
-	sliceBytes := make([]byte, fi.Size())      //Esta línea crea un slice de bytes
-	numBytesRead, err := file.Read(sliceBytes) //es el número de bytes leídos
-	check(err)
-	log.Printf("%d bytes: %s\n", numBytesRead, string(sliceBytes[:numBytesRead]))
-	file.Close()
-	return sliceBytes
-
-}*/
