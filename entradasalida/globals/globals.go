@@ -7,7 +7,7 @@ type Config struct {
 	IPKernel              string `json:"ip_kernel"`
 	PuertoKernel          int    `json:"port_kernel"`
 	IPMemoria             string `json:"ip_memory"`
-	PuertoMemoria         string `json:"port_memory"`
+	PuertoMemoria         int    `json:"port_memory"`
 	PathDialFS            string `json:"dialfs_path"`
 	TamanioBloqueDialFS   int    `json:"dialfs_block_size"`
 	CantidadBloquesDialFS int    `json:"dialfs_block_cou"`

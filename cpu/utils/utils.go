@@ -122,7 +122,7 @@ func ProcessSavedPCBFromKernel(w http.ResponseWriter, r *http.Request) {
 }
 
 func Fetch(pc int) error {
-	memoriaURL := "http://localhost:8085/savePC"
+	memoriaURL := fmt.Sprintf("http://localhost:%d/savePC", globals.ClientConfig.PortMemory)
 
 	// CREO VARIABLE DONDE GUARDO EL PROGRAM COUNTER
 	pcProcess, err := json.Marshal(pc)
