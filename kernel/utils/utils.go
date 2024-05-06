@@ -135,7 +135,7 @@ func createPCB() PCB {
 }
 
 func SendPathToMemory(request BodyRequest) error {
-	memoriaURL := "http://localhost:8085/savedPath"
+	memoriaURL := fmt.Sprintf("http://localhost:%d/savedPath", globals.ClientConfig.PuertoCPU)
 	savedPathJSON, err := json.Marshal(request)
 	if err != nil {
 		return fmt.Errorf("error al serializar los datos JSON: %v", err)
