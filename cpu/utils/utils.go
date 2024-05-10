@@ -152,9 +152,9 @@ func Fetch(pc int) error {
 	if err != nil {
 		return fmt.Errorf("error al decodificar la respuesta del módulo de memoria: %v", err)
 	}
-	instuction := strings.Fields(response.Instruction)
+	instruction := strings.Fields(response.Instruction)
 
-	Decode(instuction)
+	Decode(instruction)
 
 	log.Printf("PCB modificado: %+v", sendPCB)
 	//llamada a interpretacion de instruccion
@@ -165,20 +165,20 @@ func Fetch(pc int) error {
 	return nil
 }
 
-func Decode(instuction []string) error {
-	switch instuction[0] {
+func Decode(instruction []string) error {
+	switch instruction[0] {
 	case "SET": // Change the type of the switch case expression from byte to string
-		err := SetCampo(&sendPCB.CpuReg, instuction[1], instuction[2])
+		err := SetCampo(&sendPCB.CpuReg, instruction[1], instruction[2])
 		if err != nil {
 			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
 		}
 	case "SUM":
-		err := Suma(&sendPCB.CpuReg, instuction[1], instuction[2])
+		err := Suma(&sendPCB.CpuReg, instruction[1], instruction[2])
 		if err != nil {
 			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
 		}
 	case "SUB":
-		err := Resta(&sendPCB.CpuReg, instuction[1], instuction[2])
+		err := Resta(&sendPCB.CpuReg, instruction[1], instruction[2])
 		if err != nil {
 			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
 		}
