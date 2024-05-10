@@ -18,7 +18,7 @@ func main() {
 	}
 	puerto := globals.ClientConfig.Puerto
 
-	http.HandleFunc("GET /input", utils.Prueba)
 	http.HandleFunc("/savePCB", utils.ProcessSavedPCBFromKernel)
+	http.HandleFunc("/interrupt", utils.Checkinterrupts)
 	http.ListenAndServe(":"+strconv.Itoa(puerto), nil)
 }
