@@ -28,15 +28,13 @@ type BodyResponseInstruction struct {
 }
 
 type PCB struct { //ESTO NO VA ACA
-	Pid, Quantum int
-	State        string
-	CpuReg       RegisterCPU
+	Pid, ProgramCounte, Quantum int
+	CpuReg                      RegisterCPU
 }
 
 type ExecutionContext struct {
-	Pid    int
-	State  string
-	CpuReg RegisterCPU
+	Pid, ProgramCounter int
+	CpuReg              RegisterCPU
 }
 
 type RegisterCPU struct { //ESTO NO VA ACA
@@ -124,7 +122,7 @@ func ProcessSavedPCBFromKernel(w http.ResponseWriter, r *http.Request) {
 }
 
 func Fetch(pc int) error {
-	memoriaURL := fmt.Sprintf("http://localhost:%d/savePC", globals.ClientConfig.PortMemory)
+	memoriaURL := "http://localhost:8085/savePC"
 
 	// CREO VARIABLE DONDE GUARDO EL PROGRAM COUNTER
 	pcProcess, err := json.Marshal(pc)
