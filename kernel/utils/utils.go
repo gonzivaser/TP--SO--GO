@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 
 	"github.com/sisoputnfrba/tp-golang/kernel/globals"
 )
@@ -48,16 +49,16 @@ type BodyResponsePCB struct { //ESTO NO VA ACA
 }
 
 type PCB struct { //ESTO NO VA ACA
-	Pid            int
-	ProgramCounter int
-	Quantum        int
-	CpuReg         RegisterCPU
+	Pid     int
+	Quantum int
+	State   string
+	CpuReg  RegisterCPU
 }
 
 type ExecutionContext struct {
-	Pid            int
-	ProgramCounter int
-	CpuReg         RegisterCPU
+	Pid    int
+	State  string
+	CpuReg RegisterCPU
 }
 
 type RegisterCPU struct { //ESTO NO VA ACA
@@ -74,7 +75,17 @@ type RegisterCPU struct { //ESTO NO VA ACA
 	DI  uint32
 }
 
+var (
+	colaReady []int
+	mu        sync.Mutex
+	wg        sync.WaitGroup // Mutex for synchronizing access to colaReady
+)
+
 func IniciarProceso(w http.ResponseWriter, r *http.Request) {
+	// Increment the WaitGroup counter
+	wg.Add(1)
+	defer wg.Done() // Decrease the WaitGroup counter when the function completes
+
 	var request BodyRequest
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
@@ -87,26 +98,52 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	// CREO EL PCB
 	pcb := createPCB()
 
+	mu.Lock()
+	colaReady = append(colaReady, pcb.Pid)
+	mu.Unlock()
+
 	// LA RESPONSE VA A SER EL pid CREADO
 	BodyResponse := BodyResponsePid{
 		Pid: pcb.Pid,
 	}
 	pidResponse, _ := json.Marshal(BodyResponse)
 
-	// CHEQUEO ERRORES
-	if err := SendPathToMemory(request); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	// Use Goroutines and Channels to execute SendPathToMemory and SendContextToCPU concurrently
+	errCh := make(chan error, 2)
+	go func() {
+		errCh <- SendPathToMemory(request)
+	}()
+	go func() {
+		errCh <- SendContextToCPU(pcb)
+	}()
+
+	// Wait for both functions to finish
+	for i := 0; i < 2; i++ {
+		if err := <-errCh; err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
-	// LLAMO A CPU PARA MANDAR EL pid, PC y los registros
-	if err := SendContextToCPU(pcb); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	// Close the error channel
+	close(errCh)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(pidResponse))
+}
+
+func ShowColaReady(w http.ResponseWriter, r *http.Request) {
+	// Convert colaReady array to JSON
+	colaReadyJSON, err := json.Marshal(colaReady)
+	if err != nil {
+		http.Error(w, "Error al convertir colaReady a JSON", http.StatusInternalServerError)
+		return
+	}
+
+	// Write the JSON response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(colaReadyJSON)
 }
 
 var nextPid = 1
@@ -115,9 +152,9 @@ func createPCB() PCB {
 	nextPid++
 
 	return PCB{
-		Pid:            nextPid - 1, // ASIGNO EL VALOR ANTERIOR AL pid
-		ProgramCounter: 0,
-		Quantum:        0,
+		Pid:     nextPid - 1, // ASIGNO EL VALOR ANTERIOR AL pid
+		Quantum: 0,
+		State:   "READY",
 		CpuReg: RegisterCPU{
 			PC:  1,
 			AX:  0,
@@ -162,9 +199,9 @@ func SendContextToCPU(pcb PCB) error {
 
 	// CREO EL CONTEXTO DE EJECUCION -> OSEA LOS DATOS DEL PCB QUE VA A NECESITAR LA CPU PARA EL MOMENTO DE EJECUCION
 	context := ExecutionContext{
-		Pid:            pcb.Pid,
-		ProgramCounter: pcb.ProgramCounter,
-		CpuReg:         pcb.CpuReg,
+		Pid:    pcb.Pid,
+		State:  pcb.State,
+		CpuReg: pcb.CpuReg,
 	}
 	pcbResponseTest, err := json.Marshal(context)
 
@@ -220,8 +257,11 @@ func EstadoProceso(w http.ResponseWriter, r *http.Request) {
 }
 
 func IniciarPlanificacion(w http.ResponseWriter, r *http.Request) {
-	log.Printf("PID: <PID> - Bloqueado por: <INTERFAZ / NOMBRE_RECURSO>") //ESTO NO VA ACA
+	if globals.ClientConfig.AlgoritmoPlanificacion == "RR" {
 
+	}
+
+	//log.Printf("PID: <PID> - Bloqueado por: <INTERFAZ / NOMBRE_RECURSO>") //ESTO NO VA ACA
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Planificación iniciada"))
 }
