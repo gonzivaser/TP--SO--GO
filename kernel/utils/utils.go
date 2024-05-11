@@ -78,14 +78,9 @@ type RegisterCPU struct { //ESTO NO VA ACA
 var (
 	colaReady []int
 	mu        sync.Mutex
-	wg        sync.WaitGroup // Mutex for synchronizing access to colaReady
 )
 
 func IniciarProceso(w http.ResponseWriter, r *http.Request) {
-	// Increment the WaitGroup counter
-	wg.Add(1)
-	defer wg.Done() // Decrease the WaitGroup counter when the function completes
-
 	var request BodyRequest
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
@@ -95,39 +90,55 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Datos recibidos: %+v", request)
 
-	// CREO EL PCB
-	pcb := createPCB()
+	// Channel for communicating PCB
+	pcbChan := make(chan *PCB)
 
-	mu.Lock()
-	colaReady = append(colaReady, pcb.Pid)
-	mu.Unlock()
-
-	// LA RESPONSE VA A SER EL pid CREADO
-	BodyResponse := BodyResponsePid{
-		Pid: pcb.Pid,
-	}
-	pidResponse, _ := json.Marshal(BodyResponse)
-
-	// Use Goroutines and Channels to execute SendPathToMemory and SendContextToCPU concurrently
-	errCh := make(chan error, 2)
+	// Goroutine to create PCB and send path to memory
 	go func() {
-		errCh <- SendPathToMemory(request)
-	}()
-	go func() {
-		errCh <- SendContextToCPU(pcb)
+		// CREO EL PCB
+		for {
+
+			pcb := createPCB()
+			colaReady = append(colaReady, pcb.Pid)
+
+			// Send PCB through channel
+
+			// CHEQUEO ERRORES
+			if err := SendPathToMemory(request); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			pcbChan <- &pcb
+		}
+
 	}()
 
-	// Wait for both functions to finish
-	for i := 0; i < 2; i++ {
-		if err := <-errCh; err != nil {
+	// Goroutine to send context to CPU
+	go func() {
+
+		// Receive PCB from channel
+		pcb := <-pcbChan
+
+		// LLAMO A CPU PARA MANDAR EL pid, PC y los registros
+
+		mu.Lock()
+
+		if err := SendContextToCPU(*pcb); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		mu.Unlock()
+
+	}()
+
+	// Response with the PID
+	pcb := <-pcbChan
+	BodyResponse := BodyResponsePid{
+		Pid: pcb.Pid,
 	}
 
-	// Close the error channel
-	close(errCh)
-
+	pidResponse, _ := json.Marshal(BodyResponse)
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(pidResponse))
 }
