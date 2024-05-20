@@ -12,15 +12,22 @@ import (
 	"github.com/sisoputnfrba/tp-golang/memoria/globals"
 )
 
-type PruebaMensaje struct {
-	Mensaje string `json:"Prueba"`
-}
 type BodyRequest struct {
 	Path string `json:"path"`
 }
 
 type InstructionResposne struct {
 	Instruction string `json:"instruction"`
+}
+
+type PCB struct {
+	Pid, programCounter, Quantum int
+	CpuReg                       RegisterCPU
+}
+
+type RegisterCPU struct {
+	PC, EAX, EBX, ECX, EDX, SI, DI uint32
+	AX, BX, CX, DX                 uint8
 }
 
 func IniciarConfiguracion(filePath string) *globals.Config {
@@ -59,7 +66,7 @@ func ProcessSavedPathFromKernel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// HAGO UN LOG SI PASO ERRORES PARA RECEPCION DEL PATH
-	globalPath = savedPath.Path
+	// globalPath = savedPath.Path
 	log.Printf("Path recibido desde el kernel: %s", savedPath.Path)
 
 	// ABRO ARCHIVO DEL PATH ENVIADO POR EL KERNEL
@@ -88,34 +95,34 @@ func check(e error) {
 	}
 }
 
-var globalPath string
+// var globalPath string
 
-func ProcessSavedPCFromCPU(w http.ResponseWriter, r *http.Request) {
-	// HAGO UN LOG PARA CHEQUEAR RECEPCION
-	log.Printf("Recibiendo solicitud de contexto de ejecucuion desde el CPU")
+// func ProcessSavedPCFromCPU(w http.ResponseWriter, r *http.Request) {
+// 	// HAGO UN LOG PARA CHEQUEAR RECEPCION
+// 	log.Printf("Recibiendo solicitud de contexto de ejecucuion desde el CPU")
 
-	// GUARDO PCB RECIBIDO EN sendPCB
-	var sendPC int
-	err := json.NewDecoder(r.Body).Decode(&sendPC)
-	if err != nil {
-		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
-		return
-	}
+// 	// GUARDO PCB RECIBIDO EN sendPCB
+// 	var sendPC int
+// 	err := json.NewDecoder(r.Body).Decode(&sendPC)
+// 	if err != nil {
+// 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
+// 		return
+// 	}
 
-	// HAGO UN LOG PARA CHEQUEAR QUE PASO ERRORES
-	log.Printf("PC recibido desde el CPU: %+v", sendPC)
+// 	// HAGO UN LOG PARA CHEQUEAR QUE PASO ERRORES
+// 	log.Printf("PC recibido desde el CPU: %+v", sendPC)
 
-	instruction, _ := readInstructions(globalPath, sendPC)
+// 	instruction, _ := readInstructions(globalPath, sendPC)
 
-	reponse := InstructionResposne{
-		Instruction: instruction,
-	}
-	jsonResponse, _ := json.Marshal(reponse)
-	log.Printf("PC recibido desde el CPU: %s", jsonResponse)
+// 	reponse := InstructionResposne{
+// 		Instruction: instruction,
+// 	}
+// 	jsonResponse, _ := json.Marshal(reponse)
+// 	log.Printf("PC recibido desde el CPU: %s", jsonResponse)
 
-	w.WriteHeader(http.StatusOK)
-	w.Write(jsonResponse)
-}
+// 	w.WriteHeader(http.StatusOK)
+// 	w.Write(jsonResponse)
+// }
 
 func readInstructions(path string, targetLine int) (string, error) {
 	// Open the file for reading
@@ -137,7 +144,7 @@ func readInstructions(path string, targetLine int) (string, error) {
 	for fileScanner.Scan() {
 		if lineNumber == targetLine {
 			instruction = fileScanner.Text() // Assign the scanned line to the variable instruction
-			log.Printf("PC: %s y tenemos la instuction %s", fileScanner.Text(), instruction)
+			log.Printf("PC: %s y tenemos la instruction %s", fileScanner.Text(), instruction)
 			return instruction, nil
 		}
 		log.Printf("Afuera: %s", fileScanner.Text())
