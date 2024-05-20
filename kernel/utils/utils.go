@@ -130,8 +130,12 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		// aviso de cpu que termin
+		//cambiar estado proceso
 		// Remove the first process from the queue
-		colaReady = colaReady[1:]
+		pcb.State = "EXIT"
+		//colaReady = colaReady[1:]
+
 		mu.Unlock()
 	}()
 
