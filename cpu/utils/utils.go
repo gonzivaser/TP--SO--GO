@@ -27,17 +27,12 @@ type BodyResponseInstruction struct {
 	Instruction string `json:"instruction"`
 }
 
-type PCB struct { //ESTO NO VA ACA
-	Pid, ProgramCounte, Quantum int
-	CpuReg                      RegisterCPU
-}
-
 type ExecutionContext struct {
 	Pid, ProgramCounter int
 	CpuReg              RegisterCPU
 }
 
-type RegisterCPU struct { //ESTO NO VA ACA
+type RegisterCPU struct {
 	PC, EAX, EBX, ECX, EDX, SI, DI uint32
 	AX, BX, CX, DX                 uint8
 }
@@ -102,9 +97,9 @@ func ProcessSavedPCBFromKernel(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		instruction, err := Decode(line)
-		if instruction == "EXIT" {
-			SendResponse(w)
-		}
+		// if instruction == "EXIT" {
+		// 	SendResponse(w)
+		// }
 		Execute(instruction, line)
 		if err != nil {
 			http.Error(w, "Error al serializar el PCB", http.StatusInternalServerError)
@@ -116,7 +111,6 @@ func ProcessSavedPCBFromKernel(w http.ResponseWriter, r *http.Request) {
 		programCounter++
 	}
 }
-
 
 func Fetch(pc int) ([]string, error) {
 	memoriaURL := "http://localhost:8085/savePC"
@@ -182,6 +176,8 @@ func Execute(instruction string, line []string) error {
 		if err != nil {
 			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
 		}
+	case "EXIT":
+		Exit(&sendPCB.Pid)
 
 	default:
 		fmt.Println("Unknown instruction")
@@ -342,6 +338,14 @@ func Resta(registerCPU *RegisterCPU, s1, s2 string) error {
 		campoDestinoRef.SetUint(resta)
 	}
 	return nil
+}
+
+func Exit(pid *int) {
+	kernelUrl := "http://localhost:8080/process/"
+	finalUrl := kernelUrl + strconv.Itoa(*pid)
+	req, _ := http.NewRequest("DELETE", finalUrl, nil)
+	log.Println("WASAAAAAAAAAAAAAA")
+	http.DefaultClient.Do(req)
 }
 
 func Checkinterrupts(w http.ResponseWriter, r *http.Request) {
