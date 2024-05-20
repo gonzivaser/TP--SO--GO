@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/sisoputnfrba/tp-golang/memoria/globals"
 )
@@ -21,8 +22,9 @@ type InstructionResposne struct {
 }
 
 type PCB struct {
-	Pid, programCounter, Quantum int
-	CpuReg                       RegisterCPU
+	// programCounter, Quantum int
+	Pid    int
+	CpuReg RegisterCPU
 }
 
 type RegisterCPU struct {
@@ -124,31 +126,45 @@ func check(e error) {
 // 	w.Write(jsonResponse)
 // }
 
-func readInstructions(path string, targetLine int) (string, error) {
-	// Open the file for reading
-	readFile, err := os.Open(path)
-	if err != nil {
-		return "", fmt.Errorf("error opening file: %w", err)
-	}
-	defer readFile.Close() // Ensure file is closed even on errors
+func setInstructionsFromFileToMap(w http.ResponseWriter, r *http.Request) {
+	var m = make(map[int][]string)
+	// m[pcb.Pid] = readInstructions(path, pcb.programCounter)
+	queryParams1 := r.URL.Query()
+	pid, _ := strconv.Atoi(queryParams1.Get("pid"))
+	queryParams2 := r.URL.Query()
+	path := queryParams2.Get("path")
+
+	readFile, _ := os.Open(path)
+	// Ensure file is closed even on errors
 
 	// Create a new scanner for line-by-line reading
 	fileScanner := bufio.NewScanner(readFile)
 	fileScanner.Split(bufio.ScanLines)
 
 	// Line counter for efficient access
-	lineNumber := 1
-	instruction := "" // Declare the variable "instruction" before the loop
+	// lineNumber := 1
+	// instruction := "" // Declare the variable "instruction" before the loop
 
 	// Read lines until target line is reached or EOF
+	// for fileScanner.Scan() {
+	// 	if lineNumber == targetLine {
+	// 		instruction = fileScanner.Text() // Assign the scanned line to the variable instruction
+	// 		log.Printf("PC: %s y tenemos la instruction %s", fileScanner.Text(), instruction)
+	// 		return instruction, nil
+	// 	}
+	// 	log.Printf("Afuera: %s", fileScanner.Text())
+	// 	lineNumber++
+	// }
+
+	var arrInstructions []string
 	for fileScanner.Scan() {
-		if lineNumber == targetLine {
-			instruction = fileScanner.Text() // Assign the scanned line to the variable instruction
-			log.Printf("PC: %s y tenemos la instruction %s", fileScanner.Text(), instruction)
-			return instruction, nil
-		}
-		log.Printf("Afuera: %s", fileScanner.Text())
-		lineNumber++
+		arrInstructions = append(arrInstructions, fileScanner.Text())
 	}
-	return "", fmt.Errorf("target line not found")
+	m[pid] = arrInstructions
+	fmt.Println(m[pid])
+
+	defer readFile.Close()
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Instructions loaded successfully"))
 }
