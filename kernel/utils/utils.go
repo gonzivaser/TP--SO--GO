@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 
 	"github.com/sisoputnfrba/tp-golang/kernel/globals"
@@ -99,6 +100,7 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 
 	// Create PCB
 	pcb := createPCB()
+	log.Printf("Se crea el proceso %v en NEW", pcb.Pid) // log obligatorio
 
 	// Goroutine to send path to memory
 	go func() {
@@ -144,20 +146,6 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-}
-
-func ShowColaReady(w http.ResponseWriter, r *http.Request) {
-	// Convert colaReady array to JSON
-	colaReadyJSON, err := json.Marshal(colaReady)
-	if err != nil {
-		http.Error(w, "Error al convertir colaReady a JSON", http.StatusInternalServerError)
-		return
-	}
-
-	// Write the JSON response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(colaReadyJSON)
 }
 
 var nextPid = 1
@@ -256,15 +244,29 @@ func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
 }
 
 func EstadoProceso(w http.ResponseWriter, r *http.Request) {
-	pid := r.PathValue("pid")
+	pidStr := r.PathValue("pid")
+	pid, err := strconv.Atoi(pidStr)
+	if err != nil {
+		// handle error
+		log.Printf("Error converting pid to integer: %v", err)
+		return
+	}
+
+	var processState string
+	for _, process := range colaReady {
+		if process.PCB.Pid == pid {
+			processState = process.PCB.State
+			break
+		}
+	}
 
 	BodyResponse := BodyResponseState{
-		State: "EXIT",
+		State: processState,
 	}
 
 	stateResponse, _ := json.Marshal(BodyResponse)
 
-	log.Printf("PID: %s - Estado Anterior: <ESTADO_ANTERIOR> - Estado Actual: %v", pid, BodyResponse.State) // A checkear
+	//log.Printf("PID: %s - Estado Anterior: <ESTADO_ANTERIOR> - Estado Actual: %v", pid, BodyResponse.State) // A checkear
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(stateResponse)
@@ -287,27 +289,24 @@ func DetenerPlanificacion(w http.ResponseWriter, r *http.Request) {
 }
 
 func ListarProcesos(w http.ResponseWriter, r *http.Request) {
-	BodyResponse := []BodyResponseListProcess{
-		{0, "EXEC"},
-		{1, "READY"},
-		{2, "BLOCK"},
-		{3, "FIN"},
+	// Convert colaReady array to JSON
+	var pids []int
+	for _, process := range colaReady {
+		pids = append(pids, process.PCB.Pid)
 	}
 
-	arrayProcesos, err := json.Marshal(BodyResponse)
+	pidsJSON, err := json.Marshal(pids)
 	if err != nil {
-		http.Error(w, "Error al codificar los datos como JSON", http.StatusInternalServerError)
+		http.Error(w, "Error al convertir colaReady a JSON", http.StatusInternalServerError)
 		return
 	}
 
-	for i := 0; i < len(BodyResponse); i++ {
-		fmt.Print(BodyResponse[i], "\n")
-	}
+	log.Printf("Cola Ready COLA: %v", pids)
 
-	log.Print("Cola Ready <COLA>: [<LISTA DE PIDS>]") //ESTO NO VA ACA
-
+	// Write the JSON response
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(arrayProcesos)
+	w.Write(pidsJSON)
 }
 
 func ConfigurarLogger() {

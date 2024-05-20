@@ -20,8 +20,6 @@ func main() {
 	puerto := globals.ClientConfig.Puerto
 
 	http.HandleFunc("PUT /process", utils.IniciarProceso)
-
-	http.HandleFunc("/showCola", utils.ShowColaReady)
 	http.HandleFunc("DELETE /process/{pid}", utils.FinalizarProceso)
 	http.HandleFunc("GET /process/{pid}", utils.EstadoProceso)
 	http.HandleFunc("PUT /plani", utils.IniciarPlanificacion)
