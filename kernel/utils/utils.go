@@ -75,8 +75,13 @@ type RegisterCPU struct { //ESTO NO VA ACA
 	DI  uint32
 }
 
+type Proceso struct {
+	Request BodyRequest
+	PCB     *PCB
+}
+
 var (
-	colaReady []int
+	colaReady []Proceso
 	mu        sync.Mutex
 )
 
@@ -84,63 +89,57 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	var request BodyRequest
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("Datos recibidos: %+v", request)
+	log.Printf("Received data: %+v", request)
 
-	// Channel for communicating PCB
 	pcbChan := make(chan *PCB)
 
-	// Goroutine to create PCB and send path to memory
+	// Create PCB
+	pcb := createPCB()
+
+	// Goroutine to send path to memory
 	go func() {
-		// CREO EL PCB
-		for {
+		mu.Lock()
+		// Create a new process and add it to the queue
+		proceso := Proceso{
+			Request: request,
+			PCB:     &pcb,
+		}
+		colaReady = append(colaReady, proceso)
+		mu.Unlock()
 
-			pcb := createPCB()
-			colaReady = append(colaReady, pcb.Pid)
-
-			// Send PCB through channel
-
-			// CHEQUEO ERRORES
-			if err := SendPathToMemory(request); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-
-			pcbChan <- &pcb
+		// Send PCB through channel
+		if err := SendPathToMemory(proceso.Request); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 
+		pcbChan <- &pcb
 	}()
 
 	// Goroutine to send context to CPU
 	go func() {
-
 		// Receive PCB from channel
 		pcb := <-pcbChan
 
-		// LLAMO A CPU PARA MANDAR EL pid, PC y los registros
-
 		mu.Lock()
-
 		if err := SendContextToCPU(*pcb); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		// Remove the first process from the queue
+		colaReady = colaReady[1:]
 		mu.Unlock()
-
 	}()
 
 	// Response with the PID
-	pcb := <-pcbChan
-	BodyResponse := BodyResponsePid{
-		Pid: pcb.Pid,
-	}
 
-	pidResponse, _ := json.Marshal(BodyResponse)
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(pidResponse))
+
 }
 
 func ShowColaReady(w http.ResponseWriter, r *http.Request) {
