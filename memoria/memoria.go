@@ -19,7 +19,8 @@ func main() {
 
 	puerto := globals.ClientConfig.Puerto
 
-	http.HandleFunc("GET /test", utils.SetInstructionsFromFileToMap)
+	http.HandleFunc("POST /setInstructionFromFileToMap", utils.SetInstructionsFromFileToMap)
+	http.HandleFunc("GET /getInstructionFromPid", utils.GetInstruction)
 
 	http.ListenAndServe(":"+strconv.Itoa(puerto), nil)
 }
