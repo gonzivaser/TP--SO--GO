@@ -76,6 +76,12 @@ type RegisterCPU struct { //ESTO NO VA ACA
 	DI  uint32
 }
 
+// Estructura para la interfaz genérica
+type InterfazIO struct {
+	Name string // Nombre interfaz Int1
+	Time int    // Configuración 10
+}
+
 type Proceso struct {
 	Request BodyRequest
 	PCB     *PCB
@@ -86,7 +92,37 @@ var (
 	mu        sync.Mutex
 )
 
+var syscallIO bool
+var ioNew InterfazIO
+var ioReciebed InterfazIO
+
+func ProcessIOsyscall(w http.ResponseWriter, r *http.Request) {
+
+	ioReciebed.Time = 10
+	// CHEQUEO CON UN LOG PARA VERIFICAR LA SOLICITUD DE la cpu
+	/*syscallIO = true // pongo el valor en 5true para avisar que hay una syscall de I/O
+	log.Printf("Recibiendo solicitud de I/O desde el cpu")
+
+	// CREO VARIABLE I/O
+
+	err := json.NewDecoder(r.Body).Decode(&ioNew)
+	if err != nil {
+		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
+		return
+	}
+	ioReciebed.Time = int(ioNew.Time)
+
+	// enviar I/O a entradasalida
+	// HAGO UN LOG SI PASO ERRORES PARA RECEPCION DEL I/O
+	log.Printf("Recibido I/O: %v", ioNew)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("%v", syscallIO)))*/
+}
+
 func IniciarProceso(w http.ResponseWriter, r *http.Request) {
+	syscallIO = true     // PROBANDO
+	ioReciebed.Time = 10 // PROBANDO
 	var request BodyRequest
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
@@ -123,6 +159,7 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// Goroutine to send context to CPU
+	// Goroutine to send context to CPU
 	go func() {
 		// Receive PCB from channel
 		pcb := <-pcbChan
@@ -132,11 +169,37 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		// aviso de cpu que termin
-		//cambiar estado proceso
-		// Remove the first process from the queue
-		pcb.State = "EXIT"
-		//colaReady = colaReady[1:]
+
+		// Check if there was an I/O operation
+		if syscallIO {
+			log.Printf("Operación de I/O recibida para el proceso %v", pcb.Pid)
+			// Handle I/O operation here
+
+			//recibir contexto PC = 5
+
+			if err := SendIOToEntradaSalida(ioReciebed.Time); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			} //aca espera el tiempo y despues ejecuta, hay que arreglarlo
+			//meter devuelta a la cola pc=5
+			syscallIO = false
+
+			// Check if there are more processes in the queue
+			if len(colaReady) > 0 {
+				nextProcess := colaReady[0]
+				nextProcess.PCB.State = "RUNNING"
+				log.Printf("El proceso %v ahora está en ejecución", pcb.Pid)
+
+				// Send path to memory again
+				/*go func() {
+					if err := SendPathToMemory(nextProcess.Request); err != nil {
+						http.Error(w, err.Error(), http.StatusInternalServerError)
+						return
+					}
+					pcbChan <- nextProcess.PCB
+				}()*/
+			}
+		}
 
 		mu.Unlock()
 	}()
@@ -145,7 +208,6 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-
 }
 
 var nextPid = 1
@@ -229,6 +291,36 @@ func SendContextToCPU(pcb PCB) error {
 
 	// SE CHEQUEA CON UN PRINT QUE LA CPU RECIBIO CORRECTAMENTE EL PCB
 	log.Println("Respuesta del módulo de cpu recibida correctamente.")
+	return nil
+}
+
+type Payload struct {
+	IO int `json:"io"`
+}
+
+func SendIOToEntradaSalida(io int) error {
+	entradasalidaURL := "http://localhost:8090/interfaz"
+
+	payload := Payload{
+		IO: io,
+	}
+
+	ioResponseTest, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("error al serializar el payload: %v", err)
+	}
+
+	resp, err := http.Post(entradasalidaURL, "application/json", bytes.NewBuffer(ioResponseTest))
+	if err != nil {
+		return fmt.Errorf("error al enviar la solicitud al módulo de cpu: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("error en la respuesta del módulo de cpu: %v", resp.StatusCode)
+	}
+
+	log.Println("Respuesta del módulo de IO recibida correctamente.")
 	return nil
 }
 

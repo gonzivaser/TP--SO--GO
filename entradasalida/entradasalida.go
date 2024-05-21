@@ -25,7 +25,7 @@ func main() {
 	log.Printf("Path al archivo de configuración: %s", pathToConfig)
 
 	//http.HandleFunc("GET /input", utils.Prueba)
-	http.HandleFunc("GET /interfaz", utils.Iniciar)
+	http.HandleFunc("/interfaz", utils.Iniciar)
 
 	// Cargar la configuración desde el archivo
 
