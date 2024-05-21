@@ -135,7 +135,7 @@ func createPCB() PCB {
 }
 
 func SendPathToMemory(request BodyRequest) error {
-	memoriaURL := "http://localhost:8085/savedPath"
+	memoriaURL := "http://localhost:8085/setInstructionFromFileToMap"
 	savedPathJSON, err := json.Marshal(request)
 	if err != nil {
 		return fmt.Errorf("error al serializar los datos JSON: %v", err)
@@ -158,7 +158,7 @@ func SendPathToMemory(request BodyRequest) error {
 }
 
 func SendContextToCPU(pcb PCB) error {
-	cpuURL := "http://localhost:8075/savePCB"
+	cpuURL := "http://localhost:8075/receivePCB"
 
 	// CREO EL CONTEXTO DE EJECUCION -> OSEA LOS DATOS DEL PCB QUE VA A NECESITAR LA CPU PARA EL MOMENTO DE EJECUCION
 	context := ExecutionContext{
