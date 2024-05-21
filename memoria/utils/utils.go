@@ -32,6 +32,8 @@ type RegisterCPU struct {
 	AX, BX, CX, DX                 uint8
 }
 
+var m = make(map[int][][]string)
+
 func IniciarConfiguracion(filePath string) *globals.Config {
 	var config *globals.Config
 	configFile, err := os.Open(filePath)
@@ -56,8 +58,7 @@ func ConfigurarLogger() {
 }
 
 func SetInstructionsFromFileToMap(w http.ResponseWriter, r *http.Request) {
-	var m = make(map[int][][]string)
-	// m[pcb.Pid] = readInstructions(path, pcb.programCounter)
+	// m[pcb.Pid] = readInstructions(path pcb.programCounter)
 	queryParams1 := r.URL.Query()
 	pid, _ := strconv.Atoi(queryParams1.Get("pid"))
 	queryParams2 := r.URL.Query()
