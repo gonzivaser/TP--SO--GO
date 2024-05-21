@@ -98,7 +98,7 @@ func ReceivePCB(w http.ResponseWriter, r *http.Request) {
 }
 
 func Fetch(pc int, pid int) (string, error) {
-	memoriaURL := fmt.Sprintf("http://localhost:8085/getInstructionFromPid?pid=%d&programCounter=%d", 1, pc)
+	memoriaURL := fmt.Sprintf("http://localhost:8085/getInstruction?pid=%d&programCounter=%d", 1, pc)
 	resp, err := http.Get(memoriaURL)
 	if err != nil {
 		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
