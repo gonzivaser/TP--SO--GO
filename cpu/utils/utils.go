@@ -9,6 +9,7 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/sisoputnfrba/tp-golang/cpu/globals"
 )
@@ -19,10 +20,6 @@ type PruebaMensaje struct {
 
 type BodyResponse struct {
 	ExecutionContext ExecutionContext `json:"ExecutionContext"`
-}
-
-type BodyResponseInstruction struct {
-	Instruction []string `json:"instruction"`
 }
 
 type PCB struct { //ESTO NO VA ACA
@@ -41,6 +38,10 @@ type ExecutionContext struct {
 type RegisterCPU struct {
 	PC, EAX, EBX, ECX, EDX, SI, DI uint32
 	AX, BX, CX, DX                 uint8
+}
+
+type BodyResponseInstruction struct {
+	Instruction string `json:"instruction"`
 }
 
 func ConfigurarLogger() {
@@ -90,9 +91,10 @@ func ReceivePCB(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
 		return
 	}
+	log.Printf("PCB recibido desde el kernel: %+v", receivedPCB)
 	InstructionCycle(receivedPCB)
 	// HAGO UN LOG PARA CHEQUEAR QUE PASO ERRORES
-	log.Printf("PCB recibido desde el kernel: %+v", receivedPCB)
+
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -100,56 +102,76 @@ func InstructionCycle(receivedPCB ExecutionContext) {
 	for {
 		line, _ := Fetch(int(receivedPCB.CpuReg.PC), receivedPCB.Pid)
 		instruction, _ := Decode(line)
-		Execute(instruction, line)
-		fmt.Println(instruction)
+		Execute(instruction, line, &receivedPCB) // Pass the address of receivedPCB
+		fmt.Println("hola", instruction)
+
+		receivedPCB.CpuReg.PC++
+		words := strings.Fields(line[0])
+		if words[0] == "EXIT" {
+			break
+		}
 	}
+	fmt.Println("el PCB ya actualizado;", receivedPCB)
+	fmt.Println("el ax es", receivedPCB.CpuReg.AX)
+	fmt.Println("el ax es", receivedPCB.CpuReg.BX)
+
+	fmt.Println("teeermino")
+
 }
 
 func Fetch(pc int, pid int) ([]string, error) {
-	memoriaURL := fmt.Sprintf("http://localhost:8085/getInstructionFromPid?pid=%d&programCounter=%d", 1, pc)
+	memoriaURL := fmt.Sprintf("http://localhost:8085/getInstructionFromPid?pid=%d&programCounter=%d", pid, pc)
 	resp, err := http.Get(memoriaURL)
 	if err != nil {
 		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
-	// CHEQUEO STATUS CODE CON MI VARIABLE resp
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("error en la respuesta del módulo de memoria: %v", resp.StatusCode)
+		err := fmt.Errorf("error en la respuesta del módulo de memoria: %v", resp.StatusCode)
+		log.Println(err)
+		return nil, err
 	}
+
 	var response BodyResponseInstruction
-	_ = json.NewDecoder(resp.Body).Decode(&response)
-	println(fmt.Sprintf("%+v", response.Instruction)) // Convert response to string before printing
+	err = json.NewDecoder(resp.Body).Decode(&response)
+	if err != nil {
+		log.Println("error al decodificar la respuesta del módulo de memoria:", err)
+		return nil, err
+	}
 
-	return response.Instruction, nil
-	// 	// // CREO VARIABLE DONDE GUARDO EL PROGRAM COUNTER
-	// 	// pcProcess, err := json.Marshal(pc)
-
-	// 	// // CHEQUEO ERRORES
-	// 	// if err != nil {
-	// 	// 	return nil, fmt.Errorf("error al serializar el PCB: %v", err)
-	// 	// }
-
-	// 	// // CONFIRMACION DE QUE PASO ERRORES Y SE MANDA SOLICITUD
-	// 	// log.Println("Enviando Program Counter con valor:", string(pcProcess))
-
-	// 	// // CREO VARIABLE resp y err CON EL
-	// 	// resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(pcProcess))
-	// 	// if err != nil {
-	// 	// 	return nil, fmt.Errorf("error al enviar la solicitud al módulo de memoria: %v", err)
-	// 	// }
-
-	// 	// defer resp.Body.Close()
-	// 	// if err != nil {
-	// 	// 	return nil, fmt.Errorf("error al decodificar la respuesta del módulo de memoria: %v", err)
-	// 	// }
-	// 	// instruction := strings.Fields(response.Instruction)
-
-	// 	// // SE CHEQUEA CON UN PRINT QUE LA LA MEMORIA RECIBIO CORRECTAMENTE EL pc
-	// 	// log.Println("Respuesta del módulo de memoria recibida correctamente.")
-	// 	// return instruction, nil
-
+	instructions := strings.Split(response.Instruction, ",") // split the string into a slice
+	log.Println("Instrucción recibida:", instructions)
+	return instructions, nil
 }
+
+// 	// // CREO VARIABLE DONDE GUARDO EL PROGRAM COUNTER
+// 	// pcProcess, err := json.Marshal(pc)
+
+// 	// // CHEQUEO ERRORES
+// 	// if err != nil {
+// 	// 	return nil, fmt.Errorf("error al serializar el PCB: %v", err)
+// 	// }
+
+// 	// // CONFIRMACION DE QUE PASO ERRORES Y SE MANDA SOLICITUD
+// 	// log.Println("Enviando Program Counter con valor:", string(pcProcess))
+
+// 	// // CREO VARIABLE resp y err CON EL
+// 	// resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(pcProcess))
+// 	// if err != nil {
+// 	// 	return nil, fmt.Errorf("error al enviar la solicitud al módulo de memoria: %v", err)
+// 	// }
+
+// 	// defer resp.Body.Close()
+// 	// if err != nil {
+// 	// 	return nil, fmt.Errorf("error al decodificar la respuesta del módulo de memoria: %v", err)
+// 	// }
+// 	// instruction := strings.Fields(response.Instruction)
+
+// 	// // SE CHEQUEA CON UN PRINT QUE LA LA MEMORIA RECIBIO CORRECTAMENTE EL pc
+// 	// log.Println("Respuesta del módulo de memoria recibida correctamente.")
+// 	// return instruction, nil
 
 func Decode(instruction []string) (string, error) {
 	// Esta función se va a conoplicar con la traducción de las direcciones fisicas y logicas
@@ -159,21 +181,23 @@ func Decode(instruction []string) (string, error) {
 	return instruction[0], nil
 }
 
-func Execute(instruction string, line []string) error {
+func Execute(instruction string, line []string, receivedPCB *ExecutionContext) error {
 
-	switch instruction {
+	words := strings.Fields(line[0])
+
+	switch words[0] {
 	case "SET": // Change the type of the switch case expression from byte to string
-		err := SetCampo(&receivedPCB.CpuReg, line[1], line[2])
+		err := SetCampo(&receivedPCB.CpuReg, words[1], words[2])
 		if err != nil {
 			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
 		}
 	case "SUM":
-		err := Suma(&receivedPCB.CpuReg, line[1], line[2])
+		err := Suma(&receivedPCB.CpuReg, words[1], words[2])
 		if err != nil {
 			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
 		}
 	case "SUB":
-		err := Resta(&receivedPCB.CpuReg, line[1], line[2])
+		err := Resta(&receivedPCB.CpuReg, words[1], words[2])
 		if err != nil {
 			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
 		}
