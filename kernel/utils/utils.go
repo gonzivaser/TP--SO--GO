@@ -94,7 +94,7 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	pidResponse, _ := json.Marshal(BodyResponse)
 
 	// CHEQUEO ERRORES
-	if err := SendPathToMemory(request); err != nil {
+	if err := SendPathToMemory(request, BodyResponse.Pid); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -134,8 +134,8 @@ func createPCB() PCB {
 	}
 }
 
-func SendPathToMemory(request BodyRequest) error {
-	memoriaURL := "http://localhost:8085/setInstructionFromFileToMap"
+func SendPathToMemory(request BodyRequest, pid int) error {
+	memoriaURL := fmt.Sprintf("http://localhost:8085/setInstructionFromFileToMap?pid=%d&path=%s", pid, request.Path)
 	savedPathJSON, err := json.Marshal(request)
 	if err != nil {
 		return fmt.Errorf("error al serializar los datos JSON: %v", err)

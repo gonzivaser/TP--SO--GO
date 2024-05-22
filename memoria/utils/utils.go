@@ -3,6 +3,7 @@ package utils
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -76,7 +77,9 @@ func SetInstructionsFromFileToMap(w http.ResponseWriter, r *http.Request) {
 		arrInstructions = append(arrInstructions, []string{fileScanner.Text()})
 	}
 	m[pid] = arrInstructions
-	println(m[pid])
+
+	fmt.Printf("%v\n", m[pid])
+	fmt.Println(m)
 	defer readFile.Close()
 
 	w.WriteHeader(http.StatusOK)
