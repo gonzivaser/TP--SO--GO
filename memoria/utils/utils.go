@@ -88,14 +88,14 @@ func GetInstruction(w http.ResponseWriter, r *http.Request) {
 	pid, _ := strconv.Atoi(queryParams.Get("pid"))
 	programCounter, _ := strconv.Atoi(queryParams.Get("programCounter"))
 
-	instrucion := m[pid][programCounter][0]
+	instruction := m[pid][programCounter][0]
 
 	instructionResponse := InstructionResposne{
-		Instruction: instrucion,
+		Instruction: instruction,
 	}
 
 	json.NewEncoder(w).Encode(instructionResponse)
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(instrucion))
+	w.Write([]byte(instruction))
 }
