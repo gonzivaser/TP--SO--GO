@@ -93,36 +93,42 @@ var (
 )
 
 var syscallIO bool
-var ioNew InterfazIO
-var ioReciebed InterfazIO
 
-func ProcessIOsyscall(w http.ResponseWriter, r *http.Request) {
+type Syscall struct {
+	TIME int `json:"time"`
+}
 
-	ioReciebed.Time = 10
+var timeIO int
+
+func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
+
 	// CHEQUEO CON UN LOG PARA VERIFICAR LA SOLICITUD DE la cpu
-	/*syscallIO = true // pongo el valor en 5true para avisar que hay una syscall de I/O
+	// pongo el valor en 5true para avisar que hay una syscall de I/O
 	log.Printf("Recibiendo solicitud de I/O desde el cpu")
+	var timeSys Syscall
 
 	// CREO VARIABLE I/O
 
-	err := json.NewDecoder(r.Body).Decode(&ioNew)
+	err := json.NewDecoder(r.Body).Decode(&timeSys)
 	if err != nil {
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
 		return
 	}
-	ioReciebed.Time = int(ioNew.Time)
+
+	timeIO = timeSys.TIME
+	syscallIO = true
 
 	// enviar I/O a entradasalida
 	// HAGO UN LOG SI PASO ERRORES PARA RECEPCION DEL I/O
-	log.Printf("Recibido I/O: %v", ioNew)
+	log.Printf("Recibido I/O: %v", timeSys)
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("%v", syscallIO)))*/
+	w.Write([]byte(fmt.Sprintf("%v", timeSys)))
+
 }
 
 func IniciarProceso(w http.ResponseWriter, r *http.Request) {
-	syscallIO = true     // PROBANDO
-	ioReciebed.Time = 10 // PROBANDO
+
 	var request BodyRequest
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
@@ -132,82 +138,66 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Received data: %+v", request)
 
-	pcbChan := make(chan *PCB)
-
 	// Create PCB
 	pcb := createPCB()
 	log.Printf("Se crea el proceso %v en NEW", pcb.Pid) // log obligatorio
 
-	// Goroutine to send path to memory
-	go func() {
-		mu.Lock()
-		// Create a new process and add it to the queue
-		proceso := Proceso{
-			Request: request,
-			PCB:     &pcb,
-		}
-		colaReady = append(colaReady, proceso)
-		mu.Unlock()
+	// Create a new process and add it to the queue
+	proceso := Proceso{
+		Request: request,
+		PCB:     &pcb,
+	}
 
-		// Send PCB through channel
-		if err := SendPathToMemory(proceso.Request); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+	mu.Lock()
+	colaReady = append(colaReady, proceso)
+	if err := SendPathToMemory(proceso.Request); err != nil {
+		log.Printf("Error sending path to memory: %v", err)
+		return
+	}
+	mu.Unlock()
 
-		pcbChan <- &pcb
-	}()
-
-	// Goroutine to send context to CPU
-	// Goroutine to send context to CPU
-	go func() {
-		// Receive PCB from channel
-		pcb := <-pcbChan
-
-		mu.Lock()
-		if err := SendContextToCPU(*pcb); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		// Check if there was an I/O operation
-		if syscallIO {
-			log.Printf("Operación de I/O recibida para el proceso %v", pcb.Pid)
-			// Handle I/O operation here
-
-			//recibir contexto PC = 5
-
-			if err := SendIOToEntradaSalida(ioReciebed.Time); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			} //aca espera el tiempo y despues ejecuta, hay que arreglarlo
-			//meter devuelta a la cola pc=5
-			syscallIO = false
-
-			// Check if there are more processes in the queue
-			if len(colaReady) > 0 {
-				nextProcess := colaReady[0]
-				nextProcess.PCB.State = "RUNNING"
-				log.Printf("El proceso %v ahora está en ejecución", pcb.Pid)
-
-				// Send path to memory again
-				/*go func() {
-					if err := SendPathToMemory(nextProcess.Request); err != nil {
-						http.Error(w, err.Error(), http.StatusInternalServerError)
-						return
-					}
-					pcbChan <- nextProcess.PCB
-				}()*/
-			}
-		}
-
-		mu.Unlock()
-	}()
+	go executeProcess()
 
 	// Response with the PID
-
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+}
+
+func executeProcess() {
+	for {
+		mu.Lock()
+		if len(colaReady) == 0 {
+			mu.Unlock()
+			return
+		}
+
+		// Dequeue a process from colaReady
+		proceso := colaReady[0]
+		colaReady = colaReady[1:]
+		mu.Unlock()
+
+		go func(proceso Proceso) {
+			// Execute the process
+
+			if err := SendContextToCPU(*proceso.PCB); err != nil {
+				log.Printf("Error sending context to CPU: %v", err)
+				return
+			}
+
+			if syscallIO {
+				log.Printf("Operación de I/O recibida para el proceso %v", proceso.PCB.Pid)
+				if err := SendIOToEntradaSalida(timeIO); err != nil {
+					log.Printf("Error sending IO to EntradaSalida: %v", err)
+				}
+				syscallIO = false
+
+				// Put the process back into colaReady
+				mu.Lock()
+				colaReady = append(colaReady, proceso)
+				mu.Unlock()
+			}
+		}(proceso)
+	}
 }
 
 var nextPid = 1
