@@ -48,16 +48,16 @@ type BodyResponsePCB struct { //ESTO NO VA ACA
 }
 
 type PCB struct { //ESTO NO VA ACA
-	Pid            int
-	ProgramCounter int
-	Quantum        int
-	CpuReg         RegisterCPU
+	Pid     int
+	Quantum int
+	State   string
+	CpuReg  RegisterCPU
 }
 
 type ExecutionContext struct {
-	Pid            int
-	ProgramCounter int
-	CpuReg         RegisterCPU
+	Pid    int
+	State  string
+	CpuReg RegisterCPU
 }
 
 type RegisterCPU struct { //ESTO NO VA ACA
@@ -115,11 +115,11 @@ func createPCB() PCB {
 	nextPid++
 
 	return PCB{
-		Pid:            nextPid - 1, // ASIGNO EL VALOR ANTERIOR AL pid
-		ProgramCounter: 0,
-		Quantum:        0,
+		Pid:     nextPid - 1, // ASIGNO EL VALOR ANTERIOR AL pid
+		State:   "New",
+		Quantum: 0,
 		CpuReg: RegisterCPU{
-			PC:  1,
+			PC:  0,
 			AX:  0,
 			BX:  0,
 			CX:  0,
@@ -162,9 +162,9 @@ func SendContextToCPU(pcb PCB) error {
 
 	// CREO EL CONTEXTO DE EJECUCION -> OSEA LOS DATOS DEL PCB QUE VA A NECESITAR LA CPU PARA EL MOMENTO DE EJECUCION
 	context := ExecutionContext{
-		Pid:            pcb.Pid,
-		ProgramCounter: pcb.ProgramCounter,
-		CpuReg:         pcb.CpuReg,
+		Pid:    pcb.Pid,
+		State:  pcb.State,
+		CpuReg: pcb.CpuReg,
 	}
 	pcbResponseTest, err := json.Marshal(context)
 

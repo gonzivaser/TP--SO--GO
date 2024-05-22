@@ -26,13 +26,16 @@ type BodyResponseInstruction struct {
 }
 
 type PCB struct { //ESTO NO VA ACA
-	Pid, ProgramCounte, Quantum int
-	CpuReg                      RegisterCPU
+	Pid     int
+	Quantum int
+	State   string
+	CpuReg  RegisterCPU
 }
 
 type ExecutionContext struct {
-	Pid, ProgramCounter int
-	CpuReg              RegisterCPU
+	Pid    int
+	State  string
+	CpuReg RegisterCPU
 }
 
 type RegisterCPU struct {
@@ -73,7 +76,6 @@ func SendResponse(w http.ResponseWriter) {
 	w.Write(response)
 }
 
-var programCounter int
 var receivedPCB ExecutionContext //PCB recibido desde kernel
 
 func ReceivePCB(w http.ResponseWriter, r *http.Request) {
@@ -88,12 +90,17 @@ func ReceivePCB(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
 		return
 	}
-
+	InstructionCycle(receivedPCB)
 	// HAGO UN LOG PARA CHEQUEAR QUE PASO ERRORES
 	log.Printf("PCB recibido desde el kernel: %+v", receivedPCB)
+	w.WriteHeader(http.StatusOK)
+}
 
-	instruccion, _ := Fetch(programCounter, receivedPCB.Pid)
-	fmt.Println(instruccion)
+func InstructionCycle(receivedPCB ExecutionContext) {
+	for {
+		instruccion, _ := Fetch(int(receivedPCB.CpuReg.PC), receivedPCB.Pid)
+		fmt.Println(instruccion)
+	}
 
 }
 
@@ -113,7 +120,7 @@ func Fetch(pc int, pid int) (string, error) {
 	_ = json.NewDecoder(resp.Body).Decode(&response)
 	println(fmt.Sprintf("%+v", response.Instruction)) // Convert response to string before printing
 
-	return resp.Status, nil
+	return response.Instruction, nil
 	// 	// // CREO VARIABLE DONDE GUARDO EL PROGRAM COUNTER
 	// 	// pcProcess, err := json.Marshal(pc)
 
