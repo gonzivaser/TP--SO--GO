@@ -22,7 +22,7 @@ type BodyResponse struct {
 }
 
 type BodyResponseInstruction struct {
-	Instruction string `json:"instruction"`
+	Instruction []string `json:"instruction"`
 }
 
 type PCB struct { //ESTO NO VA ACA
@@ -98,13 +98,14 @@ func ReceivePCB(w http.ResponseWriter, r *http.Request) {
 
 func InstructionCycle(receivedPCB ExecutionContext) {
 	for {
-		instruccion, _ := Fetch(int(receivedPCB.CpuReg.PC), receivedPCB.Pid)
-		fmt.Println(instruccion)
+		line, _ := Fetch(int(receivedPCB.CpuReg.PC), receivedPCB.Pid)
+		instruction, _ := Decode(line)
+		Execute(instruction, line)
+		fmt.Println(instruction)
 	}
-
 }
 
-func Fetch(pc int, pid int) (string, error) {
+func Fetch(pc int, pid int) ([]string, error) {
 	memoriaURL := fmt.Sprintf("http://localhost:8085/getInstructionFromPid?pid=%d&programCounter=%d", 1, pc)
 	resp, err := http.Get(memoriaURL)
 	if err != nil {
@@ -114,7 +115,7 @@ func Fetch(pc int, pid int) (string, error) {
 
 	// CHEQUEO STATUS CODE CON MI VARIABLE resp
 	if resp.StatusCode != http.StatusOK {
-		return "false", fmt.Errorf("error en la respuesta del módulo de memoria: %v", resp.StatusCode)
+		return nil, fmt.Errorf("error en la respuesta del módulo de memoria: %v", resp.StatusCode)
 	}
 	var response BodyResponseInstruction
 	_ = json.NewDecoder(resp.Body).Decode(&response)
