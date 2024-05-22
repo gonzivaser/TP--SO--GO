@@ -105,7 +105,13 @@ func Fetch(pc int, pid int) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	fmt.Println(resp)
+	// CHEQUEO STATUS CODE CON MI VARIABLE resp
+	if resp.StatusCode != http.StatusOK {
+		return "false", fmt.Errorf("error en la respuesta del módulo de memoria: %v", resp.StatusCode)
+	}
+	var response BodyResponseInstruction
+	_ = json.NewDecoder(resp.Body).Decode(&response)
+	println(fmt.Sprintf("%+v", response.Instruction)) // Convert response to string before printing
 
 	return resp.Status, nil
 	// 	// // CREO VARIABLE DONDE GUARDO EL PROGRAM COUNTER
@@ -124,13 +130,6 @@ func Fetch(pc int, pid int) (string, error) {
 	// 	// if err != nil {
 	// 	// 	return nil, fmt.Errorf("error al enviar la solicitud al módulo de memoria: %v", err)
 	// 	// }
-
-	// 	// // CHEQUEO STATUS CODE CON MI VARIABLE resp
-	// 	// if resp.StatusCode != http.StatusOK {
-	// 	// 	return nil, fmt.Errorf("error en la respuesta del módulo de memoria: %v", resp.StatusCode)
-	// 	// }
-	// 	// var response BodyResponseInstruction
-	// 	// err = json.NewDecoder(resp.Body).Decode(&response)
 
 	// 	// defer resp.Body.Close()
 	// 	// if err != nil {
