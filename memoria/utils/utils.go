@@ -90,12 +90,12 @@ func GetInstruction(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
 	pid, _ := strconv.Atoi(queryParams.Get("pid"))
 	programCounter, _ := strconv.Atoi(queryParams.Get("programCounter"))
-
 	instruction := m[pid][programCounter][0]
 
 	instructionResponse := InstructionResposne{
 		Instruction: instruction,
 	}
+	fmt.Printf("Esto es la instruction %+v\n", instructionResponse)
 
 	json.NewEncoder(w).Encode(instructionResponse)
 
