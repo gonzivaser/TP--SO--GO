@@ -77,10 +77,27 @@ func SetInstructionsFromFileToMap(w http.ResponseWriter, r *http.Request) {
 		arrInstructions = append(arrInstructions, []string{fileScanner.Text()})
 	}
 	m[pid] = arrInstructions
-	fmt.Println(m[pid])
 
+	fmt.Printf("%v\n", m[pid])
+	fmt.Println(m)
 	defer readFile.Close()
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Instructions loaded successfully"))
+}
+
+func GetInstruction(w http.ResponseWriter, r *http.Request) {
+	queryParams := r.URL.Query()
+	pid, _ := strconv.Atoi(queryParams.Get("pid"))
+	programCounter, _ := strconv.Atoi(queryParams.Get("programCounter"))
+	instruction := m[pid][programCounter][0]
+
+	instructionResponse := InstructionResposne{
+		Instruction: instruction,
+	}
+	fmt.Printf("Esto es la instruction %+v\n", instructionResponse)
+
+	json.NewEncoder(w).Encode(instructionResponse)
+
+	w.Write([]byte(instruction))
 }

@@ -48,16 +48,16 @@ type BodyResponsePCB struct { //ESTO NO VA ACA
 }
 
 type PCB struct { //ESTO NO VA ACA
-	Pid            int
-	ProgramCounter int
-	Quantum        int
-	CpuReg         RegisterCPU
+	Pid     int
+	Quantum int
+	State   string
+	CpuReg  RegisterCPU
 }
 
 type ExecutionContext struct {
-	Pid            int
-	ProgramCounter int
-	CpuReg         RegisterCPU
+	Pid    int
+	State  string
+	CpuReg RegisterCPU
 }
 
 type RegisterCPU struct { //ESTO NO VA ACA
@@ -72,6 +72,33 @@ type RegisterCPU struct { //ESTO NO VA ACA
 	EDX uint32
 	SI  uint32
 	DI  uint32
+}
+
+type KernelRequest struct {
+	PcbUpdated ExecutionContext `json:"pcbUpdated"`
+	TimeIO     string           `json:"timeIO"`
+}
+
+func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
+
+	var request KernelRequest
+
+	// CREO VARIABLE I/O
+
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
+		return
+	}
+
+	// enviar I/O a entradasalida
+	// HAGO UN LOG SI PASO ERRORES PARA RECEPCION DEL I/O
+	log.Printf("Recibido I/O: %v", request.TimeIO)
+	log.Printf("Recibido pcb: %v", request.PcbUpdated)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("%v", request.PcbUpdated)))
+
 }
 
 func IniciarProceso(w http.ResponseWriter, r *http.Request) {
@@ -94,7 +121,7 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	pidResponse, _ := json.Marshal(BodyResponse)
 
 	// CHEQUEO ERRORES
-	if err := SendPathToMemory(request); err != nil {
+	if err := SendPathToMemory(request, BodyResponse.Pid); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -115,11 +142,11 @@ func createPCB() PCB {
 	nextPid++
 
 	return PCB{
-		Pid:            nextPid - 1, // ASIGNO EL VALOR ANTERIOR AL pid
-		ProgramCounter: 0,
-		Quantum:        0,
+		Pid:     nextPid - 1, // ASIGNO EL VALOR ANTERIOR AL pid
+		State:   "New",
+		Quantum: 0,
 		CpuReg: RegisterCPU{
-			PC:  1,
+			PC:  0,
 			AX:  0,
 			BX:  0,
 			CX:  0,
@@ -134,8 +161,8 @@ func createPCB() PCB {
 	}
 }
 
-func SendPathToMemory(request BodyRequest) error {
-	memoriaURL := "http://localhost:8085/savedPath"
+func SendPathToMemory(request BodyRequest, pid int) error {
+	memoriaURL := fmt.Sprintf("http://localhost:8085/setInstructionFromFileToMap?pid=%d&path=%s", pid, request.Path)
 	savedPathJSON, err := json.Marshal(request)
 	if err != nil {
 		return fmt.Errorf("error al serializar los datos JSON: %v", err)
@@ -158,13 +185,13 @@ func SendPathToMemory(request BodyRequest) error {
 }
 
 func SendContextToCPU(pcb PCB) error {
-	cpuURL := "http://localhost:8075/savePCB"
+	cpuURL := "http://localhost:8075/receivePCB"
 
 	// CREO EL CONTEXTO DE EJECUCION -> OSEA LOS DATOS DEL PCB QUE VA A NECESITAR LA CPU PARA EL MOMENTO DE EJECUCION
 	context := ExecutionContext{
-		Pid:            pcb.Pid,
-		ProgramCounter: pcb.ProgramCounter,
-		CpuReg:         pcb.CpuReg,
+		Pid:    pcb.Pid,
+		State:  pcb.State,
+		CpuReg: pcb.CpuReg,
 	}
 	pcbResponseTest, err := json.Marshal(context)
 
