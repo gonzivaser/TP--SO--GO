@@ -98,12 +98,12 @@ type Syscall struct {
 	TIME int `json:"time"`
 }
 
-var timeIO int
-
 type KernelRequest struct {
 	PcbUpdated ExecutionContext `json:"pcbUpdated"`
 	TimeIO     string           `json:"timeIO"`
 }
+
+var timeIOGlobal int
 
 func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Recibiendo solicitud de I/O desde el cpu")
@@ -119,7 +119,7 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//pasen a int esto request.TimeIO
-	// timeIO, err := strconv.Atoi(request.TimeIO)
+	timeIOGlobal, _ = strconv.Atoi(request.TimeIO)
 	syscallIO = true
 
 	// enviar I/O a entradasalida
@@ -129,7 +129,6 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("%v", request.PcbUpdated)))
-
 }
 
 func IniciarProceso(w http.ResponseWriter, r *http.Request) {
@@ -192,15 +191,19 @@ func executeProcess() {
 
 			if syscallIO {
 				log.Printf("Operación de I/O recibida para el proceso %v", proceso.PCB.Pid)
-				if err := SendIOToEntradaSalida(timeIO); err != nil {
+				if err := SendIOToEntradaSalida(timeIOGlobal); err != nil {
 					log.Printf("Error sending IO to EntradaSalida: %v", err)
 				}
 				syscallIO = false
 
 				// Put the process back into colaReady
-				mu.Lock()
-				colaReady = append(colaReady, proceso)
-				mu.Unlock()
+				go func(proceso Proceso) {
+					//time.Sleep( /timeIO/ )
+
+					mu.Lock()
+					colaReady = append(colaReady, proceso)
+					mu.Unlock()
+				}(proceso)
 			}
 		}(proceso)
 	}
@@ -363,9 +366,9 @@ func EstadoProceso(w http.ResponseWriter, r *http.Request) {
 }
 
 func IniciarPlanificacion(w http.ResponseWriter, r *http.Request) {
-	if globals.ClientConfig.AlgoritmoPlanificacion == "RR" {
+	/*if globals.ClientConfig.AlgoritmoPlanificacion == "RR" {
 
-	}
+	}*/
 
 	//log.Printf("PID: <PID> - Bloqueado por: <INTERFAZ / NOMBRE_RECURSO>") //ESTO NO VA ACA
 	w.WriteHeader(http.StatusOK)
