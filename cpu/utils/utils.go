@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -99,26 +100,58 @@ func ReceivePCB(w http.ResponseWriter, r *http.Request) {
 }
 
 func InstructionCycle(receivedPCB ExecutionContext) {
+	var timeIO string
 	for {
 		line, _ := Fetch(int(receivedPCB.CpuReg.PC), receivedPCB.Pid)
 		instruction, _ := Decode(line)
-		Execute(instruction, line, &receivedPCB) // Pass the address of receivedPCB
+		Execute(instruction, line, &receivedPCB)
+		Checkinterrupts()
+		// Pass the address of receivedPCB
 		fmt.Println("hola", instruction)
-
 		receivedPCB.CpuReg.PC++
 		words := strings.Fields(line[0])
-		if words[0] == "EXIT" {
+		if words[0] == "IO_GEN_SLEEP" {
+			timeIO = words[2]
+			fmt.Println("TERMINO por io")
+			break
+		} else if words[0] == "EXIT" {
+			fmt.Println("TERMINO por EXIT")
 			break
 		}
 	}
 	fmt.Println("el PCB ya actualizado;", receivedPCB)
-	fmt.Println("el ax es", receivedPCB.CpuReg.AX)
-	fmt.Println("el ax es", receivedPCB.CpuReg.BX)
 
-	fmt.Println("teeermino")
+	responsePCBtoKernel(receivedPCB, timeIO)
 
 }
 
+type KernelRequest struct {
+	PcbUpdated ExecutionContext `json:"pcbUpdated"`
+	TimeIO     string           `json:"timeIO"`
+}
+
+func responsePCBtoKernel(pcbUpdated ExecutionContext, timeIO string) {
+	kernelURL := "http://localhost:8080/syscall"
+	request := KernelRequest{
+		PcbUpdated: pcbUpdated,
+		TimeIO:     timeIO,
+	}
+	requestJSON, err := json.Marshal(request)
+	if err != nil {
+		return
+	}
+	resp, err := http.Post(kernelURL, "application/json", bytes.NewBuffer(requestJSON))
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return
+	}
+
+	//log.Println("Respuesta del módulo de kernel recibida correctamente.")
+}
 func Fetch(pc int, pid int) ([]string, error) {
 	memoriaURL := fmt.Sprintf("http://localhost:8085/getInstructionFromPid?pid=%d&programCounter=%d", pid, pc)
 	resp, err := http.Get(memoriaURL)

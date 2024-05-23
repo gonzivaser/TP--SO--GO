@@ -74,6 +74,33 @@ type RegisterCPU struct { //ESTO NO VA ACA
 	DI  uint32
 }
 
+type KernelRequest struct {
+	PcbUpdated ExecutionContext `json:"pcbUpdated"`
+	TimeIO     string           `json:"timeIO"`
+}
+
+func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
+
+	var request KernelRequest
+
+	// CREO VARIABLE I/O
+
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
+		return
+	}
+
+	// enviar I/O a entradasalida
+	// HAGO UN LOG SI PASO ERRORES PARA RECEPCION DEL I/O
+	log.Printf("Recibido I/O: %v", request.TimeIO)
+	log.Printf("Recibido pcb: %v", request.PcbUpdated)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("%v", request.PcbUpdated)))
+
+}
+
 func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	var request BodyRequest
 	err := json.NewDecoder(r.Body).Decode(&request)
