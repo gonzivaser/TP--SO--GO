@@ -99,6 +99,5 @@ func GetInstruction(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(instructionResponse)
 
-	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(instruction))
 }
