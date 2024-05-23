@@ -19,7 +19,8 @@ func main() {
 
 	puerto := globals.ClientConfig.Puerto
 
-	http.HandleFunc("/savedPath", utils.ProcessSavedPathFromKernel)
-	http.HandleFunc("/savePC", utils.ProcessSavedPCFromCPU)
+	http.HandleFunc("POST /setInstructionFromFileToMap", utils.SetInstructionsFromFileToMap)
+	http.HandleFunc("GET /getInstructionFromPid", utils.GetInstruction)
+
 	http.ListenAndServe(":"+strconv.Itoa(puerto), nil)
 }
