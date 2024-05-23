@@ -99,6 +99,7 @@ func ReceivePCB(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+
 func InstructionCycle(receivedPCB ExecutionContext) {
 	var timeIO string
 	for {
@@ -120,6 +121,7 @@ func InstructionCycle(receivedPCB ExecutionContext) {
 		}
 	}
 	fmt.Println("el PCB ya actualizado;", receivedPCB)
+
 
 	responsePCBtoKernel(receivedPCB, timeIO)
 

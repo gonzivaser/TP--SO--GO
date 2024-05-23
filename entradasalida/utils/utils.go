@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/sisoputnfrba/tp-golang/entradasalida/globals"
@@ -85,14 +84,20 @@ func LoadConfig(filename string) (*Config, error) {
 	return &config, nil
 }
 
+type Payload struct {
+	IO int
+}
+
 func Iniciar(w http.ResponseWriter, r *http.Request) {
-	queryParams := r.URL.Query()
-	N := queryParams.Get("quantUnitWork")
-	NInt, err := strconv.Atoi(N)
+	log.Printf("Recibiendo solicitud de I/O desde el kernel")
+	var payload Payload
+	err := json.NewDecoder(r.Body).Decode(&payload)
 	if err != nil {
-		http.Error(w, "Error al convertir N a entero", http.StatusInternalServerError)
+		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
 		return
 	}
+
+	N := payload.IO
 
 	interfaceName := os.Args[1]
 	log.Printf("Nombre de la interfaz: %s", interfaceName)
@@ -107,8 +112,8 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 		Nombre: interfaceName,
 		Config: *config,
 	}
-	duracion := gi.IO_GEN_SLEEP(NInt)
-	fmt.Printf("La espera por %d unidades para la interfaz '%s' es de %v\n", NInt, gi.Nombre, duracion)
+	duracion := gi.IO_GEN_SLEEP(N)
+	fmt.Printf("La espera por %d unidades para la interfaz '%s' es de %v\n", N, gi.Nombre, duracion)
 	time.Sleep(duracion)
-	fmt.Println("holaaaa")
+	fmt.Println("termino de esperar")
 }

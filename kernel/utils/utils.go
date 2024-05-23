@@ -8,6 +8,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"sync"
 
 	"github.com/sisoputnfrba/tp-golang/kernel/globals"
 )
@@ -74,22 +76,57 @@ type RegisterCPU struct { //ESTO NO VA ACA
 	DI  uint32
 }
 
+
+// Estructura para la interfaz genérica
+type InterfazIO struct {
+	Name string // Nombre interfaz Int1
+	Time int    // Configuración 10
+}
+
+type Proceso struct {
+	Request BodyRequest
+	PCB     *PCB
+}
+
+var (
+	colaReady []Proceso
+	mu        sync.Mutex
+)
+
+var syscallIO bool
+
+type Syscall struct {
+	TIME int `json:"time"`
+}
+
+var timeIO int
+
+
+
 type KernelRequest struct {
 	PcbUpdated ExecutionContext `json:"pcbUpdated"`
 	TimeIO     string           `json:"timeIO"`
 }
 
 func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
-
+log.Printf("Recibiendo solicitud de I/O desde el cpu")
 	var request KernelRequest
+  var timeSys Syscall
 
 	// CREO VARIABLE I/O
 
 	err := json.NewDecoder(r.Body).Decode(&request)
+
 	if err != nil {
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
 		return
 	}
+
+
+	timeIO = timeSys.TIME
+	syscallIO = true
+
+	
 
 	// enviar I/O a entradasalida
 	// HAGO UN LOG SI PASO ERRORES PARA RECEPCION DEL I/O
@@ -99,41 +136,82 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("%v", request.PcbUpdated)))
 
+
 }
 
 func IniciarProceso(w http.ResponseWriter, r *http.Request) {
+
 	var request BodyRequest
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("Datos recibidos: %+v", request)
+	log.Printf("Received data: %+v", request)
 
-	// CREO EL PCB
+	// Create PCB
 	pcb := createPCB()
+	log.Printf("Se crea el proceso %v en NEW", pcb.Pid) // log obligatorio
 
-	// LA RESPONSE VA A SER EL pid CREADO
-	BodyResponse := BodyResponsePid{
-		Pid: pcb.Pid,
+	// Create a new process and add it to the queue
+	proceso := Proceso{
+		Request: request,
+		PCB:     &pcb,
 	}
-	pidResponse, _ := json.Marshal(BodyResponse)
 
-	// CHEQUEO ERRORES
-	if err := SendPathToMemory(request, BodyResponse.Pid); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+
+	mu.Lock()
+	colaReady = append(colaReady, proceso)
+	if err := SendPathToMemory(proceso.Request); err != nil {
+		log.Printf("Error sending path to memory: %v", err)
+
 		return
 	}
+	mu.Unlock()
 
-	// LLAMO A CPU PARA MANDAR EL pid, PC y los registros
-	if err := SendContextToCPU(pcb); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	go executeProcess()
 
+	// Response with the PID
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(pidResponse))
+}
+
+func executeProcess() {
+	for {
+		mu.Lock()
+		if len(colaReady) == 0 {
+			mu.Unlock()
+			return
+		}
+
+		// Dequeue a process from colaReady
+		proceso := colaReady[0]
+		colaReady = colaReady[1:]
+		mu.Unlock()
+
+		go func(proceso Proceso) {
+			// Execute the process
+
+			if err := SendContextToCPU(*proceso.PCB); err != nil {
+				log.Printf("Error sending context to CPU: %v", err)
+				return
+			}
+
+			if syscallIO {
+				log.Printf("Operación de I/O recibida para el proceso %v", proceso.PCB.Pid)
+				if err := SendIOToEntradaSalida(timeIO); err != nil {
+					log.Printf("Error sending IO to EntradaSalida: %v", err)
+				}
+				syscallIO = false
+
+				// Put the process back into colaReady
+				mu.Lock()
+				colaReady = append(colaReady, proceso)
+				mu.Unlock()
+			}
+		}(proceso)
+	}
 }
 
 var nextPid = 1
@@ -143,8 +221,10 @@ func createPCB() PCB {
 
 	return PCB{
 		Pid:     nextPid - 1, // ASIGNO EL VALOR ANTERIOR AL pid
-		State:   "New",
+
 		Quantum: 0,
+		State:   "READY",
+
 		CpuReg: RegisterCPU{
 			PC:  0,
 			AX:  0,
@@ -220,6 +300,36 @@ func SendContextToCPU(pcb PCB) error {
 	return nil
 }
 
+type Payload struct {
+	IO int `json:"io"`
+}
+
+func SendIOToEntradaSalida(io int) error {
+	entradasalidaURL := "http://localhost:8090/interfaz"
+
+	payload := Payload{
+		IO: io,
+	}
+
+	ioResponseTest, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("error al serializar el payload: %v", err)
+	}
+
+	resp, err := http.Post(entradasalidaURL, "application/json", bytes.NewBuffer(ioResponseTest))
+	if err != nil {
+		return fmt.Errorf("error al enviar la solicitud al módulo de cpu: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("error en la respuesta del módulo de cpu: %v", resp.StatusCode)
+	}
+
+	log.Println("Respuesta del módulo de IO recibida correctamente.")
+	return nil
+}
+
 func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
 
 	pid := r.PathValue("pid")
@@ -232,23 +342,40 @@ func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
 }
 
 func EstadoProceso(w http.ResponseWriter, r *http.Request) {
-	pid := r.PathValue("pid")
+	pidStr := r.PathValue("pid")
+	pid, err := strconv.Atoi(pidStr)
+	if err != nil {
+		// handle error
+		log.Printf("Error converting pid to integer: %v", err)
+		return
+	}
+
+	var processState string
+	for _, process := range colaReady {
+		if process.PCB.Pid == pid {
+			processState = process.PCB.State
+			break
+		}
+	}
 
 	BodyResponse := BodyResponseState{
-		State: "EXIT",
+		State: processState,
 	}
 
 	stateResponse, _ := json.Marshal(BodyResponse)
 
-	log.Printf("PID: %s - Estado Anterior: <ESTADO_ANTERIOR> - Estado Actual: %v", pid, BodyResponse.State) // A checkear
+	//log.Printf("PID: %s - Estado Anterior: <ESTADO_ANTERIOR> - Estado Actual: %v", pid, BodyResponse.State) // A checkear
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(stateResponse)
 }
 
 func IniciarPlanificacion(w http.ResponseWriter, r *http.Request) {
-	log.Printf("PID: <PID> - Bloqueado por: <INTERFAZ / NOMBRE_RECURSO>") //ESTO NO VA ACA
+	if globals.ClientConfig.AlgoritmoPlanificacion == "RR" {
 
+	}
+
+	//log.Printf("PID: <PID> - Bloqueado por: <INTERFAZ / NOMBRE_RECURSO>") //ESTO NO VA ACA
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Planificación iniciada"))
 }
@@ -260,27 +387,24 @@ func DetenerPlanificacion(w http.ResponseWriter, r *http.Request) {
 }
 
 func ListarProcesos(w http.ResponseWriter, r *http.Request) {
-	BodyResponse := []BodyResponseListProcess{
-		{0, "EXEC"},
-		{1, "READY"},
-		{2, "BLOCK"},
-		{3, "FIN"},
+	// Convert colaReady array to JSON
+	var pids []int
+	for _, process := range colaReady {
+		pids = append(pids, process.PCB.Pid)
 	}
 
-	arrayProcesos, err := json.Marshal(BodyResponse)
+	pidsJSON, err := json.Marshal(pids)
 	if err != nil {
-		http.Error(w, "Error al codificar los datos como JSON", http.StatusInternalServerError)
+		http.Error(w, "Error al convertir colaReady a JSON", http.StatusInternalServerError)
 		return
 	}
 
-	for i := 0; i < len(BodyResponse); i++ {
-		fmt.Print(BodyResponse[i], "\n")
-	}
+	log.Printf("Cola Ready COLA: %v", pids)
 
-	log.Print("Cola Ready <COLA>: [<LISTA DE PIDS>]") //ESTO NO VA ACA
-
+	// Write the JSON response
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(arrayProcesos)
+	w.Write(pidsJSON)
 }
 
 func ConfigurarLogger() {
