@@ -105,12 +105,12 @@ func InstructionCycle(receivedPCB ExecutionContext) {
 		line, _ := Fetch(int(receivedPCB.CpuReg.PC), receivedPCB.Pid)
 		instruction, _ := Decode(line)
 		Execute(instruction, line, &receivedPCB)
-		Checkinterrupts()
+
 		// Pass the address of receivedPCB
 		fmt.Println("hola", instruction)
 		receivedPCB.CpuReg.PC++
 		words := strings.Fields(line[0])
-		if words[0] == "IO_GEN_SLEEP" {
+		if Checkinterrupts(instruction) {
 			timeIO = words[2]
 			fmt.Println("TERMINO por io")
 			break
@@ -208,17 +208,18 @@ func Fetch(pc int, pid int) ([]string, error) {
 
 func Decode(instruction []string) (string, error) {
 	// Esta función se va a conoplicar con la traducción de las direcciones fisicas y logicas
+	words := strings.Fields(instruction[0])
 	if len(instruction) == 0 {
 		return "nil", fmt.Errorf("instrucción vacía")
 	}
-	return instruction[0], nil
+	return words[0], nil
 }
 
 func Execute(instruction string, line []string, receivedPCB *ExecutionContext) error {
 
 	words := strings.Fields(line[0])
 
-	switch words[0] {
+	switch instruction {
 	case "SET": // Change the type of the switch case expression from byte to string
 		err := SetCampo(&receivedPCB.CpuReg, words[1], words[2])
 		if err != nil {
@@ -396,13 +397,20 @@ func Resta(registerCPU *RegisterCPU, s1, s2 string) error {
 	return nil
 }
 
-func Checkinterrupts(w http.ResponseWriter, r *http.Request) {
+func Checkinterrupts(instruction string) bool {
 	// HAGO UN LOG PARA CHEQUEAR RECEPCION
-	log.Printf("Recibiendo solicitud de contexto de ejecucuion desde el kernel")
-
-	err := json.NewDecoder(r.Body).Decode(&receivedPCB)
-	if err != nil {
-		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
-		return
+	arrInterruptions := []string{"IO_GEN_SLEEP"} // queda para poner las otras IO
+	if contains(arrInterruptions, instruction) {
+		return true
 	}
+	return false
+}
+
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }
