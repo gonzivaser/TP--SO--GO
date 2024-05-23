@@ -90,6 +90,7 @@ type Proceso struct {
 var (
 	colaReady []Proceso
 	mu        sync.Mutex
+	muio      sync.Mutex
 )
 
 var syscallIO bool
@@ -98,20 +99,21 @@ type Syscall struct {
 	TIME int `json:"time"`
 }
 
-var timeIO int
-
 type KernelRequest struct {
 	PcbUpdated ExecutionContext `json:"pcbUpdated"`
 	TimeIO     string           `json:"timeIO"`
 }
 
+var timeIOGlobal int
+
+var newPCB KernelRequest
+
 func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Recibiendo solicitud de I/O desde el cpu")
-	var request KernelRequest
 
 	// CREO VARIABLE I/O
 
-	err := json.NewDecoder(r.Body).Decode(&request)
+	err := json.NewDecoder(r.Body).Decode(&newPCB)
 
 	if err != nil {
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
@@ -119,17 +121,18 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//pasen a int esto request.TimeIO
-	// timeIO, err := strconv.Atoi(request.TimeIO)
-	syscallIO = true
+	if newPCB.TimeIO != "" {
+		timeIOGlobal, _ = strconv.Atoi(newPCB.TimeIO)
+		syscallIO = true
+	}
 
 	// enviar I/O a entradasalida
 	// HAGO UN LOG SI PASO ERRORES PARA RECEPCION DEL I/O
-	log.Printf("Recibido I/O: %v", request.TimeIO)
-	log.Printf("Recibido pcb: %v", request.PcbUpdated)
+
+	log.Printf("Recibido pcb: %v", newPCB.PcbUpdated)
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("%v", request.PcbUpdated)))
-
+	w.Write([]byte(fmt.Sprintf("%v", newPCB.PcbUpdated)))
 }
 
 func IniciarProceso(w http.ResponseWriter, r *http.Request) {
@@ -169,38 +172,51 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// Remove the duplicate declaration of `mu`
+// var mu sync.Mutex
+var cond = sync.NewCond(&mu)
+
 func executeProcess() {
 	for {
 		mu.Lock()
-		if len(colaReady) == 0 {
-			mu.Unlock()
-			return
+		for len(colaReady) == 0 {
+			cond.Wait()
 		}
 
 		// Dequeue a process from colaReady
+		log.Printf("hola a amover la cola: %v", colaReady[0].PCB.Pid)
 		proceso := colaReady[0]
 		colaReady = colaReady[1:]
 		mu.Unlock()
 
 		go func(proceso Proceso) {
 			// Execute the process
-
+			mu.Lock()
 			if err := SendContextToCPU(*proceso.PCB); err != nil {
 				log.Printf("Error sending context to CPU: %v", err)
 				return
 			}
+			mu.Unlock()
+
+			proceso.PCB.CpuReg = newPCB.PcbUpdated.CpuReg
+			proceso.PCB.State = newPCB.PcbUpdated.State
+			proceso.PCB.Pid = newPCB.PcbUpdated.Pid
 
 			if syscallIO {
-				log.Printf("Operación de I/O recibida para el proceso %v", proceso.PCB.Pid)
-				if err := SendIOToEntradaSalida(timeIO); err != nil {
+				muio.Lock()
+				if err := SendIOToEntradaSalida(timeIOGlobal); err != nil {
 					log.Printf("Error sending IO to EntradaSalida: %v", err)
 				}
+				muio.Unlock()
 				syscallIO = false
+				if proceso.PCB.State != "EXIT" {
+					proceso.PCB.State = "READY"
+				}
+			}
 
-				// Put the process back into colaReady
-				mu.Lock()
+			if proceso.PCB.State == "READY" {
 				colaReady = append(colaReady, proceso)
-				mu.Unlock()
+				cond.Signal() // Notify that colaReady is not empty
 			}
 		}(proceso)
 	}
@@ -363,9 +379,9 @@ func EstadoProceso(w http.ResponseWriter, r *http.Request) {
 }
 
 func IniciarPlanificacion(w http.ResponseWriter, r *http.Request) {
-	if globals.ClientConfig.AlgoritmoPlanificacion == "RR" {
+	/*if globals.ClientConfig.AlgoritmoPlanificacion == "RR" {
 
-	}
+	}*/
 
 	//log.Printf("PID: <PID> - Bloqueado por: <INTERFAZ / NOMBRE_RECURSO>") //ESTO NO VA ACA
 	w.WriteHeader(http.StatusOK)

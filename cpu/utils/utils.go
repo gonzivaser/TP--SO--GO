@@ -99,7 +99,6 @@ func ReceivePCB(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-
 func InstructionCycle(receivedPCB ExecutionContext) {
 	var timeIO string
 	for {
@@ -114,14 +113,15 @@ func InstructionCycle(receivedPCB ExecutionContext) {
 		if Checkinterrupts(instruction) {
 			timeIO = words[2]
 			fmt.Println("TERMINO por io")
+			receivedPCB.State = "BLOCKED"
 			break
 		} else if words[0] == "EXIT" {
 			fmt.Println("TERMINO por EXIT")
+			receivedPCB.State = "EXIT"
 			break
 		}
 	}
 	fmt.Println("el PCB ya actualizado;", receivedPCB)
-
 
 	responsePCBtoKernel(receivedPCB, timeIO)
 
@@ -154,6 +154,7 @@ func responsePCBtoKernel(pcbUpdated ExecutionContext, timeIO string) {
 
 	//log.Println("Respuesta del módulo de kernel recibida correctamente.")
 }
+
 func Fetch(pc int, pid int) ([]string, error) {
 	memoriaURL := fmt.Sprintf("http://localhost:8085/getInstructionFromPid?pid=%d&programCounter=%d", pid, pc)
 	resp, err := http.Get(memoriaURL)
