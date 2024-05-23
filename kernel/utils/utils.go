@@ -90,6 +90,7 @@ type Proceso struct {
 var (
 	colaReady []Proceso
 	mu        sync.Mutex
+	muio      sync.Mutex
 )
 
 var syscallIO bool
@@ -120,12 +121,14 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//pasen a int esto request.TimeIO
-	timeIOGlobal, _ = strconv.Atoi(newPCB.TimeIO)
-	syscallIO = true
+	if newPCB.TimeIO != "" {
+		timeIOGlobal, _ = strconv.Atoi(newPCB.TimeIO)
+		syscallIO = true
+	}
 
 	// enviar I/O a entradasalida
 	// HAGO UN LOG SI PASO ERRORES PARA RECEPCION DEL I/O
-	log.Printf("Recibido I/O: %v", newPCB.TimeIO)
+
 	log.Printf("Recibido pcb: %v", newPCB.PcbUpdated)
 
 	w.WriteHeader(http.StatusOK)
@@ -169,56 +172,53 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// Remove the duplicate declaration of `mu`
+// var mu sync.Mutex
+var cond = sync.NewCond(&mu)
+
 func executeProcess() {
 	for {
 		mu.Lock()
-		if len(colaReady) == 0 {
-			mu.Unlock()
-			return
+		for len(colaReady) == 0 {
+			cond.Wait()
 		}
 
 		// Dequeue a process from colaReady
+		log.Printf("hola a amover la cola: %v", colaReady[0].PCB.Pid)
 		proceso := colaReady[0]
 		colaReady = colaReady[1:]
 		mu.Unlock()
 
-		for {
-			go func(proceso Proceso) {
-				// Execute the process
-				mu.Lock()
-				if err := SendContextToCPU(*proceso.PCB); err != nil {
-					log.Printf("Error sending context to CPU: %v", err)
-					return
+		go func(proceso Proceso) {
+			// Execute the process
+			mu.Lock()
+			if err := SendContextToCPU(*proceso.PCB); err != nil {
+				log.Printf("Error sending context to CPU: %v", err)
+				return
+			}
+			mu.Unlock()
+
+			proceso.PCB.CpuReg = newPCB.PcbUpdated.CpuReg
+			proceso.PCB.State = newPCB.PcbUpdated.State
+			proceso.PCB.Pid = newPCB.PcbUpdated.Pid
+
+			if syscallIO {
+				muio.Lock()
+				if err := SendIOToEntradaSalida(timeIOGlobal); err != nil {
+					log.Printf("Error sending IO to EntradaSalida: %v", err)
 				}
-				proceso.PCB.CpuReg = newPCB.PcbUpdated.CpuReg
-				proceso.PCB.State = newPCB.PcbUpdated.State
-				proceso.PCB.Pid = newPCB.PcbUpdated.Pid
-
-				mu.Unlock()
-
-				if syscallIO {
-					log.Printf("Operación de I/O recibida para el proceso %v", proceso.PCB.Pid)
-					if err := SendIOToEntradaSalida(timeIOGlobal); err != nil {
-						log.Printf("Error sending IO to EntradaSalida: %v", err)
-					}
-					log.Printf("colacha %v", colaReady)
-					log.Printf("el ax es:  %v del nuevo pcb", proceso.PCB.CpuReg.AX)
-
-					syscallIO = false
-
-					// Put the process back into colaReady
-					go func(proceso Proceso) {
-						//time.Sleep( /timeIO/ )
-
-						mu.Lock()
-						colaReady = append(colaReady, proceso)
-						mu.Unlock()
-					}(proceso)
-
+				muio.Unlock()
+				syscallIO = false
+				if proceso.PCB.State != "EXIT" {
+					proceso.PCB.State = "READY"
 				}
+			}
 
-			}(proceso)
-		}
+			if proceso.PCB.State == "READY" {
+				colaReady = append(colaReady, proceso)
+				cond.Signal() // Notify that colaReady is not empty
+			}
+		}(proceso)
 	}
 }
 
