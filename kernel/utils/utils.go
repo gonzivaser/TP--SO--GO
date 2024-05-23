@@ -76,7 +76,6 @@ type RegisterCPU struct { //ESTO NO VA ACA
 	DI  uint32
 }
 
-
 // Estructura para la interfaz genérica
 type InterfazIO struct {
 	Name string // Nombre interfaz Int1
@@ -101,17 +100,14 @@ type Syscall struct {
 
 var timeIO int
 
-
-
 type KernelRequest struct {
 	PcbUpdated ExecutionContext `json:"pcbUpdated"`
 	TimeIO     string           `json:"timeIO"`
 }
 
 func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
-log.Printf("Recibiendo solicitud de I/O desde el cpu")
+	log.Printf("Recibiendo solicitud de I/O desde el cpu")
 	var request KernelRequest
-  var timeSys Syscall
 
 	// CREO VARIABLE I/O
 
@@ -122,11 +118,9 @@ log.Printf("Recibiendo solicitud de I/O desde el cpu")
 		return
 	}
 
-
-	timeIO = timeSys.TIME
+	//pasen a int esto request.TimeIO
+	timeIO = request.TimeIO
 	syscallIO = true
-
-	
 
 	// enviar I/O a entradasalida
 	// HAGO UN LOG SI PASO ERRORES PARA RECEPCION DEL I/O
@@ -135,7 +129,6 @@ log.Printf("Recibiendo solicitud de I/O desde el cpu")
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("%v", request.PcbUpdated)))
-
 
 }
 
@@ -160,10 +153,9 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 		PCB:     &pcb,
 	}
 
-
 	mu.Lock()
 	colaReady = append(colaReady, proceso)
-	if err := SendPathToMemory(proceso.Request); err != nil {
+	if err := SendPathToMemory(proceso.Request, proceso.PCB.Pid); err != nil {
 		log.Printf("Error sending path to memory: %v", err)
 
 		return
@@ -220,7 +212,7 @@ func createPCB() PCB {
 	nextPid++
 
 	return PCB{
-		Pid:     nextPid - 1, // ASIGNO EL VALOR ANTERIOR AL pid
+		Pid: nextPid - 1, // ASIGNO EL VALOR ANTERIOR AL pid
 
 		Quantum: 0,
 		State:   "READY",
