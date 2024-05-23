@@ -105,13 +105,14 @@ type KernelRequest struct {
 
 var timeIOGlobal int
 
+var newPCB KernelRequest
+
 func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Recibiendo solicitud de I/O desde el cpu")
-	var request KernelRequest
 
 	// CREO VARIABLE I/O
 
-	err := json.NewDecoder(r.Body).Decode(&request)
+	err := json.NewDecoder(r.Body).Decode(&newPCB)
 
 	if err != nil {
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
@@ -119,16 +120,16 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//pasen a int esto request.TimeIO
-	timeIOGlobal, _ = strconv.Atoi(request.TimeIO)
+	timeIOGlobal, _ = strconv.Atoi(newPCB.TimeIO)
 	syscallIO = true
 
 	// enviar I/O a entradasalida
 	// HAGO UN LOG SI PASO ERRORES PARA RECEPCION DEL I/O
-	log.Printf("Recibido I/O: %v", request.TimeIO)
-	log.Printf("Recibido pcb: %v", request.PcbUpdated)
+	log.Printf("Recibido I/O: %v", newPCB.TimeIO)
+	log.Printf("Recibido pcb: %v", newPCB.PcbUpdated)
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("%v", request.PcbUpdated)))
+	w.Write([]byte(fmt.Sprintf("%v", newPCB.PcbUpdated)))
 }
 
 func IniciarProceso(w http.ResponseWriter, r *http.Request) {
@@ -181,31 +182,43 @@ func executeProcess() {
 		colaReady = colaReady[1:]
 		mu.Unlock()
 
-		go func(proceso Proceso) {
-			// Execute the process
-
-			if err := SendContextToCPU(*proceso.PCB); err != nil {
-				log.Printf("Error sending context to CPU: %v", err)
-				return
-			}
-
-			if syscallIO {
-				log.Printf("Operación de I/O recibida para el proceso %v", proceso.PCB.Pid)
-				if err := SendIOToEntradaSalida(timeIOGlobal); err != nil {
-					log.Printf("Error sending IO to EntradaSalida: %v", err)
+		for {
+			go func(proceso Proceso) {
+				// Execute the process
+				mu.Lock()
+				if err := SendContextToCPU(*proceso.PCB); err != nil {
+					log.Printf("Error sending context to CPU: %v", err)
+					return
 				}
-				syscallIO = false
+				proceso.PCB.CpuReg = newPCB.PcbUpdated.CpuReg
+				proceso.PCB.State = newPCB.PcbUpdated.State
+				proceso.PCB.Pid = newPCB.PcbUpdated.Pid
 
-				// Put the process back into colaReady
-				go func(proceso Proceso) {
-					//time.Sleep( /timeIO/ )
+				mu.Unlock()
 
-					mu.Lock()
-					colaReady = append(colaReady, proceso)
-					mu.Unlock()
-				}(proceso)
-			}
-		}(proceso)
+				if syscallIO {
+					log.Printf("Operación de I/O recibida para el proceso %v", proceso.PCB.Pid)
+					if err := SendIOToEntradaSalida(timeIOGlobal); err != nil {
+						log.Printf("Error sending IO to EntradaSalida: %v", err)
+					}
+					log.Printf("colacha %v", colaReady)
+					log.Printf("el ax es:  %v del nuevo pcb", proceso.PCB.CpuReg.AX)
+
+					syscallIO = false
+
+					// Put the process back into colaReady
+					go func(proceso Proceso) {
+						//time.Sleep( /timeIO/ )
+
+						mu.Lock()
+						colaReady = append(colaReady, proceso)
+						mu.Unlock()
+					}(proceso)
+
+				}
+
+			}(proceso)
+		}
 	}
 }
 
