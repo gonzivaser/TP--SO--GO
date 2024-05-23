@@ -119,7 +119,7 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//pasen a int esto request.TimeIO
-	timeIO = request.TimeIO
+	// timeIO, err := strconv.Atoi(request.TimeIO)
 	syscallIO = true
 
 	// enviar I/O a entradasalida
