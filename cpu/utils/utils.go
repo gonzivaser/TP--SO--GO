@@ -102,12 +102,13 @@ func InstructionCycle(receivedPCB ExecutionContext) {
 		line, _ := Fetch(int(receivedPCB.CpuReg.PC), receivedPCB.Pid)
 		instruction, _ := Decode(line)
 		Execute(instruction, line, &receivedPCB)
-		if responseInterrupt.Interrupt {
-			break
-		}
 		log.Printf("PID: %d - Ejecutando: %s - %s”.", receivedPCB.Pid, instruction, line)
 
 		receivedPCB.CpuReg.PC++
+
+		if responseInterrupt.Interrupt {
+			break
+		}
 
 	}
 	log.Printf("PID: %d - Sale de CPU - PCB actualizado: %d\n", receivedPCB.Pid, receivedPCB.CpuReg) //LOG no official
@@ -209,7 +210,9 @@ func Execute(instruction string, line []string, receivedPCB *ExecutionContext) e
 		requestCPU = KernelRequest{
 			MotivoDesalojo: "FINALIZADO",
 		}
-		interrupt = true
+		responseInterrupt = ResponseInterrupt{
+			Interrupt: true, // Aquí va el valor booleano que quieres enviar
+		}
 	default:
 		fmt.Println("Instruction no implementada")
 	}
@@ -458,6 +461,12 @@ func IO(kind string, words []string) error {
 func Checkinterrupts(w http.ResponseWriter, r *http.Request) { // A chequear
 	responseInterrupt = ResponseInterrupt{
 		Interrupt: true, // Aquí va el valor booleano que quieres enviar
+	}
+	requestCPU = KernelRequest{
+		MotivoDesalojo: "CLOCK",
+		TimeIO:         requestCPU.TimeIO,
+		Interface:      requestCPU.Interface,
+		IoType:         requestCPU.IoType,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

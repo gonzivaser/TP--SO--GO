@@ -144,6 +144,8 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 		syscallIO = true
 		CPURequest.PcbUpdated.State = "BLOCKED"
 		timeIOGlobal = CPURequest.TimeIO
+	case "CLOCK":
+		log.Printf("Proceso %v desalojado por fin de Quantum", CPURequest.PcbUpdated.Pid)
 
 	default:
 		log.Printf("Proceso %v desalojado desconocido por %v", CPURequest.PcbUpdated.Pid, CPURequest.MotivoDesalojo)
@@ -231,13 +233,16 @@ func executeProcessRR(quantum int) {
 
 		select {
 		case <-done:
-			// La función terminó antes del tiempo límite
+			cond.Signal()
 		case <-time.After(time.Duration(quantum) * time.Millisecond):
 			SendInterruptForClock()
-			mu.Lock()
-			colaReady = append(colaReady, proceso) // Agrega el proceso de nuevo a la cola
-			mu.Unlock()
-			return
+
+			if CPURequest.PcbUpdated.State != "EXIT" {
+				mu.Lock()
+				colaReady = append(colaReady, proceso) // Agrega el proceso de nuevo a la cola
+				mu.Unlock()
+			}
+			cond.Signal()
 		}
 	}
 }
@@ -416,9 +421,6 @@ func SendInterruptForClock() error {
 
 	var response ResponseInterrupt
 	json.Unmarshal(body, &response)
-
-	log.Println(response.Interrupt)
-
 	return nil
 }
 
