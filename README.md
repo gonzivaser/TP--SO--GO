@@ -72,8 +72,47 @@ antes de subir el tag.
 
     - [ ] Se encuentran desarrolladas las interfaces STDIN y STDOUT.
 
+### Logs mínimos y obligatorios
+
+- Módulo Kernel:
+
+    - [ ] Creación de Proceso
+    - [ ] Fin de Proceso
+    - [ ] Cambio de Estado
+    - [ ] Motivo de Bloqueo
+    - [ ] Fin de Quantum
+    - [ ] Ingreso a Ready
+
+- Módulo CPU:
+
+    - [x] Fetch Instrucción
+    - [x] Instrucción Ejecutada
+    - [ ] TLB Hit
+    - [ ] TLB Miss
+    - [ ] Obtener Marco
+    - [ ] Lectura/Escritura Memoria
+
+- Módulo Memoria:
+
+    - [ ] Se Creación / destrucción de Tabla de Páginas
+    - [ ] Acceso a Tabla de Páginas
+    - [ ] Ampliación de Proceso
+    - [ ] Reducción de Proceso
+    - [ ] Acceso a espacio de usuario
+
+- Módulo Interfaz I/O:
+
+    - [ ] Todos - Operación
+    - [ ] DialFS - Crear Archivo
+    - [ ] DialFS - Eliminar Archivo
+    - [ ] DialFS - Truncar Archivo
+    - [ ] DialFS - Leer Archivo
+    - [ ] DialFS - Escribir Archivo
+
+
 ## Entregas finales
 
 - [ ] Finalizar el desarrollo de todos los procesos.
 - [ ] Probar de manera intensiva el TP en un entorno distribuido.
 - [ ] Todos los componentes del TP ejecutan los requerimientos de forma integral.
+
