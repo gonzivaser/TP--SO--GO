@@ -15,19 +15,17 @@ import (
 	"github.com/sisoputnfrba/tp-golang/cpu/globals"
 )
 
-type PruebaMensaje struct {
-	Mensaje string `json:"Prueba"`
-}
-
-type BodyResponse struct {
-	ExecutionContext ExecutionContext `json:"ExecutionContext"`
+type KernelRequest struct {
+	PcbUpdated ExecutionContext `json:"pcbUpdated"`
+	TimeIO     string           `json:"timeIO"`
+	Interface  string           `json:"interface"`
+	IoType     string           `json:"ioType"`
 }
 
 type PCB struct { //ESTO NO VA ACA
-	Pid     int
-	Quantum int
-	State   string
-	CpuReg  RegisterCPU
+	Pid, Quantum int
+	State        string
+	CpuReg       RegisterCPU
 }
 
 type ExecutionContext struct {
@@ -45,7 +43,11 @@ type BodyResponseInstruction struct {
 	Instruction string `json:"instruction"`
 }
 
+var interrupt bool = false
+var requestCPU KernelRequest
+
 func ConfigurarLogger() {
+
 	logFile, err := os.OpenFile("cpu.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
 	if err != nil {
 		panic(err)
@@ -68,16 +70,6 @@ func IniciarConfiguracion(filePath string) *globals.Config {
 	return config
 }
 
-func SendResponse(w http.ResponseWriter) {
-	BodyResponse := BodyResponse{
-		ExecutionContext: receivedPCB,
-	}
-	response, _ := json.Marshal(BodyResponse)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(response)
-}
-
 var receivedPCB ExecutionContext //PCB recibido desde kernel
 
 func ReceivePCB(w http.ResponseWriter, r *http.Request) {
@@ -94,13 +86,11 @@ func ReceivePCB(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("PCB recibido desde el kernel: %+v", receivedPCB)
 	InstructionCycle(receivedPCB)
-	// HAGO UN LOG PARA CHEQUEAR QUE PASO ERRORES
-
 	w.WriteHeader(http.StatusOK)
 }
 
 func InstructionCycle(receivedPCB ExecutionContext) {
-	var timeIO string
+
 	for {
 		log.Printf("PID: %d - FETCH - Program Counter: %d\n", receivedPCB.Pid, receivedPCB.CpuReg.PC)
 		line, _ := Fetch(int(receivedPCB.CpuReg.PC), receivedPCB.Pid)
@@ -110,36 +100,20 @@ func InstructionCycle(receivedPCB ExecutionContext) {
 
 		receivedPCB.CpuReg.PC++
 
-		words := strings.Fields(line[0])
-		if Checkinterrupts(instruction) {
-			timeIO = words[2]
-			fmt.Println("TERMINO por io")
-			receivedPCB.State = "BLOCKED"
-			break
-		} else if words[0] == "EXIT" {
-			fmt.Println("TERMINO por EXIT")
-			receivedPCB.State = "EXIT"
+		if interrupt {
 			break
 		}
 	}
-	fmt.Println("el PCB ya actualizado;", receivedPCB)
+	log.Printf("PID: %d - Sale de CPU - PCB actualizado: %d\n", receivedPCB.Pid, receivedPCB.CpuReg)
 
-	responsePCBtoKernel(receivedPCB, timeIO)
+	responsePCBtoKernel()
 
 }
 
-type KernelRequest struct {
-	PcbUpdated ExecutionContext `json:"pcbUpdated"`
-	TimeIO     string           `json:"timeIO"`
-}
-
-func responsePCBtoKernel(pcbUpdated ExecutionContext, timeIO string) {
+func responsePCBtoKernel() {
 	kernelURL := "http://localhost:8080/syscall"
-	request := KernelRequest{
-		PcbUpdated: pcbUpdated,
-		TimeIO:     timeIO,
-	}
-	requestJSON, err := json.Marshal(request)
+
+	requestJSON, err := json.Marshal(requestCPU)
 	if err != nil {
 		return
 	}
@@ -152,8 +126,6 @@ func responsePCBtoKernel(pcbUpdated ExecutionContext, timeIO string) {
 	if resp.StatusCode != http.StatusOK {
 		return
 	}
-
-	//log.Println("Respuesta del módulo de kernel recibida correctamente.")
 }
 
 func Fetch(pc int, pid int) ([]string, error) {
@@ -216,7 +188,14 @@ func Execute(instruction string, line []string, receivedPCB *ExecutionContext) e
 		if err != nil {
 			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
 		}
-
+	case "IO_GEN_SLEEP":
+		err := IO(instruction, words)
+		if err != nil {
+			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
+		}
+	case "EXIT":
+		receivedPCB.State = "EXIT"
+		interrupt = true
 	default:
 		fmt.Println("Instruction no implementada")
 	}
@@ -398,17 +377,37 @@ func JNZ(registerCPU *RegisterCPU, reg, valor string) error {
 	return nil
 }
 
-func Checkinterrupts(instruction string) bool {
-	// HAGO UN LOG PARA CHEQUEAR RECEPCION
-	arrInterruptions := []string{"IO_GEN_SLEEP"} // queda para poner las otras IO
-	return contains(arrInterruptions, instruction)
+func IO(kind string, words []string) error {
+	interrupt = true
+	receivedPCB.State = "BLOCKED"
+	switch kind {
+	case "IO_GEN_SLEEP":
+		requestCPU = KernelRequest{
+			IoType:    "IO_GEN_SLEEP",
+			Interface: words[1],
+			TimeIO:    words[2],
+		}
+	case "IO_STDIN_READ":
+		fmt.Println("IO_STDOUT_READ")
+	case "IO_FS_CREATE":
+		fmt.Println("IO_FS_CREATE")
+	case "IO_FS_DELETE":
+		fmt.Println("IO_FS_DELETE")
+	case "IO_FS_SEEK":
+		fmt.Println("IO_FS_SEEK")
+	case "IO_FS_TRUNCATE":
+		fmt.Println("IO_FS_TRUNCATE")
+	case "IO_FS_WRITE":
+		fmt.Println("IO_FS_WRITE")
+	case "IO_FS_READ":
+		fmt.Println("IO_FS_READ")
+	default:
+		return fmt.Errorf("tipo de instrucción no soportado")
+	}
+	return nil
 }
 
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
+func Checkinterrupts(w http.ResponseWriter, r *http.Request) { // A chequear
+
+	w.WriteHeader(http.StatusOK)
 }
