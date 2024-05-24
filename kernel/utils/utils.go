@@ -106,6 +106,7 @@ type KernelRequest struct {
 }
 
 /*---------------------------------------------------VAR GLOBALES------------------------------------------------*/
+
 var nextPid = 1
 var timeIOGlobal int
 var CPURequest KernelRequest
@@ -116,8 +117,7 @@ var (
 )
 var syscallIO bool
 var cond = sync.NewCond(&mu)
-var executingFIFO bool // harcodeado
-var executingRR bool   // harcodeado
+var quantum = globals.ClientConfig.Quantum
 
 /*-------------------------------------------------FUNCIONES CREADAS----------------------------------------------*/
 
@@ -190,30 +190,28 @@ func IniciarPlanificacionDeProcesos(request BodyRequest, pcb PCB) {
 	}
 	mu.Unlock()
 
-	executingFIFO = true
-	executingRR = false
-	if executingFIFO {
+	if globals.ClientConfig.AlgoritmoPlanificacion == "FIFO" {
 		go executeProcessFIFO()
-	}
-	if executingRR {
+	} else if globals.ClientConfig.AlgoritmoPlanificacion == "RR" {
 		go executeProcessRR()
 	}
 }
 
 func executeProcessRR() {
-	const quantum = 1 * time.Second // Define your quantum here
-
 	for {
 		mu.Lock()
 		for len(colaReady) == 0 {
 			cond.Wait()
 		}
 
+		// Dequeue a process from colaReady
+		log.Printf("hola a amover la cola: %v", colaReady[0].PCB.Pid)
 		proceso := colaReady[0]
 		colaReady = colaReady[1:]
 		mu.Unlock()
 
 		go func(proceso Proceso) {
+			// Execute the process
 			mu.Lock()
 			if err := SendContextToCPU(*proceso.PCB); err != nil {
 				log.Printf("Error sending context to CPU: %v", err)
@@ -221,20 +219,26 @@ func executeProcessRR() {
 			}
 			mu.Unlock()
 
-			timer := time.NewTimer(quantum)
+			proceso.PCB.CpuReg = newPCB.PcbUpdated.CpuReg
+			proceso.PCB.State = newPCB.PcbUpdated.State
+			proceso.PCB.Pid = newPCB.PcbUpdated.Pid
+
+			executionTime := time.NewTimer(time.Duration(quantum) * time.Second)
+			defer executionTime.Stop()
 
 			select {
-			case <-timer.C:
-				if proceso.PCB.State != "EXIT" {
-					proceso.PCB.State = "READY"
-					log.Printf("Se desaloja el proceso %v por fin de quantum", proceso.PCB.Pid)
-				}
+			// SI EL TEMPORIZADOR TERMINA ANTES DE QUE EL PROCESO TERMINE SE MANDA INTERRUPCION DE CLOCK
+			case <-executionTime.C:
+				log.Printf("Quantum expirado para el proceso %v", proceso.PCB.Pid)
+				SendInterruptForClock()
+
+				// SI EL PROCESO TERMINA ANTES DE QUE EL TEMPORIZADOR TERMINE DIRECAMENTE SE TERMINA EL PROCESO
 			default:
 				if proceso.PCB.State == "EXIT" {
-					if !timer.Stop() {
-						<-timer.C
-						log.Printf("Proceso termino antes de que expire el quantum")
+					if !executionTime.Stop() {
+						<-executionTime.C
 					}
+					log.Printf("Proceso %v terminó antes de que expire el quantum", proceso.PCB.Pid)
 				}
 			}
 
@@ -251,10 +255,8 @@ func executeProcessRR() {
 			}
 
 			if proceso.PCB.State == "READY" {
-				mu.Lock()
 				colaReady = append(colaReady, proceso)
 				cond.Signal() // Notify that colaReady is not empty
-				mu.Unlock()
 			}
 		}(proceso)
 	}
@@ -418,6 +420,23 @@ func SendIOToEntradaSalida(io int) error {
 	return nil
 }
 
+func SendInterruptForClock() error {
+	cpuURL := "http://localhost:8075/receiveInterrupt"
+
+	resp, err := http.Post(cpuURL, "application/json", nil)
+	if err != nil {
+		log.Printf("Error al enviar la solicitud al módulo de cpu: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("Error en la respuesta del módulo de cpu: %v", resp.StatusCode)
+	}
+
+	log.Println("Respuesta del módulo de cpu recibida correctamente.")
+	return nil
+}
+
 /*---------------------------------------------LOGS OBLIGATORIOS--------------------------------------------------*/
 
 func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
@@ -461,10 +480,6 @@ func EstadoProceso(w http.ResponseWriter, r *http.Request) {
 }
 
 func IniciarPlanificacion(w http.ResponseWriter, r *http.Request) {
-	/*if globals.ClientConfig.AlgoritmoPlanificacion == "RR" {
-
-	}*/
-
 	//log.Printf("PID: <PID> - Bloqueado por: <INTERFAZ / NOMBRE_RECURSO>") //ESTO NO VA ACA
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Planificación iniciada"))
