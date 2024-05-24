@@ -44,8 +44,13 @@ type BodyResponseInstruction struct {
 	Instruction string `json:"instruction"`
 }
 
+type ResponseInterrupt struct {
+	Interrupt bool `json:"interrupt"`
+}
+
 var interrupt bool = false
 var requestCPU KernelRequest
+var responseInterrupt ResponseInterrupt
 
 func ConfigurarLogger() {
 
@@ -97,14 +102,13 @@ func InstructionCycle(receivedPCB ExecutionContext) {
 		line, _ := Fetch(int(receivedPCB.CpuReg.PC), receivedPCB.Pid)
 		instruction, _ := Decode(line)
 		Execute(instruction, line, &receivedPCB)
+		if responseInterrupt.Interrupt {
+			break
+		}
 		log.Printf("PID: %d - Ejecutando: %s - %s”.", receivedPCB.Pid, instruction, line)
 
 		receivedPCB.CpuReg.PC++
 
-		if interrupt {
-			interrupt = false
-			break
-		}
 	}
 	log.Printf("PID: %d - Sale de CPU - PCB actualizado: %d\n", receivedPCB.Pid, receivedPCB.CpuReg) //LOG no official
 	requestCPU = KernelRequest{
@@ -452,6 +456,10 @@ func IO(kind string, words []string) error {
 }
 
 func Checkinterrupts(w http.ResponseWriter, r *http.Request) { // A chequear
+	responseInterrupt = ResponseInterrupt{
+		Interrupt: true, // Aquí va el valor booleano que quieres enviar
+	}
 
-	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(interrupt)
 }
