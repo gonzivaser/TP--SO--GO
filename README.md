@@ -76,7 +76,7 @@ antes de subir el tag.
 
 - Módulo Kernel:
 
-    - [ ] Creación de Proceso
+    - [x] Creación de Proceso
     - [ ] Fin de Proceso
     - [ ] Cambio de Estado
     - [ ] Motivo de Bloqueo

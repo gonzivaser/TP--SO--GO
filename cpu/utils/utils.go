@@ -104,7 +104,7 @@ func InstructionCycle(receivedPCB ExecutionContext) {
 			break
 		}
 	}
-	log.Printf("PID: %d - Sale de CPU - PCB actualizado: %d\n", receivedPCB.Pid, receivedPCB.CpuReg)
+	log.Printf("PID: %d - Sale de CPU - PCB actualizado: %d\n", receivedPCB.Pid, receivedPCB.CpuReg) //LOG no official
 
 	responsePCBtoKernel()
 
