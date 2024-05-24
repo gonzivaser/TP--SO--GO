@@ -16,10 +16,11 @@ import (
 )
 
 type KernelRequest struct {
-	PcbUpdated ExecutionContext `json:"pcbUpdated"`
-	TimeIO     string           `json:"timeIO"`
-	Interface  string           `json:"interface"`
-	IoType     string           `json:"ioType"`
+	PcbUpdated     ExecutionContext `json:"pcbUpdated"`
+	MotivoDesalojo string           `json:"motivoDesalojo"`
+	TimeIO         int              `json:"timeIO"`
+	Interface      string           `json:"interface"`
+	IoType         string           `json:"ioType"`
 }
 
 type PCB struct { //ESTO NO VA ACA
@@ -101,11 +102,18 @@ func InstructionCycle(receivedPCB ExecutionContext) {
 		receivedPCB.CpuReg.PC++
 
 		if interrupt {
+			interrupt = false
 			break
 		}
 	}
 	log.Printf("PID: %d - Sale de CPU - PCB actualizado: %d\n", receivedPCB.Pid, receivedPCB.CpuReg) //LOG no official
-
+	requestCPU = KernelRequest{
+		PcbUpdated:     receivedPCB,
+		MotivoDesalojo: requestCPU.MotivoDesalojo,
+		TimeIO:         requestCPU.TimeIO,
+		Interface:      requestCPU.Interface,
+		IoType:         requestCPU.IoType,
+	}
 	responsePCBtoKernel()
 
 }
@@ -183,18 +191,20 @@ func Execute(instruction string, line []string, receivedPCB *ExecutionContext) e
 		if err != nil {
 			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
 		}
-	case "JNZ":
-		err := JNZ(&receivedPCB.CpuReg, words[1], words[2])
-		if err != nil {
-			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
-		}
+	// case "JNZ":
+	// 	err := JNZ(&receivedPCB.CpuReg, words[1], words[2])
+	// 	if err != nil {
+	// 		return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
+	// 	}
 	case "IO_GEN_SLEEP":
 		err := IO(instruction, words)
 		if err != nil {
 			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
 		}
 	case "EXIT":
-		receivedPCB.State = "EXIT"
+		requestCPU = KernelRequest{
+			MotivoDesalojo: "FINALIZADO",
+		}
 		interrupt = true
 	default:
 		fmt.Println("Instruction no implementada")
@@ -379,13 +389,17 @@ func JNZ(registerCPU *RegisterCPU, reg, valor string) error {
 
 func IO(kind string, words []string) error {
 	interrupt = true
-	receivedPCB.State = "BLOCKED"
 	switch kind {
 	case "IO_GEN_SLEEP":
+		timeIO, err := strconv.Atoi(words[2])
+		if err != nil {
+			return err
+		}
 		requestCPU = KernelRequest{
-			IoType:    "IO_GEN_SLEEP",
-			Interface: words[1],
-			TimeIO:    words[2],
+			MotivoDesalojo: "INTERRUPCION POR IO",
+			IoType:         "IO_GEN_SLEEP",
+			Interface:      words[1],
+			TimeIO:         timeIO,
 		}
 	case "IO_STDIN_READ":
 		fmt.Println("IO_STDOUT_READ")

@@ -98,14 +98,17 @@ type Syscall struct {
 }
 
 type KernelRequest struct {
-	PcbUpdated ExecutionContext `json:"pcbUpdated"`
-	TimeIO     string           `json:"timeIO"`
+	PcbUpdated     ExecutionContext `json:"pcbUpdated"`
+	MotivoDesalojo string           `json:"motivoDesalojo"`
+	TimeIO         int              `json:"timeIO"`
+	Interface      string           `json:"interface"`
+	IoType         string           `json:"ioType"`
 }
 
 /*---------------------------------------------------VAR GLOBALES------------------------------------------------*/
 var nextPid = 1
 var timeIOGlobal int
-var newPCB KernelRequest
+var CPURequest KernelRequest
 var (
 	colaReady []Proceso
 	mu        sync.Mutex
@@ -123,26 +126,31 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 
 	// CREO VARIABLE I/O
 
-	err := json.NewDecoder(r.Body).Decode(&newPCB)
-
+	err := json.NewDecoder(r.Body).Decode(&CPURequest)
 	if err != nil {
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
 		return
 	}
-
-	//pasen a int esto request.TimeIO
-	if newPCB.TimeIO != "" {
-		timeIOGlobal, _ = strconv.Atoi(newPCB.TimeIO)
+	log.Printf("Recibido syscall: %+v", CPURequest)
+	switch CPURequest.MotivoDesalojo {
+	case "FINALIZADO":
+		log.Printf("Proceso %v finalizado con éxito", CPURequest.PcbUpdated.Pid)
+		CPURequest.PcbUpdated.State = "EXIT"
+	case "INTERRUPCION POR IO":
 		syscallIO = true
+		CPURequest.PcbUpdated.State = "BLOCKED"
+		timeIOGlobal = CPURequest.TimeIO
+	default:
+		log.Printf("Proceso %v desalojado desconocido por %v", CPURequest.PcbUpdated.Pid, CPURequest.MotivoDesalojo)
 	}
 
 	// enviar I/O a entradasalida
 	// HAGO UN LOG SI PASO ERRORES PARA RECEPCION DEL I/O
 
-	log.Printf("Recibido pcb: %v", newPCB.PcbUpdated)
+	log.Printf("Recibido pcb: %v", CPURequest.PcbUpdated)
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("%v", newPCB.PcbUpdated)))
+	w.Write([]byte(fmt.Sprintf("%v", CPURequest.PcbUpdated)))
 }
 
 func IniciarProceso(w http.ResponseWriter, r *http.Request) {
@@ -274,9 +282,11 @@ func executeProcessFIFO() {
 			}
 			mu.Unlock()
 
-			proceso.PCB.CpuReg = newPCB.PcbUpdated.CpuReg
-			proceso.PCB.State = newPCB.PcbUpdated.State
-			proceso.PCB.Pid = newPCB.PcbUpdated.Pid
+			log.Printf("PID: %d - Estado Anterior: %s - Estado Actual: %s", proceso.PCB.Pid, proceso.PCB.State, CPURequest.PcbUpdated.State)
+
+			proceso.PCB.CpuReg = CPURequest.PcbUpdated.CpuReg
+			proceso.PCB.State = CPURequest.PcbUpdated.State
+			proceso.PCB.Pid = CPURequest.PcbUpdated.Pid // Dudoso
 
 			if syscallIO {
 				muio.Lock()

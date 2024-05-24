@@ -78,7 +78,7 @@ antes de subir el tag.
 
     - [x] Creación de Proceso
     - [ ] Fin de Proceso
-    - [ ] Cambio de Estado
+    - [x] Cambio de Estado
     - [ ] Motivo de Bloqueo
     - [ ] Fin de Quantum
     - [ ] Ingreso a Ready
