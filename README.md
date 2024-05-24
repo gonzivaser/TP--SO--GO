@@ -39,8 +39,8 @@ antes de subir el tag.
   
     - [x] Se conecta a Kernel y recibe un PCB.
     - [x] Es capaz de conectarse a la memoria y solicitar las instrucciones.
-    - [ ] Es capaz de ejecutar un ciclo básico de instrucción.
-    - [ ] Es capaz de resolver las operaciones: SET, SUM, SUB, JNZ e IO_GEN_SLEEP.
+    - [x] Es capaz de ejecutar un ciclo básico de instrucción.
+    - [x] Es capaz de resolver las operaciones: SET, SUM, SUB, JNZ e IO_GEN_SLEEP.
 
 - Módulo Memoria:
   
@@ -49,7 +49,7 @@ antes de subir el tag.
 
 - Módulo Interfaz I/O:
 - 
-    - [ ] Se encuentra desarrollada la Interfaz Genérica.
+    - [x] Se encuentra desarrollada la Interfaz Genérica.
 
 
 ### Checkpoint 3
