@@ -191,11 +191,11 @@ func Execute(instruction string, line []string, receivedPCB *ExecutionContext) e
 		if err != nil {
 			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
 		}
-	// case "JNZ":
-	// 	err := JNZ(&receivedPCB.CpuReg, words[1], words[2])
-	// 	if err != nil {
-	// 		return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
-	// 	}
+	case "JNZ":
+		err := JNZ(&receivedPCB.CpuReg, words[1], words[2])
+		if err != nil {
+			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
+		}
 	case "IO_GEN_SLEEP":
 		err := IO(instruction, words)
 		if err != nil {
@@ -369,7 +369,7 @@ func Resta(registerCPU *RegisterCPU, s1, s2 string) error {
 
 func JNZ(registerCPU *RegisterCPU, reg, valor string) error {
 
-	// Obtener el valor reflect.Value de la estructura Persona
+	// Obtener el valor reflect.Value de la estructura RegisterCPU
 	valorRef := reflect.ValueOf(registerCPU)
 
 	// Obtener el valor reflect.Value del campo destino
@@ -380,8 +380,38 @@ func JNZ(registerCPU *RegisterCPU, reg, valor string) error {
 		return fmt.Errorf("campo destino '%s' no encontrado en la estructura", reg)
 	}
 
-	if campoDestinoRef.Uint() != 0 {
-		registerCPU.PC = uint32(valorRef.Elem().FieldByName(valor).Uint())
+	// Obtener el valor reflect.Value del campo valor
+	valorCampoRef := valorRef.Elem().FieldByName(valor)
+
+	// Verificar si el campo valor existe
+	if !valorCampoRef.IsValid() {
+		return fmt.Errorf("campo valor '%s' no encontrado en la estructura", valor)
+	}
+
+	// Obtener el tipo de dato del campo destino
+	tipoCampoDestino := campoDestinoRef.Type()
+
+	// Obtener el tipo de dato del campo valor
+	tipoCampoValor := valorCampoRef.Type()
+
+	// Verificar que el campo destino sea del tipo adecuado
+	if tipoCampoDestino.Kind() != reflect.Uint32 {
+		return fmt.Errorf("campo destino '%s' no es del tipo adecuado", reg)
+	}
+
+	// Verificar que el campo valor sea del tipo adecuado
+	if tipoCampoValor.Kind() != reflect.Uint32 {
+		return fmt.Errorf("campo valor '%s' no es del tipo adecuado", valor)
+	}
+
+	// Obtener el valor del campo destino
+	campoDestino := campoDestinoRef.Uint()
+
+	// Obtener el valor del campo valor
+	campoValor := valorCampoRef.Uint()
+
+	if campoDestino != 0 {
+		registerCPU.PC = uint32(campoValor)
 	}
 
 	return nil
