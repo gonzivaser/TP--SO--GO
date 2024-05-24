@@ -102,13 +102,14 @@ func ReceivePCB(w http.ResponseWriter, r *http.Request) {
 func InstructionCycle(receivedPCB ExecutionContext) {
 	var timeIO string
 	for {
+		log.Printf("PID: %d - FETCH - Program Counter: %d\n", receivedPCB.Pid, receivedPCB.CpuReg.PC)
 		line, _ := Fetch(int(receivedPCB.CpuReg.PC), receivedPCB.Pid)
 		instruction, _ := Decode(line)
 		Execute(instruction, line, &receivedPCB)
+		log.Printf("PID: %d - Ejecutando: %s - %s”.", receivedPCB.Pid, instruction, line)
 
-		// Pass the address of receivedPCB
-		fmt.Println("hola", instruction)
 		receivedPCB.CpuReg.PC++
+
 		words := strings.Fields(line[0])
 		if Checkinterrupts(instruction) {
 			timeIO = words[2]
@@ -178,39 +179,11 @@ func Fetch(pc int, pid int) ([]string, error) {
 	}
 
 	instructions := strings.Split(response.Instruction, ",") // split the string into a slice
-	log.Println("Instrucción recibida:", instructions)
 	return instructions, nil
 }
 
-// 	// // CREO VARIABLE DONDE GUARDO EL PROGRAM COUNTER
-// 	// pcProcess, err := json.Marshal(pc)
-
-// 	// // CHEQUEO ERRORES
-// 	// if err != nil {
-// 	// 	return nil, fmt.Errorf("error al serializar el PCB: %v", err)
-// 	// }
-
-// 	// // CONFIRMACION DE QUE PASO ERRORES Y SE MANDA SOLICITUD
-// 	// log.Println("Enviando Program Counter con valor:", string(pcProcess))
-
-// 	// // CREO VARIABLE resp y err CON EL
-// 	// resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(pcProcess))
-// 	// if err != nil {
-// 	// 	return nil, fmt.Errorf("error al enviar la solicitud al módulo de memoria: %v", err)
-// 	// }
-
-// 	// defer resp.Body.Close()
-// 	// if err != nil {
-// 	// 	return nil, fmt.Errorf("error al decodificar la respuesta del módulo de memoria: %v", err)
-// 	// }
-// 	// instruction := strings.Fields(response.Instruction)
-
-// 	// // SE CHEQUEA CON UN PRINT QUE LA LA MEMORIA RECIBIO CORRECTAMENTE EL pc
-// 	// log.Println("Respuesta del módulo de memoria recibida correctamente.")
-// 	// return instruction, nil
-
 func Decode(instruction []string) (string, error) {
-	// Esta función se va a conoplicar con la traducción de las direcciones fisicas y logicas
+	// Esta función se va a complejizar con la traducción de las direcciones fisicas y logicas
 	words := strings.Fields(instruction[0])
 	if len(instruction) == 0 {
 		return "nil", fmt.Errorf("instrucción vacía")
@@ -238,9 +211,14 @@ func Execute(instruction string, line []string, receivedPCB *ExecutionContext) e
 		if err != nil {
 			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
 		}
+	case "JNZ":
+		err := JNZ(&receivedPCB.CpuReg, words[1], words[2])
+		if err != nil {
+			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
+		}
 
 	default:
-		fmt.Println("Unknown instruction")
+		fmt.Println("Instruction no implementada")
 	}
 	return nil
 }
@@ -400,13 +378,30 @@ func Resta(registerCPU *RegisterCPU, s1, s2 string) error {
 	return nil
 }
 
+func JNZ(registerCPU *RegisterCPU, reg, valor string) error {
+
+	// Obtener el valor reflect.Value de la estructura Persona
+	valorRef := reflect.ValueOf(registerCPU)
+
+	// Obtener el valor reflect.Value del campo destino
+	campoDestinoRef := valorRef.Elem().FieldByName(reg)
+
+	// Verificar si el campo destino existe
+	if !campoDestinoRef.IsValid() {
+		return fmt.Errorf("campo destino '%s' no encontrado en la estructura", reg)
+	}
+
+	if campoDestinoRef.Uint() != 0 {
+		registerCPU.PC = uint32(valorRef.Elem().FieldByName(valor).Uint())
+	}
+
+	return nil
+}
+
 func Checkinterrupts(instruction string) bool {
 	// HAGO UN LOG PARA CHEQUEAR RECEPCION
 	arrInterruptions := []string{"IO_GEN_SLEEP"} // queda para poner las otras IO
-	if contains(arrInterruptions, instruction) {
-		return true
-	}
-	return false
+	return contains(arrInterruptions, instruction)
 }
 
 func contains(s []string, e string) bool {
