@@ -159,14 +159,14 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	pcb := createPCB()
 	log.Printf("Se crea el proceso %v en NEW", pcb.Pid) // log obligatorio
 
-	IniciarPlanificacionDeProcesos(w, r, request, pcb)
+	IniciarPlanificacionDeProcesos(request, pcb)
 
 	// Response with the PID
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 }
 
-func IniciarPlanificacionDeProcesos(w http.ResponseWriter, r *http.Request, request BodyRequest, pcb PCB) {
+func IniciarPlanificacionDeProcesos(request BodyRequest, pcb PCB) {
 	// Create a new process and add it to the queue
 	proceso := Proceso{
 		Request: request,
@@ -182,8 +182,8 @@ func IniciarPlanificacionDeProcesos(w http.ResponseWriter, r *http.Request, requ
 	}
 	mu.Unlock()
 
-	executingFIFO = false
-	executingRR = true
+	executingFIFO = true
+	executingRR = false
 	if executingFIFO {
 		go executeProcessFIFO()
 	}
