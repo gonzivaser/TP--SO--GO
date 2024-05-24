@@ -103,6 +103,7 @@ type KernelRequest struct {
 }
 
 /*---------------------------------------------------VAR GLOBALES------------------------------------------------*/
+
 var nextPid = 1
 var timeIOGlobal int
 var newPCB KernelRequest
@@ -113,8 +114,6 @@ var (
 )
 var syscallIO bool
 var cond = sync.NewCond(&mu)
-var executingFIFO bool // harcodeado
-var executingRR bool   // harcodeado
 
 /*-------------------------------------------------FUNCIONES CREADAS----------------------------------------------*/
 
@@ -182,19 +181,15 @@ func IniciarPlanificacionDeProcesos(request BodyRequest, pcb PCB) {
 	}
 	mu.Unlock()
 
-	executingFIFO = true
-	executingRR = false
-	if executingFIFO {
+	if globals.ClientConfig.AlgoritmoPlanificacion == "FIFO" {
 		go executeProcessFIFO()
-	}
-	if executingRR {
+	} else if globals.ClientConfig.AlgoritmoPlanificacion == "RR" {
 		go executeProcessRR()
 	}
 }
 
 func executeProcessRR() {
-	const quantum = 1 * time.Second // Define your quantum here
-
+	var quantum = globals.ClientConfig.Quantum
 	for {
 		mu.Lock()
 		for len(colaReady) == 0 {
@@ -213,7 +208,7 @@ func executeProcessRR() {
 			}
 			mu.Unlock()
 
-			timer := time.NewTimer(quantum)
+			timer := time.NewTimer(time.Duration(quantum) * time.Second)
 
 			select {
 			case <-timer.C:
@@ -451,10 +446,6 @@ func EstadoProceso(w http.ResponseWriter, r *http.Request) {
 }
 
 func IniciarPlanificacion(w http.ResponseWriter, r *http.Request) {
-	/*if globals.ClientConfig.AlgoritmoPlanificacion == "RR" {
-
-	}*/
-
 	//log.Printf("PID: <PID> - Bloqueado por: <INTERFAZ / NOMBRE_RECURSO>") //ESTO NO VA ACA
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Planificación iniciada"))
