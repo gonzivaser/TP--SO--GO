@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/sisoputnfrba/tp-golang/cpu/globals"
 )
@@ -102,6 +103,7 @@ func InstructionCycle(receivedPCB ExecutionContext) {
 		line, _ := Fetch(int(receivedPCB.CpuReg.PC), receivedPCB.Pid)
 		instruction, _ := Decode(line)
 		Execute(instruction, line, &receivedPCB)
+		time.Sleep(1 * time.Second)
 		log.Printf("PID: %d - Ejecutando: %s - %s”.", receivedPCB.Pid, instruction, line)
 
 		receivedPCB.CpuReg.PC++

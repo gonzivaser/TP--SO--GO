@@ -220,28 +220,45 @@ func executeProcessRR(quantum int) {
 			mu.Lock()
 			if err := SendContextToCPU(*proceso.PCB); err != nil {
 				log.Printf("Error sending context to CPU: %v", err)
+				done <- false
+				mu.Unlock()
 				return
 			}
 			mu.Unlock()
 
+			// Simulate process execution
+
+			// Retrieve updated PCB from CPU
+			mu.Lock()
 			proceso.PCB.CpuReg = CPURequest.PcbUpdated.CpuReg
 			proceso.PCB.State = CPURequest.PcbUpdated.State
 			proceso.PCB.Pid = CPURequest.PcbUpdated.Pid
+			mu.Unlock()
 
 			done <- true
 		}(proceso)
 
 		select {
-		case <-done:
+		case success := <-done:
+			if !success {
+				// Handle error case
+				continue
+			}
+			mu.Lock()
+			if proceso.PCB.State != "EXIT" {
+				// Requeue the process if it hasn't exited
+				colaReady = append(colaReady, proceso)
+			}
+			mu.Unlock()
 			cond.Signal()
 		case <-time.After(time.Duration(quantum) * time.Millisecond):
 			SendInterruptForClock()
-
+			mu.Lock()
 			if CPURequest.PcbUpdated.State != "EXIT" {
-				mu.Lock()
-				colaReady = append(colaReady, proceso) // Agrega el proceso de nuevo a la cola
-				mu.Unlock()
+				// Requeue the process if it hasn't exited
+				colaReady = append(colaReady, proceso)
 			}
+			mu.Unlock()
 			cond.Signal()
 		}
 	}
