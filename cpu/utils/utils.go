@@ -45,13 +45,14 @@ type BodyResponseInstruction struct {
 	Instruction string `json:"instruction"`
 }
 
-type ResponseInterrupt struct {
+type ResponseQuantum struct {
 	Interrupt bool `json:"interrupt"`
+	Pid       int  `json:"pid"`
 }
 
 var interrupt bool = false
 var requestCPU KernelRequest
-var responseInterrupt ResponseInterrupt
+var responseQuantum ResponseQuantum
 
 func ConfigurarLogger() {
 
@@ -109,13 +110,17 @@ func InstructionCycle(contextoDeEjecucion ExecutionContext) {
 
 		contextoDeEjecucion.CpuReg.PC++
 
-		if responseInterrupt.Interrupt {
-			responseInterrupt.Interrupt = false
+		if responseQuantum.Interrupt && responseQuantum.Pid == contextoDeEjecucion.Pid || interrupt {
+			responseQuantum.Interrupt = false
+			interrupt = false
 			break
 		}
 
 	}
 	log.Printf("PID: %d - Sale de CPU - PCB actualizado: %d\n", contextoDeEjecucion.Pid, contextoDeEjecucion.CpuReg) //LOG no officia
+	if requestCPU.MotivoDesalojo != "FINALIZADO" && requestCPU.MotivoDesalojo != "INTERRUPCION POR IO" {
+		requestCPU.MotivoDesalojo = "CLOCK"
+	}
 	requestCPU.PcbUpdated = contextoDeEjecucion
 	responsePCBtoKernel()
 
@@ -208,9 +213,7 @@ func Execute(instruction string, line []string, contextoDeEjecucion *ExecutionCo
 		requestCPU = KernelRequest{
 			MotivoDesalojo: "FINALIZADO",
 		}
-		responseInterrupt = ResponseInterrupt{
-			Interrupt: true, // Aquí va el valor booleano que quieres enviar
-		}
+		interrupt = true // Aquí va el valor booleano que quieres enviar
 	default:
 		fmt.Println("Instruction no implementada")
 	}
@@ -423,9 +426,7 @@ func JNZ(registerCPU *RegisterCPU, reg, valor string) error {
 }
 
 func IO(kind string, words []string) error {
-	responseInterrupt = ResponseInterrupt{
-		Interrupt: true,
-	}
+	interrupt = true
 
 	switch kind {
 	case "IO_GEN_SLEEP":
@@ -460,15 +461,10 @@ func IO(kind string, words []string) error {
 	return nil
 }
 
-var hay_i_quantum bool
-
 func Checkinterrupts(w http.ResponseWriter, r *http.Request) { // A chequear
-	responseInterrupt = ResponseInterrupt{
-		Interrupt: true, // Aquí va el valor booleano que quieres enviar
-	}
 	log.Printf("Recibiendo solicitud de Interrupcionde quantum")
 
-	err := json.NewDecoder(r.Body).Decode(&hay_i_quantum)
+	err := json.NewDecoder(r.Body).Decode(&responseQuantum)
 	if err != nil {
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
 		return

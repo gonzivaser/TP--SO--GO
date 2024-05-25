@@ -116,9 +116,11 @@ var nextPid = 1
 var timeIOGlobal int
 var CPURequest KernelRequest
 var (
-	colaReady []Proceso
-	mu        sync.Mutex
-	muio      sync.Mutex
+	colaReady    []Proceso
+	mu           sync.Mutex
+	muio         sync.Mutex
+	procesoMutex sync.Mutex
+	cpuMutex     sync.Mutex
 )
 var syscallIO bool
 var cond = sync.NewCond(&mu)
@@ -127,8 +129,6 @@ var timerClock bool
 /*-------------------------------------------------FUNCIONES CREADAS----------------------------------------------*/
 
 func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Recibiendo solicitud de I/O desde el cpu")
-
 	// CREO VARIABLE I/O
 
 	err := json.NewDecoder(r.Body).Decode(&CPURequest)
@@ -139,14 +139,15 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Recibido syscall: %+v", CPURequest)
 	switch CPURequest.MotivoDesalojo {
 	case "FINALIZADO":
-		log.Printf("Proceso %v finalizado con éxito", CPURequest.PcbUpdated.Pid)
+		log.Printf("Finaliza el proceso %v - Motivo: <SUCCESS>", CPURequest.PcbUpdated.Pid)
 		CPURequest.PcbUpdated.State = "EXIT"
 	case "INTERRUPCION POR IO":
+		log.Printf("Proceso %v desalojado por IO", CPURequest.PcbUpdated.Pid)
 		syscallIO = true
 		CPURequest.PcbUpdated.State = "BLOCKED"
 		timeIOGlobal = CPURequest.TimeIO
 	case "CLOCK":
-		log.Printf("Proceso %v desalojado por fin de Quantum", CPURequest.PcbUpdated.Pid)
+		log.Printf("PID: %v - Desalojado por fin de Quantum", CPURequest.PcbUpdated.Pid)
 
 	default:
 		log.Printf("Proceso %v desalojado desconocido por %v", CPURequest.PcbUpdated.Pid, CPURequest.MotivoDesalojo)
@@ -191,6 +192,7 @@ func IniciarPlanificacionDeProcesos(request BodyRequest, pcb PCB) {
 
 	mu.Lock()
 	colaReady = append(colaReady, proceso)
+	log.Printf("Cola Ready COLA: %v", colaReady)
 	if err := SendPathToMemory(proceso.Request, proceso.PCB.Pid); err != nil {
 		log.Printf("Error sending path to memory: %v", err)
 
@@ -220,13 +222,15 @@ func executeProcessRR(quantum int) {
 
 		go func(proceso Proceso) {
 			// Execute the process
-			mu.Lock()
+			cpuMutex.Lock()
 			startQuantum(quantum, proceso.PCB.Pid)
 			if err := SendContextToCPU(*proceso.PCB); err != nil {
 				log.Printf("Error sending context to CPU: %v", err)
 				return
 			}
-			mu.Unlock()
+			cpuMutex.Unlock()
+
+			log.Printf("PID: %d - Estado Anterior: %s - Estado Actual: %s", proceso.PCB.Pid, proceso.PCB.State, CPURequest.PcbUpdated.State)
 
 			proceso.PCB.CpuReg = CPURequest.PcbUpdated.CpuReg
 			proceso.PCB.State = CPURequest.PcbUpdated.State
@@ -257,7 +261,7 @@ func startQuantum(quantum int, pid int) {
 	go func() {
 		time.Sleep(time.Duration(quantum) * time.Second)
 		if timerClock {
-			log.Printf("Quantum finalizado")
+			log.Printf("PID %d - Quantum finalizado", pid)
 			timerClock = false
 			if err := SendInterruptForClock(pid); err != nil {
 				log.Printf("Error sending interrupt to CPU: %v", err)
@@ -273,12 +277,14 @@ func executeProcessFIFO() {
 		for len(colaReady) == 0 {
 			cond.Wait()
 		}
+		mu.Unlock()
 
 		// Dequeue a process from colaReady
+		procesoMutex.Lock()
 		log.Printf("hola a amover la cola: %v", colaReady[0].PCB.Pid)
 		proceso := colaReady[0]
 		colaReady = colaReady[1:]
-		mu.Unlock()
+		procesoMutex.Unlock()
 
 		go func(proceso Proceso) {
 			// Execute the process
