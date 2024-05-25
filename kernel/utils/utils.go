@@ -220,10 +220,11 @@ func executeProcessRR(quantum int) {
 		colaReady = colaReady[1:]
 		mu.Unlock()
 
+		done := make(chan bool)
 		go func(proceso Proceso) {
 			// Execute the process
 			cpuMutex.Lock()
-			startQuantum(quantum, proceso.PCB.Pid)
+			startQuantum(quantum, proceso.PCB.Pid, done)
 			if err := SendContextToCPU(*proceso.PCB); err != nil {
 				log.Printf("Error sending context to CPU: %v", err)
 				return
@@ -252,20 +253,27 @@ func executeProcessRR(quantum int) {
 				colaReady = append(colaReady, proceso)
 				cond.Signal() // Notify that colaReady is not empty
 			}
+			done <- true
 		}(proceso)
 	}
 }
 
-func startQuantum(quantum int, pid int) {
-	timerClock = true
+func startQuantum(quantum int, pid int, done <-chan bool) {
+	log.Printf("PID %d - Quantum iniciado", pid)
 	go func() {
-		time.Sleep(time.Duration(quantum) * time.Second)
-		if timerClock {
-			log.Printf("PID %d - Quantum finalizado", pid)
-			timerClock = false
-			if err := SendInterruptForClock(pid); err != nil {
-				log.Printf("Error sending interrupt to CPU: %v", err)
+		timerClock = true
+		select {
+		case <-time.After(time.Duration(quantum) * time.Second):
+			if timerClock {
+				log.Printf("PID %d - Quantum finalizado", pid)
+				timerClock = false
+				if err := SendInterruptForClock(pid); err != nil {
+					log.Printf("Error sending interrupt to CPU: %v", err)
+				}
 			}
+		case <-done:
+			log.Printf("PID %d - Proceso finalizado antes de que el quantum termine", pid)
+			timerClock = false
 		}
 	}()
 
