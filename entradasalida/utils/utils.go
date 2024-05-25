@@ -2,7 +2,6 @@ package utils
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -113,7 +112,7 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 		Config: *config,
 	}
 	duracion := gi.IO_GEN_SLEEP(N)
-	fmt.Printf("La espera por %d unidades para la interfaz '%s' es de %v\n", N, gi.Nombre, duracion)
+	log.Printf("La espera por %d unidades para la interfaz '%s' es de %v\n", N, gi.Nombre, duracion)
 	time.Sleep(duracion)
-	fmt.Println("termino de esperar")
+	log.Printf("Termino de esperar por la interfaz genérica '%s' es de %v\n", gi.Nombre, duracion)
 }

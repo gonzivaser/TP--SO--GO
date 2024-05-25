@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -106,8 +105,9 @@ type KernelRequest struct {
 	IoType         string           `json:"ioType"`
 }
 
-type ResponseInterrupt struct {
+type RequestInterrupt struct {
 	Interrupt bool `json:"interrupt"`
+	PID       int  `json:"pid"`
 }
 
 /*---------------------------------------------------VAR GLOBALES------------------------------------------------*/
@@ -122,6 +122,7 @@ var (
 )
 var syscallIO bool
 var cond = sync.NewCond(&mu)
+var timerClock bool
 
 /*-------------------------------------------------FUNCIONES CREADAS----------------------------------------------*/
 
@@ -210,58 +211,60 @@ func executeProcessRR(quantum int) {
 		for len(colaReady) == 0 {
 			cond.Wait()
 		}
+
 		// Dequeue a process from colaReady
+		log.Printf("hola a amover la cola: %v", colaReady[0].PCB.Pid)
 		proceso := colaReady[0]
 		colaReady = colaReady[1:]
 		mu.Unlock()
 
-		done := make(chan bool)
 		go func(proceso Proceso) {
+			// Execute the process
 			mu.Lock()
+			startQuantum(quantum, proceso.PCB.Pid)
 			if err := SendContextToCPU(*proceso.PCB); err != nil {
 				log.Printf("Error sending context to CPU: %v", err)
-				done <- false
-				mu.Unlock()
 				return
 			}
 			mu.Unlock()
 
-			// Simulate process execution
-
-			// Retrieve updated PCB from CPU
-			mu.Lock()
 			proceso.PCB.CpuReg = CPURequest.PcbUpdated.CpuReg
 			proceso.PCB.State = CPURequest.PcbUpdated.State
 			proceso.PCB.Pid = CPURequest.PcbUpdated.Pid
-			mu.Unlock()
 
-			done <- true
+			if syscallIO {
+				muio.Lock()
+				if err := SendIOToEntradaSalida(timeIOGlobal); err != nil {
+					log.Printf("Error sending IO to EntradaSalida: %v", err)
+				}
+				muio.Unlock()
+				syscallIO = false
+				if proceso.PCB.State != "EXIT" {
+					proceso.PCB.State = "READY"
+				}
+			}
+
+			if proceso.PCB.State == "READY" {
+				colaReady = append(colaReady, proceso)
+				cond.Signal() // Notify that colaReady is not empty
+			}
 		}(proceso)
-
-		select {
-		case success := <-done:
-			if !success {
-				// Handle error case
-				continue
-			}
-			mu.Lock()
-			if proceso.PCB.State != "EXIT" {
-				// Requeue the process if it hasn't exited
-				colaReady = append(colaReady, proceso)
-			}
-			mu.Unlock()
-			cond.Signal()
-		case <-time.After(time.Duration(quantum) * time.Millisecond):
-			SendInterruptForClock()
-			mu.Lock()
-			if CPURequest.PcbUpdated.State != "EXIT" {
-				// Requeue the process if it hasn't exited
-				colaReady = append(colaReady, proceso)
-			}
-			mu.Unlock()
-			cond.Signal()
-		}
 	}
+}
+
+func startQuantum(quantum int, pid int) {
+	timerClock = true
+	go func() {
+		time.Sleep(time.Duration(quantum) * time.Second)
+		if timerClock {
+			log.Printf("Quantum finalizado")
+			timerClock = false
+			if err := SendInterruptForClock(pid); err != nil {
+				log.Printf("Error sending interrupt to CPU: %v", err)
+			}
+		}
+	}()
+
 }
 
 func executeProcessFIFO() {
@@ -422,22 +425,31 @@ func SendIOToEntradaSalida(io int) error {
 	return nil
 }
 
-func SendInterruptForClock() error {
+func SendInterruptForClock(pid int) error {
 	cpuURL := "http://localhost:8075/interrupt"
 
-	resp, err := http.Get(cpuURL)
+	RequestInterrupt := RequestInterrupt{
+		Interrupt: true,
+		PID:       pid,
+	}
+
+	hayQuantumBytes, err := json.Marshal(RequestInterrupt)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Error al serializar el valor de hayQuantum: %v", err)
+		return err
+	}
+
+	resp, err := http.Post(cpuURL, "application/json", bytes.NewBuffer(hayQuantumBytes))
+	if err != nil {
+		log.Printf("Error al enviar la solicitud al módulo de cpu: %v", err)
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatal(err)
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("Error en la respuesta del módulo de cpu: %v", resp.StatusCode)
 	}
 
-	var response ResponseInterrupt
-	json.Unmarshal(body, &response)
+	log.Println("Respuesta del módulo de cpu recibida correctamente.")
 	return nil
 }
 
