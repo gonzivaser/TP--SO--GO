@@ -175,11 +175,15 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	// Create PCB
 	pcb := createPCB()
 	log.Printf("Se crea el proceso %v en NEW", pcb.Pid) // log obligatorio
+	response := BodyResponsePid{
+		Pid: pcb.Pid,
+	}
 
 	IniciarPlanificacionDeProcesos(request, pcb)
 
 	// Response with the PID
 	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -215,7 +219,6 @@ func executeProcessRR(quantum int) {
 		}
 
 		// Dequeue a process from colaReady
-		log.Printf("hola a amover la cola: %v", colaReady[0].PCB.Pid)
 		proceso := colaReady[0]
 		colaReady = colaReady[1:]
 		mu.Unlock()
@@ -289,7 +292,6 @@ func executeProcessFIFO() {
 
 		// Dequeue a process from colaReady
 		procesoMutex.Lock()
-		log.Printf("hola a amover la cola: %v", colaReady[0].PCB.Pid)
 		proceso := colaReady[0]
 		colaReady = colaReady[1:]
 		procesoMutex.Unlock()

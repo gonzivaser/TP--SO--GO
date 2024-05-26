@@ -103,12 +103,13 @@ func InstructionCycle(contextoDeEjecucion ExecutionContext) {
 	for {
 		log.Printf("PID: %d - FETCH - Program Counter: %d\n", contextoDeEjecucion.Pid, contextoDeEjecucion.CpuReg.PC)
 		line, _ := Fetch(int(contextoDeEjecucion.CpuReg.PC), contextoDeEjecucion.Pid)
+
+		contextoDeEjecucion.CpuReg.PC++
+
 		instruction, _ := Decode(line)
 		Execute(instruction, line, &contextoDeEjecucion)
 		time.Sleep(1 * time.Second)
 		log.Printf("PID: %d - Ejecutando: %s - %s”.", contextoDeEjecucion.Pid, instruction, line)
-
-		contextoDeEjecucion.CpuReg.PC++
 
 		if responseQuantum.Interrupt && responseQuantum.Pid == contextoDeEjecucion.Pid || interrupt {
 			responseQuantum.Interrupt = false
@@ -187,27 +188,27 @@ func Execute(instruction string, line []string, contextoDeEjecucion *ExecutionCo
 	case "SET": // Change the type of the switch case expression from byte to string
 		err := SetCampo(&contextoDeEjecucion.CpuReg, words[1], words[2])
 		if err != nil {
-			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
+			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "SUM":
 		err := Suma(&contextoDeEjecucion.CpuReg, words[1], words[2])
 		if err != nil {
-			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
+			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "SUB":
 		err := Resta(&contextoDeEjecucion.CpuReg, words[1], words[2])
 		if err != nil {
-			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
+			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "JNZ":
 		err := JNZ(&contextoDeEjecucion.CpuReg, words[1], words[2])
 		if err != nil {
-			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
+			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "IO_GEN_SLEEP":
 		err := IO(instruction, words)
 		if err != nil {
-			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
+			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "EXIT":
 		requestCPU = KernelRequest{
@@ -376,50 +377,25 @@ func Resta(registerCPU *RegisterCPU, s1, s2 string) error {
 }
 
 func JNZ(registerCPU *RegisterCPU, reg, valor string) error {
-
 	// Obtener el valor reflect.Value de la estructura RegisterCPU
 	valorRef := reflect.ValueOf(registerCPU)
 
 	// Obtener el valor reflect.Value del campo destino
 	campoDestinoRef := valorRef.Elem().FieldByName(reg)
 
-	// Verificar si el campo destino existe
 	if !campoDestinoRef.IsValid() {
 		return fmt.Errorf("campo destino '%s' no encontrado en la estructura", reg)
 	}
 
-	// Obtener el valor reflect.Value del campo valor
-	valorCampoRef := valorRef.Elem().FieldByName(valor)
-
-	// Verificar si el campo valor existe
-	if !valorCampoRef.IsValid() {
-		return fmt.Errorf("campo valor '%s' no encontrado en la estructura", valor)
-	}
-
-	// Obtener el tipo de dato del campo destino
-	tipoCampoDestino := campoDestinoRef.Type()
-
-	// Obtener el tipo de dato del campo valor
-	tipoCampoValor := valorCampoRef.Type()
-
-	// Verificar que el campo destino sea del tipo adecuado
-	if tipoCampoDestino.Kind() != reflect.Uint32 {
-		return fmt.Errorf("campo destino '%s' no es del tipo adecuado", reg)
-	}
-
-	// Verificar que el campo valor sea del tipo adecuado
-	if tipoCampoValor.Kind() != reflect.Uint32 {
-		return fmt.Errorf("campo valor '%s' no es del tipo adecuado", valor)
-	}
-
 	// Obtener el valor del campo destino
-	campoDestino := campoDestinoRef.Uint()
+	campoDestinoValor := campoDestinoRef.Uint()
 
-	// Obtener el valor del campo valor
-	campoValor := valorCampoRef.Uint()
-
-	if campoDestino != 0 {
-		registerCPU.PC = uint32(campoValor)
+	if campoDestinoValor != 0 {
+		valorUint32, err := strconv.ParseUint(valor, 10, 32)
+		if err != nil {
+			return err
+		}
+		registerCPU.PC = uint32(valorUint32)
 	}
 
 	return nil
