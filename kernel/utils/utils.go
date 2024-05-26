@@ -183,8 +183,8 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 
 	// Response with the PID
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
 	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
 }
 
 func IniciarPlanificacionDeProcesos(request BodyRequest, pcb PCB) {
@@ -196,7 +196,6 @@ func IniciarPlanificacionDeProcesos(request BodyRequest, pcb PCB) {
 
 	mu.Lock()
 	colaReady = append(colaReady, proceso)
-	log.Printf("Cola Ready COLA: %v", colaReady)
 	if err := SendPathToMemory(proceso.Request, proceso.PCB.Pid); err != nil {
 		log.Printf("Error sending path to memory: %v", err)
 
@@ -266,7 +265,7 @@ func startQuantum(quantum int, pid int, done <-chan bool) {
 	go func() {
 		timerClock = true
 		select {
-		case <-time.After(time.Duration(quantum) * time.Second):
+		case <-time.After(time.Duration(quantum) * time.Millisecond):
 			if timerClock {
 				log.Printf("PID %d - Quantum finalizado", pid)
 				timerClock = false
