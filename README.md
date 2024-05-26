@@ -32,7 +32,7 @@ antes de subir el tag.
 
 - Módulo Kernel:
   
-    - [ ] Es capaz de crear un PCB y planificarlo por FIFO y RR.
+    - [x] Es capaz de crear un PCB y planificarlo por FIFO y RR.
     - [x] Es capaz de enviar un proceso a la CPU para que sea procesado.
 
 - Módulo CPU:
@@ -72,8 +72,47 @@ antes de subir el tag.
 
     - [ ] Se encuentran desarrolladas las interfaces STDIN y STDOUT.
 
+### Logs mínimos y obligatorios
+
+- Módulo Kernel:
+
+    - [x] Creación de Proceso
+    - [ ] Fin de Proceso
+    - [x] Cambio de Estado
+    - [ ] Motivo de Bloqueo
+    - [ ] Fin de Quantum
+    - [ ] Ingreso a Ready
+
+- Módulo CPU:
+
+    - [x] Fetch Instrucción
+    - [x] Instrucción Ejecutada
+    - [ ] TLB Hit
+    - [ ] TLB Miss
+    - [ ] Obtener Marco
+    - [ ] Lectura/Escritura Memoria
+
+- Módulo Memoria:
+
+    - [ ] Se Creación / destrucción de Tabla de Páginas
+    - [ ] Acceso a Tabla de Páginas
+    - [ ] Ampliación de Proceso
+    - [ ] Reducción de Proceso
+    - [ ] Acceso a espacio de usuario
+
+- Módulo Interfaz I/O:
+
+    - [ ] Todos - Operación
+    - [ ] DialFS - Crear Archivo
+    - [ ] DialFS - Eliminar Archivo
+    - [ ] DialFS - Truncar Archivo
+    - [ ] DialFS - Leer Archivo
+    - [ ] DialFS - Escribir Archivo
+
+
 ## Entregas finales
 
 - [ ] Finalizar el desarrollo de todos los procesos.
 - [ ] Probar de manera intensiva el TP en un entorno distribuido.
 - [ ] Todos los componentes del TP ejecutan los requerimientos de forma integral.
+

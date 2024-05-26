@@ -11,23 +11,23 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/sisoputnfrba/tp-golang/cpu/globals"
 )
 
-type PruebaMensaje struct {
-	Mensaje string `json:"Prueba"`
-}
-
-type BodyResponse struct {
-	ExecutionContext ExecutionContext `json:"ExecutionContext"`
+type KernelRequest struct {
+	PcbUpdated     ExecutionContext `json:"pcbUpdated"`
+	MotivoDesalojo string           `json:"motivoDesalojo"`
+	TimeIO         int              `json:"timeIO"`
+	Interface      string           `json:"interface"`
+	IoType         string           `json:"ioType"`
 }
 
 type PCB struct { //ESTO NO VA ACA
-	Pid     int
-	Quantum int
-	State   string
-	CpuReg  RegisterCPU
+	Pid, Quantum int
+	State        string
+	CpuReg       RegisterCPU
 }
 
 type ExecutionContext struct {
@@ -45,7 +45,17 @@ type BodyResponseInstruction struct {
 	Instruction string `json:"instruction"`
 }
 
+type ResponseQuantum struct {
+	Interrupt bool `json:"interrupt"`
+	Pid       int  `json:"pid"`
+}
+
+var interrupt bool = false
+var requestCPU KernelRequest
+var responseQuantum ResponseQuantum
+
 func ConfigurarLogger() {
+
 	logFile, err := os.OpenFile("cpu.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
 	if err != nil {
 		panic(err)
@@ -68,17 +78,7 @@ func IniciarConfiguracion(filePath string) *globals.Config {
 	return config
 }
 
-func SendResponse(w http.ResponseWriter) {
-	BodyResponse := BodyResponse{
-		ExecutionContext: receivedPCB,
-	}
-	response, _ := json.Marshal(BodyResponse)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(response)
-}
-
-var receivedPCB ExecutionContext //PCB recibido desde kernel
+var contextoDeEjecucion ExecutionContext //PCB recibido desde kernel
 
 func ReceivePCB(w http.ResponseWriter, r *http.Request) {
 
@@ -87,58 +87,50 @@ func ReceivePCB(w http.ResponseWriter, r *http.Request) {
 
 	// GUARDO PCB RECIBIDO EN sendPCB
 
-	err := json.NewDecoder(r.Body).Decode(&receivedPCB)
+	err := json.NewDecoder(r.Body).Decode(&contextoDeEjecucion)
 	if err != nil {
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
 		return
 	}
-	log.Printf("PCB recibido desde el kernel: %+v", receivedPCB)
-	InstructionCycle(receivedPCB)
-	// HAGO UN LOG PARA CHEQUEAR QUE PASO ERRORES
-
+	log.Printf("PCB recibido desde el kernel: %+v", contextoDeEjecucion)
+	InstructionCycle(contextoDeEjecucion)
 	w.WriteHeader(http.StatusOK)
 }
 
-func InstructionCycle(receivedPCB ExecutionContext) {
-	var timeIO string
-	for {
-		line, _ := Fetch(int(receivedPCB.CpuReg.PC), receivedPCB.Pid)
-		instruction, _ := Decode(line)
-		Execute(instruction, line, &receivedPCB)
+func InstructionCycle(contextoDeEjecucion ExecutionContext) {
+	requestCPU = KernelRequest{}
 
-		// Pass the address of receivedPCB
-		fmt.Println("hola", instruction)
-		receivedPCB.CpuReg.PC++
-		words := strings.Fields(line[0])
-		if Checkinterrupts(instruction) {
-			timeIO = words[2]
-			fmt.Println("TERMINO por io")
-			receivedPCB.State = "BLOCKED"
-			break
-		} else if words[0] == "EXIT" {
-			fmt.Println("TERMINO por EXIT")
-			receivedPCB.State = "EXIT"
+	for {
+		log.Printf("PID: %d - FETCH - Program Counter: %d\n", contextoDeEjecucion.Pid, contextoDeEjecucion.CpuReg.PC)
+		line, _ := Fetch(int(contextoDeEjecucion.CpuReg.PC), contextoDeEjecucion.Pid)
+
+		contextoDeEjecucion.CpuReg.PC++
+
+		instruction, _ := Decode(line)
+		Execute(instruction, line, &contextoDeEjecucion)
+		time.Sleep(1 * time.Second)
+		log.Printf("PID: %d - Ejecutando: %s - %s”.", contextoDeEjecucion.Pid, instruction, line)
+
+		if responseQuantum.Interrupt && responseQuantum.Pid == contextoDeEjecucion.Pid || interrupt {
+			responseQuantum.Interrupt = false
+			interrupt = false
 			break
 		}
+
 	}
-	fmt.Println("el PCB ya actualizado;", receivedPCB)
-
-	responsePCBtoKernel(receivedPCB, timeIO)
+	log.Printf("PID: %d - Sale de CPU - PCB actualizado: %d\n", contextoDeEjecucion.Pid, contextoDeEjecucion.CpuReg) //LOG no officia
+	if requestCPU.MotivoDesalojo != "FINALIZADO" && requestCPU.MotivoDesalojo != "INTERRUPCION POR IO" {
+		requestCPU.MotivoDesalojo = "CLOCK"
+	}
+	requestCPU.PcbUpdated = contextoDeEjecucion
+	responsePCBtoKernel()
 
 }
 
-type KernelRequest struct {
-	PcbUpdated ExecutionContext `json:"pcbUpdated"`
-	TimeIO     string           `json:"timeIO"`
-}
-
-func responsePCBtoKernel(pcbUpdated ExecutionContext, timeIO string) {
+func responsePCBtoKernel() {
 	kernelURL := "http://localhost:8080/syscall"
-	request := KernelRequest{
-		PcbUpdated: pcbUpdated,
-		TimeIO:     timeIO,
-	}
-	requestJSON, err := json.Marshal(request)
+
+	requestJSON, err := json.Marshal(requestCPU)
 	if err != nil {
 		return
 	}
@@ -151,8 +143,6 @@ func responsePCBtoKernel(pcbUpdated ExecutionContext, timeIO string) {
 	if resp.StatusCode != http.StatusOK {
 		return
 	}
-
-	//log.Println("Respuesta del módulo de kernel recibida correctamente.")
 }
 
 func Fetch(pc int, pid int) ([]string, error) {
@@ -178,39 +168,11 @@ func Fetch(pc int, pid int) ([]string, error) {
 	}
 
 	instructions := strings.Split(response.Instruction, ",") // split the string into a slice
-	log.Println("Instrucción recibida:", instructions)
 	return instructions, nil
 }
 
-// 	// // CREO VARIABLE DONDE GUARDO EL PROGRAM COUNTER
-// 	// pcProcess, err := json.Marshal(pc)
-
-// 	// // CHEQUEO ERRORES
-// 	// if err != nil {
-// 	// 	return nil, fmt.Errorf("error al serializar el PCB: %v", err)
-// 	// }
-
-// 	// // CONFIRMACION DE QUE PASO ERRORES Y SE MANDA SOLICITUD
-// 	// log.Println("Enviando Program Counter con valor:", string(pcProcess))
-
-// 	// // CREO VARIABLE resp y err CON EL
-// 	// resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(pcProcess))
-// 	// if err != nil {
-// 	// 	return nil, fmt.Errorf("error al enviar la solicitud al módulo de memoria: %v", err)
-// 	// }
-
-// 	// defer resp.Body.Close()
-// 	// if err != nil {
-// 	// 	return nil, fmt.Errorf("error al decodificar la respuesta del módulo de memoria: %v", err)
-// 	// }
-// 	// instruction := strings.Fields(response.Instruction)
-
-// 	// // SE CHEQUEA CON UN PRINT QUE LA LA MEMORIA RECIBIO CORRECTAMENTE EL pc
-// 	// log.Println("Respuesta del módulo de memoria recibida correctamente.")
-// 	// return instruction, nil
-
 func Decode(instruction []string) (string, error) {
-	// Esta función se va a conoplicar con la traducción de las direcciones fisicas y logicas
+	// Esta función se va a complejizar con la traducción de las direcciones fisicas y logicas
 	words := strings.Fields(instruction[0])
 	if len(instruction) == 0 {
 		return "nil", fmt.Errorf("instrucción vacía")
@@ -218,29 +180,43 @@ func Decode(instruction []string) (string, error) {
 	return words[0], nil
 }
 
-func Execute(instruction string, line []string, receivedPCB *ExecutionContext) error {
+func Execute(instruction string, line []string, contextoDeEjecucion *ExecutionContext) error {
 
 	words := strings.Fields(line[0])
 
 	switch instruction {
 	case "SET": // Change the type of the switch case expression from byte to string
-		err := SetCampo(&receivedPCB.CpuReg, words[1], words[2])
+		err := SetCampo(&contextoDeEjecucion.CpuReg, words[1], words[2])
 		if err != nil {
-			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
+			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "SUM":
-		err := Suma(&receivedPCB.CpuReg, words[1], words[2])
+		err := Suma(&contextoDeEjecucion.CpuReg, words[1], words[2])
 		if err != nil {
-			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
+			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "SUB":
-		err := Resta(&receivedPCB.CpuReg, words[1], words[2])
+		err := Resta(&contextoDeEjecucion.CpuReg, words[1], words[2])
 		if err != nil {
-			return fmt.Errorf("error en la respuesta del módulo de memoria: %s", err)
+			return fmt.Errorf("error en execute: %s", err)
 		}
-
+	case "JNZ":
+		err := JNZ(&contextoDeEjecucion.CpuReg, words[1], words[2])
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	case "IO_GEN_SLEEP":
+		err := IO(instruction, words)
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	case "EXIT":
+		requestCPU = KernelRequest{
+			MotivoDesalojo: "FINALIZADO",
+		}
+		interrupt = true // Aquí va el valor booleano que quieres enviar
 	default:
-		fmt.Println("Unknown instruction")
+		fmt.Println("Instruction no implementada")
 	}
 	return nil
 }
@@ -400,20 +376,75 @@ func Resta(registerCPU *RegisterCPU, s1, s2 string) error {
 	return nil
 }
 
-func Checkinterrupts(instruction string) bool {
-	// HAGO UN LOG PARA CHEQUEAR RECEPCION
-	arrInterruptions := []string{"IO_GEN_SLEEP"} // queda para poner las otras IO
-	if contains(arrInterruptions, instruction) {
-		return true
+func JNZ(registerCPU *RegisterCPU, reg, valor string) error {
+	// Obtener el valor reflect.Value de la estructura RegisterCPU
+	valorRef := reflect.ValueOf(registerCPU)
+
+	// Obtener el valor reflect.Value del campo destino
+	campoDestinoRef := valorRef.Elem().FieldByName(reg)
+
+	if !campoDestinoRef.IsValid() {
+		return fmt.Errorf("campo destino '%s' no encontrado en la estructura", reg)
 	}
-	return false
+
+	// Obtener el valor del campo destino
+	campoDestinoValor := campoDestinoRef.Uint()
+
+	if campoDestinoValor != 0 {
+		valorUint32, err := strconv.ParseUint(valor, 10, 32)
+		if err != nil {
+			return err
+		}
+		registerCPU.PC = uint32(valorUint32)
+	}
+
+	return nil
 }
 
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
+func IO(kind string, words []string) error {
+	interrupt = true
+
+	switch kind {
+	case "IO_GEN_SLEEP":
+		timeIO, err := strconv.Atoi(words[2])
+		if err != nil {
+			return err
 		}
+		log.Printf("PID IO: %d - %v", contextoDeEjecucion.Pid, contextoDeEjecucion)
+		requestCPU = KernelRequest{
+			MotivoDesalojo: "INTERRUPCION POR IO",
+			IoType:         "IO_GEN_SLEEP",
+			Interface:      words[1],
+			TimeIO:         timeIO,
+		}
+	case "IO_STDIN_READ":
+		fmt.Println("IO_STDOUT_READ")
+	case "IO_FS_CREATE":
+		fmt.Println("IO_FS_CREATE")
+	case "IO_FS_DELETE":
+		fmt.Println("IO_FS_DELETE")
+	case "IO_FS_SEEK":
+		fmt.Println("IO_FS_SEEK")
+	case "IO_FS_TRUNCATE":
+		fmt.Println("IO_FS_TRUNCATE")
+	case "IO_FS_WRITE":
+		fmt.Println("IO_FS_WRITE")
+	case "IO_FS_READ":
+		fmt.Println("IO_FS_READ")
+	default:
+		return fmt.Errorf("tipo de instrucción no soportado")
 	}
-	return false
+	return nil
+}
+
+func Checkinterrupts(w http.ResponseWriter, r *http.Request) { // A chequear
+	log.Printf("Recibiendo solicitud de Interrupcionde quantum")
+
+	err := json.NewDecoder(r.Body).Decode(&responseQuantum)
+	if err != nil {
+		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(interrupt)
 }
