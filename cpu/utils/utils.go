@@ -11,7 +11,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/sisoputnfrba/tp-golang/cpu/globals"
 )
@@ -108,7 +107,6 @@ func InstructionCycle(contextoDeEjecucion ExecutionContext) {
 
 		instruction, _ := Decode(line)
 		Execute(instruction, line, &contextoDeEjecucion)
-		time.Sleep(1 * time.Second)
 		log.Printf("PID: %d - Ejecutando: %s - %s”.", contextoDeEjecucion.Pid, instruction, line)
 
 		if responseQuantum.Interrupt && responseQuantum.Pid == contextoDeEjecucion.Pid || interrupt {
