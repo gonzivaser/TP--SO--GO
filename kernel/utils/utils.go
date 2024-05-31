@@ -89,8 +89,8 @@ type Payload struct {
 }
 
 type Proceso struct {
-	Request BodyRequest
-	PCB     *PCB
+	Path BodyRequest
+	PCB  *PCB
 }
 
 type Syscall struct {
@@ -128,6 +128,85 @@ var timerClock bool
 
 /*-------------------------------------------------FUNCIONES CREADAS----------------------------------------------*/
 
+var mutexMemoria = &sync.Mutex{}
+var readyChan = make(chan []Proceso)
+var procesoChan = make(chan Proceso)
+
+func IniciarProceso(w http.ResponseWriter, r *http.Request) {
+	var request BodyRequest
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("Received data: %+v", request)
+
+	// Create PCB
+	pcb := createPCB()
+	log.Printf("Se crea el proceso %v en NEW", pcb.Pid) // log obligatorio
+
+	// Create Proceso
+	proceso := Proceso{
+		PCB:  &pcb,
+		Path: request,
+	}
+
+	// Lock the mutex before sending the proceso to memory
+
+	if err := SendPathToMemory(proceso.Path, proceso.PCB.Pid); err != nil {
+		log.Printf("Error sending path to memory: %v", err)
+		return
+	}
+
+	// Load proceso into colaReady
+	colaReady = append(colaReady, proceso)
+
+	go func() {
+		readyChan <- colaReady
+
+	}()
+
+	go func() {
+		IniciarPlanificacionDeProcesos()
+	}()
+
+	response := BodyResponsePid{
+		Pid: pcb.Pid,
+	}
+
+	// Response with the PID
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+
+}
+
+func IniciarPlanificacionDeProcesos() {
+	log.Printf("aca planifica")
+	colaReady := <-readyChan
+
+	mu.Lock()
+	for len(colaReady) == 0 {
+		cond.Wait()
+	}
+	mu.Unlock()
+
+	procesoMutex.Lock()
+	proceso := colaReady[0]
+	colaReady = colaReady[1:]
+	procesoMutex.Unlock()
+
+	if globals.ClientConfig.AlgoritmoPlanificacion == "FIFO" {
+		go func() {
+			procesoChan <- proceso
+		}()
+		executeProcessFIFO()
+	} else if globals.ClientConfig.AlgoritmoPlanificacion == "RR" {
+		// Similar for RR
+	}
+}
+
 func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	// CREO VARIABLE I/O
 
@@ -160,54 +239,6 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("%v", CPURequest.PcbUpdated)))
-}
-
-func IniciarProceso(w http.ResponseWriter, r *http.Request) {
-	var request BodyRequest
-	err := json.NewDecoder(r.Body).Decode(&request)
-	if err != nil {
-		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
-		return
-	}
-
-	log.Printf("Received data: %+v", request)
-
-	// Create PCB
-	pcb := createPCB()
-	log.Printf("Se crea el proceso %v en NEW", pcb.Pid) // log obligatorio
-	response := BodyResponsePid{
-		Pid: pcb.Pid,
-	}
-
-	IniciarPlanificacionDeProcesos(request, pcb)
-
-	// Response with the PID
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
-}
-
-func IniciarPlanificacionDeProcesos(request BodyRequest, pcb PCB) {
-	// Create a new process and add it to the queue
-	proceso := Proceso{
-		Request: request,
-		PCB:     &pcb,
-	}
-
-	mu.Lock()
-	colaReady = append(colaReady, proceso)
-	if err := SendPathToMemory(proceso.Request, proceso.PCB.Pid); err != nil {
-		log.Printf("Error sending path to memory: %v", err)
-
-		return
-	}
-	mu.Unlock()
-
-	if globals.ClientConfig.AlgoritmoPlanificacion == "FIFO" {
-		go executeProcessFIFO()
-	} else if globals.ClientConfig.AlgoritmoPlanificacion == "RR" {
-		go executeProcessRR(globals.ClientConfig.Quantum)
-	}
 }
 
 func executeProcessRR(quantum int) {
@@ -282,52 +313,42 @@ func startQuantum(quantum int, pid int, done <-chan bool) {
 }
 
 func executeProcessFIFO() {
-	for {
+
+	proceso := <-procesoChan
+	log.Printf("Proceso %v en estado %v", proceso.PCB.Pid, proceso.PCB.State)
+
+	go func(proceso Proceso) {
+		// Execute the process
 		mu.Lock()
-		for len(colaReady) == 0 {
-			cond.Wait()
+		if err := SendContextToCPU(*proceso.PCB); err != nil {
+			log.Printf("Error sending context to CPU: %v", err)
+			return
 		}
 		mu.Unlock()
 
-		// Dequeue a process from colaReady
-		procesoMutex.Lock()
-		proceso := colaReady[0]
-		colaReady = colaReady[1:]
-		procesoMutex.Unlock()
+		log.Printf("PID: %d - Estado Anterior: %s - Estado Actual: %s", proceso.PCB.Pid, proceso.PCB.State, CPURequest.PcbUpdated.State)
 
-		go func(proceso Proceso) {
-			// Execute the process
-			mu.Lock()
-			if err := SendContextToCPU(*proceso.PCB); err != nil {
-				log.Printf("Error sending context to CPU: %v", err)
-				return
+		proceso.PCB.CpuReg = CPURequest.PcbUpdated.CpuReg
+		proceso.PCB.State = CPURequest.PcbUpdated.State
+		proceso.PCB.Pid = CPURequest.PcbUpdated.Pid // Dudoso
+
+		if syscallIO {
+			muio.Lock()
+			if err := SendIOToEntradaSalida(timeIOGlobal); err != nil {
+				log.Printf("Error sending IO to EntradaSalida: %v", err)
 			}
-			mu.Unlock()
-
-			log.Printf("PID: %d - Estado Anterior: %s - Estado Actual: %s", proceso.PCB.Pid, proceso.PCB.State, CPURequest.PcbUpdated.State)
-
-			proceso.PCB.CpuReg = CPURequest.PcbUpdated.CpuReg
-			proceso.PCB.State = CPURequest.PcbUpdated.State
-			proceso.PCB.Pid = CPURequest.PcbUpdated.Pid // Dudoso
-
-			if syscallIO {
-				muio.Lock()
-				if err := SendIOToEntradaSalida(timeIOGlobal); err != nil {
-					log.Printf("Error sending IO to EntradaSalida: %v", err)
-				}
-				muio.Unlock()
-				syscallIO = false
-				if proceso.PCB.State != "EXIT" {
-					proceso.PCB.State = "READY"
-				}
+			muio.Unlock()
+			syscallIO = false
+			if proceso.PCB.State != "EXIT" {
+				proceso.PCB.State = "READY"
 			}
+		}
 
-			if proceso.PCB.State == "READY" {
-				colaReady = append(colaReady, proceso)
-				cond.Signal() // Notify that colaReady is not empty
-			}
-		}(proceso)
-	}
+		if proceso.PCB.State == "READY" {
+			colaReady = append(colaReady, proceso)
+			cond.Signal() // Notify that colaReady is not empty
+		}
+	}(proceso)
 }
 
 func createPCB() PCB {
