@@ -184,8 +184,8 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 }
 
 func init() {
-	taskQueue = make(chan Proceso, 10) // Ajusta el tamaño del buffer según sea necesario
-	ioQueue = make(chan Proceso, 10)
+	taskQueue = make(chan Proceso) // Ajusta el tamaño del buffer según sea necesario
+	ioQueue = make(chan Proceso)
 	go executeProcessFIFO()
 	go handleIOQueue()
 }
@@ -231,9 +231,14 @@ func handleSyscallIO(proceso Proceso) {
 	if err := SendIOToEntradaSalida(timeIOGlobal); err != nil {
 		log.Printf("Error sending IO to EntradaSalida: %v", err)
 	}
+	//Igualar proceso a cpuRequest
+	proceso.PCB.State = CPURequest.PcbUpdated.State
+	proceso.PCB.CpuReg = CPURequest.PcbUpdated.CpuReg
+	proceso.PCB.Pid = CPURequest.PcbUpdated.Pid
+
 	syscallIO = false
-	if proceso.PCB.State != "EXIT" {
-		proceso.PCB.State = "READY"
+	if CPURequest.PcbUpdated.State != "EXIT" {
+		CPURequest.PcbUpdated.State = "READY"
 		requeueProcess(proceso)
 	}
 }
