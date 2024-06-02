@@ -57,12 +57,6 @@ type PCB struct {
 	CpuReg  RegisterCPU
 }
 
-type ExecutionContext struct {
-	Pid    int
-	State  string
-	CpuReg RegisterCPU
-}
-
 type RegisterCPU struct {
 	PC  uint32
 	AX  uint8
@@ -97,11 +91,11 @@ type Syscall struct {
 }
 
 type KernelRequest struct {
-	PcbUpdated     ExecutionContext `json:"pcbUpdated"`
-	MotivoDesalojo string           `json:"motivoDesalojo"`
-	TimeIO         int              `json:"timeIO"`
-	Interface      string           `json:"interface"`
-	IoType         string           `json:"ioType"`
+	PcbUpdated     PCB    `json:"pcbUpdated"`
+	MotivoDesalojo string `json:"motivoDesalojo"`
+	TimeIO         int    `json:"timeIO"`
+	Interface      string `json:"interface"`
+	IoType         string `json:"ioType"`
 }
 
 type RequestInterrupt struct {
@@ -113,19 +107,39 @@ type RequestInterrupt struct {
 
 var (
 	ioQueue      chan Proceso
-	taskQueue    chan Proceso
+	taskQueue    chan PCB
 	nextPid      = 1
 	timeIOGlobal int
-	CPURequest   KernelRequest
+	//CPURequest   KernelRequest
 )
 
 var (
-	colaReady []Proceso
-	mu        sync.Mutex
-	muio      sync.Mutex
+	mu   sync.Mutex
+	muio sync.Mutex
 )
 
-var syscallIO bool
+// ----------DECLARACION DE COLAS POR ESTADO----------------
+var colaNew []Proceso
+var colaReady []Proceso
+var colaExecution []Proceso
+var colaBlocked []Proceso
+var colaExit []Proceso
+
+// --------------------------------------------------------
+// ----------DECLARACION DE MUTEX POR COLAS DE ESTADO----------------
+var mutexNew sync.Mutex
+var mutexReady sync.Mutex
+var mutexExecution sync.Mutex
+var mutexBlocked sync.Mutex
+var mutexExit sync.Mutex
+
+// --------------------------------------------------------
+// ----------DECLARACION MUTEX POR CANAL----------------
+var mutexExecutionCPU sync.Mutex // este mutex es para que no se envie dos procesos al mismo tiempo a la cpu
+// --------------------------------------------------------
+
+// ----------DECLARACION DE PROCESO EN EJECUCION----------------
+var procesoEXEC Proceso // este proceso es el que se esta ejecutando
 
 /*-------------------------------------------------FUNCIONES CREADAS----------------------------------------------*/
 
@@ -133,6 +147,7 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Recibiendo solicitud de I/O desde el cpu")
 
 	// CREO VARIABLE I/O
+	var CPURequest KernelRequest
 
 	err := json.NewDecoder(r.Body).Decode(&CPURequest)
 	if err != nil {
@@ -144,12 +159,16 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	case "FINALIZADO":
 		log.Printf("Proceso %v finalizado con éxito", CPURequest.PcbUpdated.Pid)
 		CPURequest.PcbUpdated.State = "EXIT"
+		//meter en cola exit
 	case "INTERRUPCION POR IO":
-		syscallIO = true
+		// aca manejar el handelSyscallIo
+		// ioQueue <- proceso meto erl proceso en IO para atender
+		go handleSyscallIO(CPURequest)
 		CPURequest.PcbUpdated.State = "BLOCKED"
-		timeIOGlobal = CPURequest.TimeIO
 	case "CLOCK":
 		log.Printf("Proceso %v desalojado por fin de Quantum", CPURequest.PcbUpdated.Pid)
+		//actualizo el proceso
+		//volver a meter proceso en ready
 
 	default:
 		log.Printf("Proceso %v desalojado desconocido por %v", CPURequest.PcbUpdated.Pid, CPURequest.MotivoDesalojo)
@@ -157,8 +176,22 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Recibido pcb: %v", CPURequest.PcbUpdated)
 
+	if len(colaExecution) > 0 { // aca lo saco de la cola exec
+		mutexExecution.Lock()
+		colaExecution = append(colaExecution[:0], colaExecution[1:]...)
+		mutexExecution.Unlock()
+	}
+
+	//actualizo despues de que vuelva de la cpu
+	procesoEXEC.PCB.State = CPURequest.PcbUpdated.State
+	procesoEXEC.PCB.CpuReg = CPURequest.PcbUpdated.CpuReg
+	procesoEXEC.PCB.Pid = CPURequest.PcbUpdated.Pid
+
+	mutexExecutionCPU.Unlock()
+
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("%v", CPURequest.PcbUpdated)))
+
 }
 
 func IniciarProceso(w http.ResponseWriter, r *http.Request) {
@@ -184,10 +217,10 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 }
 
 func init() {
-	taskQueue = make(chan Proceso) // Ajusta el tamaño del buffer según sea necesario
+	taskQueue = make(chan PCB) // Ajusta el tamaño del buffer según sea necesario, lista por estado
 	ioQueue = make(chan Proceso)
 	go executeProcessFIFO()
-	go handleIOQueue()
+
 }
 
 func IniciarPlanificacionDeProcesos(request BodyRequest, pcb PCB) {
@@ -195,63 +228,86 @@ func IniciarPlanificacionDeProcesos(request BodyRequest, pcb PCB) {
 		Request: request,
 		PCB:     &pcb,
 	}
-	mu.Lock()
-	defer mu.Unlock()
-	taskQueue <- proceso
+	mutexNew.Lock()
+	colaNew = append(colaNew, proceso)
+	mutexNew.Unlock()
 
 	if err := SendPathToMemory(proceso.Request, proceso.PCB.Pid); err != nil {
 		log.Printf("Error sending path to memory: %v", err)
 		return
 	}
+	mu.Lock()
+	defer mu.Unlock()
+
+	if len(colaNew) > 0 { // aca lo saco de la cola new y lo mando a ready
+		mutexNew.Lock()
+		colaNew = append(colaNew[:0], colaNew[1:]...)
+		mutexNew.Unlock()
+	}
+
+	//meter en ready
+	mutexReady.Lock()
+	colaReady = append(colaReady, proceso)
+	mutexReady.Unlock()
+
+	taskQueue <- *proceso.PCB
 }
 
-func executeTask(proceso Proceso) {
-	if err := SendContextToCPU(*proceso.PCB); err != nil {
+func executeTask(proceso PCB) {
+	procesoEXEC.PCB = &proceso
+	//sacar de Ready y lo mando a execution
+	if len(colaReady) > 0 { // aca lo saco de la cola new y lo mando a ready
+		mutexReady.Lock()
+		colaReady = append(colaReady[:0], colaReady[1:]...)
+		mutexReady.Unlock()
+	}
+
+	//meter en execution
+	mutexExecution.Lock()
+	colaExecution = append(colaExecution, procesoEXEC)
+	mutexExecution.Unlock()
+
+	if err := SendContextToCPU(*procesoEXEC.PCB); err != nil {
 		log.Printf("Error sending context to CPU: %v", err)
 		return
 	}
 }
 
-func requeueProcess(proceso Proceso) {
+func requeueProcess(proceso PCB) {
 	mu.Lock()
 	defer mu.Unlock()
 	taskQueue <- proceso
 }
 
-func handleIOQueue() {
+/*func handleIOQueue() {
 	for proceso := range ioQueue {
-		handleSyscallIO(proceso)
-	}
-}
+		go handleSyscallIO(proceso)
 
-func handleSyscallIO(proceso Proceso) {
+	}
+}*/
+
+func handleSyscallIO(proceso KernelRequest) {
 	muio.Lock()
 	defer muio.Unlock()
+	// meter en bloqueado
+	SendIOToEntradaSalida(proceso.TimeIO)
+	taskQueue <- proceso.PcbUpdated
+	//mutexExecutionCPU.Unlock()
 
-	if err := SendIOToEntradaSalida(timeIOGlobal); err != nil {
-		log.Printf("Error sending IO to EntradaSalida: %v", err)
-	}
-	//Igualar proceso a cpuRequest
-	proceso.PCB.State = CPURequest.PcbUpdated.State
-	proceso.PCB.CpuReg = CPURequest.PcbUpdated.CpuReg
-	proceso.PCB.Pid = CPURequest.PcbUpdated.Pid
+	//requeueProcess(proceso.PcbUpdated)
 
-	syscallIO = false
-	if CPURequest.PcbUpdated.State != "EXIT" {
-		CPURequest.PcbUpdated.State = "READY"
-		requeueProcess(proceso)
-	}
 }
 
 func executeProcessFIFO() {
-	for proceso := range taskQueue {
+	// infinitamente estar sacando el primero de taskque ---> readyqueue
+	for {
+		//mutex para no enviar dos procesos al mismo timepo a cpu
+		mutexExecutionCPU.Lock()
+		proceso := <-taskQueue
 		executeTask(proceso)
-		if syscallIO {
-			ioQueue <- proceso
-		} else if proceso.PCB.State == "READY" {
-			requeueProcess(proceso)
-		}
+
 	}
+
 }
 
 func createPCB() PCB {
@@ -305,11 +361,7 @@ func SendPathToMemory(request BodyRequest, pid int) error {
 func SendContextToCPU(pcb PCB) error {
 	cpuURL := "http://localhost:8075/receivePCB"
 
-	context := ExecutionContext{
-		Pid:    pcb.Pid,
-		State:  pcb.State,
-		CpuReg: pcb.CpuReg,
-	}
+	context := pcb
 	pcbResponseTest, err := json.Marshal(context)
 	if err != nil {
 		return fmt.Errorf("error al serializar el PCB: %v", err)

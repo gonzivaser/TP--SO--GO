@@ -17,11 +17,11 @@ import (
 )
 
 type KernelRequest struct {
-	PcbUpdated     ExecutionContext `json:"pcbUpdated"`
-	MotivoDesalojo string           `json:"motivoDesalojo"`
-	TimeIO         int              `json:"timeIO"`
-	Interface      string           `json:"interface"`
-	IoType         string           `json:"ioType"`
+	PcbUpdated     PCB    `json:"pcbUpdated"`
+	MotivoDesalojo string `json:"motivoDesalojo"`
+	TimeIO         int    `json:"timeIO"`
+	Interface      string `json:"interface"`
+	IoType         string `json:"ioType"`
 }
 
 type PCB struct { //ESTO NO VA ACA
@@ -77,7 +77,7 @@ func IniciarConfiguracion(filePath string) *globals.Config {
 	return config
 }
 
-var contextoDeEjecucion ExecutionContext //PCB recibido desde kernel
+var contextoDeEjecucion PCB //PCB recibido desde kernel
 
 func ReceivePCB(w http.ResponseWriter, r *http.Request) {
 
@@ -96,7 +96,7 @@ func ReceivePCB(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func InstructionCycle(contextoDeEjecucion ExecutionContext) {
+func InstructionCycle(contextoDeEjecucion PCB) {
 	requestCPU = KernelRequest{}
 
 	for {
@@ -174,7 +174,7 @@ func Decode(instruction []string) (string, error) {
 	return words[0], nil
 }
 
-func Execute(instruction string, line []string, contextoDeEjecucion *ExecutionContext) error {
+func Execute(instruction string, line []string, contextoDeEjecucion *PCB) error {
 
 	words := strings.Fields(line[0])
 
