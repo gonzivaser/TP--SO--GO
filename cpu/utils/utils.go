@@ -466,6 +466,9 @@ func Checkinterrupts(w http.ResponseWriter, r *http.Request) { // A chequear
 	responseInterrupt = ResponseInterrupt{
 		Interrupt: true, // Aquí va el valor booleano que quieres enviar
 	}
+	requestCPU = KernelRequest{
+		MotivoDesalojo: "CLOCK",
+	}
 	log.Printf("Recibiendo solicitud de Interrupcionde quantum")
 
 	err := json.NewDecoder(r.Body).Decode(&hay_i_quantum)

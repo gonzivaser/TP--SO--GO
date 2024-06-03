@@ -137,6 +137,8 @@ var mutexExecutionCPU sync.Mutex // este mutex es para que no se envie dos proce
 var mutexExecutionMEMORIA sync.Mutex
 var mutexExecutionIO sync.Mutex
 
+var mutexQuantum sync.Mutex
+
 // --------------------------------------------------------
 
 // ----------DECLARACION DE PROCESO EN EJECUCION----------------
@@ -169,6 +171,7 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	case "CLOCK":
 		log.Printf("Proceso %v desalojado por fin de Quantum", CPURequest.PcbUpdated.Pid)
 		go clockHandler(CPURequest)
+		CPURequest.PcbUpdated.State = "BLOCKED"
 		//actualizo el proceso
 		//volver a meter proceso en ready
 
@@ -306,6 +309,7 @@ func handleSyscallIO(proceso KernelRequest) {
 	mutexExecutionIO.Lock()
 	SendIOToEntradaSalida(proceso.TimeIO)
 	mutexExecutionIO.Unlock()
+
 	readyChannel <- proceso.PcbUpdated
 
 	//requeueProcess(proceso.PcbUpdated)
@@ -315,6 +319,8 @@ func handleSyscallIO(proceso KernelRequest) {
 func clockHandler(proceso KernelRequest) {
 	mutexExecutionCPU.Lock()
 	readyChannel <- proceso.PcbUpdated
+	//mutexExecutionCPU.Unlock()
+
 	//requeueProcess(proceso.PcbUpdated)
 }
 
@@ -335,8 +341,10 @@ func executeProcessRR(quantum int) {
 	for {
 		mutexExecutionCPU.Lock()
 		proceso := <-readyChannel
+
 		startQuantum(quantum, proceso)
 		executeTask(proceso)
+		//mutexExecutionCPU.Unlock()
 
 	}
 
@@ -351,6 +359,7 @@ func startQuantum(quantum int, proceso PCB) {
 			if err := SendInterruptForClock(proceso.Pid); err != nil {
 				log.Printf("Error sending interrupt to CPU: %v", err)
 			}
+			mutexExecutionCPU.Unlock() //MIRAR ESTO
 
 		case <-done:
 			log.Printf("PID %d - Proceso finalizado antes de que el quantum termine", proceso.Pid)
