@@ -107,6 +107,12 @@ type RequestInterrupt struct {
 	PID       int  `json:"pid"`
 }
 
+type BodyRequestPort struct {
+	Port int `json:"port"`
+}
+
+var Puerto int
+
 /*---------------------------------------------------VAR GLOBALES------------------------------------------------*/
 
 var (
@@ -432,8 +438,22 @@ func SendContextToCPU(pcb PCB) error {
 	return nil
 }
 
+func RecievePort(w http.ResponseWriter, r *http.Request) {
+	var requestPort BodyRequestPort
+	err := json.NewDecoder(r.Body).Decode(&requestPort)
+	if err != nil {
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
+		return
+	}
+	Puerto = requestPort.Port
+	log.Printf("Received data: %+v", requestPort)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("Port received: %d", requestPort.Port)))
+}
+
 func SendIOToEntradaSalida(io int) error {
-	entradasalidaURL := "http://localhost:8090/interfaz"
+	entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", Puerto)
 
 	payload := Payload{
 		IO: io,

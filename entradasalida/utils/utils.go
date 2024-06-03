@@ -1,7 +1,9 @@
 package utils
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -11,8 +13,10 @@ import (
 	"github.com/sisoputnfrba/tp-golang/entradasalida/globals"
 )
 
-type PruebaMensaje struct {
-	Mensaje string `json:"Prueba"`
+var Puerto int
+
+type BodyRequestPort struct {
+	Port int `json:"port"`
 }
 
 func ConfigurarLogger() {
@@ -38,43 +42,31 @@ func IniciarConfiguracion(filePath string) *globals.Config {
 	return config
 }
 
-func Prueba(w http.ResponseWriter, r *http.Request) {
-
-	Prueba := PruebaMensaje{
-		Mensaje: "Todo OK IO",
-	}
-
-	pruebaResponse, _ := json.Marshal(Prueba)
-
-	w.WriteHeader(http.StatusOK)
-	w.Write(pruebaResponse)
-}
-
-type Config struct {
+/*type Config struct {
 	Type         string `json:"type"`
 	UnitWorkTime int    `json:"unit_work_time"` // Tiempo por unidad de trabajo
 	IPKernel     string `json:"ip_kernel"`      // Dirección IP del Kernel
 	PortKernel   int    `json:"port_kernel"`    // Puerto del Kernel
-}
+}*/
 
 // Estructura para la interfaz genérica
 type InterfazIO struct {
-	Nombre string // Nombre único
-	Config Config // Configuración
+	Nombre string         // Nombre único
+	Config globals.Config // Configuración
 }
 
 // Método para esperar basado en unidades de trabajo
-func (gi *InterfazIO) IO_GEN_SLEEP(n int) time.Duration {
-	return time.Duration(n*gi.Config.UnitWorkTime) * time.Millisecond
+func (interfaz *InterfazIO) IO_GEN_SLEEP(n int) time.Duration {
+	return time.Duration(n*interfaz.Config.UnidadDeTiempo) * time.Millisecond
 }
 
-func LoadConfig(filename string) (*Config, error) {
+func LoadConfig(filename string) (*globals.Config, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
 
-	var config Config
+	var config globals.Config
 	err = json.Unmarshal(data, &config)
 	if err != nil {
 		return nil, err
@@ -85,6 +77,37 @@ func LoadConfig(filename string) (*Config, error) {
 
 type Payload struct {
 	IO int
+}
+
+func SendPort(pathToConfig string) error {
+	config, err := LoadConfig(pathToConfig)
+	if err != nil {
+		log.Fatalf("Error al cargar la configuración desde '%s': %v", pathToConfig, err)
+	}
+	Puerto = config.Puerto
+	PuertoKernel := config.PuertoKernel
+	kernelURL := fmt.Sprintf("http://localhost:%d/recievePort", PuertoKernel)
+
+	port := BodyRequestPort{
+		Port: Puerto,
+	}
+	portJSON, err := json.Marshal(port)
+	if err != nil {
+		log.Fatalf("Error al codificar el puerto a JSON: %v", err)
+	}
+
+	resp, err := http.Post(kernelURL, "application/json", bytes.NewBuffer(portJSON))
+	if err != nil {
+		return fmt.Errorf("error al enviar la solicitud al módulo kernel: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("error en la respuesta del módulo kernel: %v", resp.StatusCode)
+	}
+
+	log.Println("Respuesta del módulo de kernel recibida correctamente.")
+	return nil
 }
 
 func Iniciar(w http.ResponseWriter, r *http.Request) {
@@ -107,12 +130,14 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatalf("Error al cargar la configuración desde '%s': %v", pathToConfig, err)
 	}
-	gi := &InterfazIO{
+	interfaz := &InterfazIO{
 		Nombre: interfaceName,
 		Config: *config,
 	}
-	duracion := gi.IO_GEN_SLEEP(N)
-	log.Printf("La espera por %d unidades para la interfaz '%s' es de %v\n", N, gi.Nombre, duracion)
+
+	Puerto = interfaz.Config.Puerto
+	duracion := interfaz.IO_GEN_SLEEP(N)
+	log.Printf("La espera por %d unidades para la interfaz '%s' es de %v\n", N, interfaz.Nombre, duracion)
 	time.Sleep(duracion)
-	log.Printf("Termino de esperar por la interfaz genérica '%s' es de %v\n", gi.Nombre, duracion)
+	log.Printf("Termino de esperar por la interfaz genérica '%s' es de %v\n", interfaz.Nombre, duracion)
 }
