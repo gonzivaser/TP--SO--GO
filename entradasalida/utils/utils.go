@@ -16,7 +16,8 @@ import (
 var Puerto int
 
 type BodyRequestPort struct {
-	Port int `json:"port"`
+	Nombre string `json:"nombre"`
+	Port   int    `json:"port"`
 }
 
 func ConfigurarLogger() {
@@ -79,7 +80,7 @@ type Payload struct {
 	IO int
 }
 
-func SendPort(pathToConfig string) error {
+func SendPort(nombreInterfaz string, pathToConfig string) error {
 	config, err := LoadConfig(pathToConfig)
 	if err != nil {
 		log.Fatalf("Error al cargar la configuración desde '%s': %v", pathToConfig, err)
@@ -89,7 +90,8 @@ func SendPort(pathToConfig string) error {
 	kernelURL := fmt.Sprintf("http://localhost:%d/recievePort", PuertoKernel)
 
 	port := BodyRequestPort{
-		Port: Puerto,
+		Nombre: nombreInterfaz,
+		Port:   Puerto,
 	}
 	portJSON, err := json.Marshal(port)
 	if err != nil {

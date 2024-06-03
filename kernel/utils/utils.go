@@ -82,7 +82,8 @@ type InterfazIO struct {
 }
 
 type Payload struct {
-	IO int `json:"io"`
+	Nombre string `json:"nombre"`
+	IO     int    `json:"io"`
 }
 
 type Proceso struct {
@@ -108,10 +109,15 @@ type RequestInterrupt struct {
 }
 
 type BodyRequestPort struct {
-	Port int `json:"port"`
+	Nombre string `json:"nombre"`
+	Port   int    `json:"port"`
+}
+type interfaz struct {
+	Name string
+	Port int
 }
 
-var Puerto int
+var interfaces []interfaz
 
 /*---------------------------------------------------VAR GLOBALES------------------------------------------------*/
 
@@ -310,7 +316,7 @@ func handleSyscallIO(proceso KernelRequest) {
 	//proceso := <-ioChannel MIRAR ESTO
 	// meter en bloqueado
 	mutexExecutionIO.Lock()
-	SendIOToEntradaSalida(proceso.TimeIO)
+	SendIOToEntradaSalida(proceso.Interface, proceso.TimeIO)
 	mutexExecutionIO.Unlock()
 	readyChannel <- proceso.PcbUpdated
 
@@ -440,41 +446,56 @@ func SendContextToCPU(pcb PCB) error {
 
 func RecievePort(w http.ResponseWriter, r *http.Request) {
 	var requestPort BodyRequestPort
+	var interfaz interfaz
 	err := json.NewDecoder(r.Body).Decode(&requestPort)
 	if err != nil {
 		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
 		return
 	}
-	Puerto = requestPort.Port
+	interfaz.Name = requestPort.Nombre
+	interfaz.Port = requestPort.Port
+
+	interfaces = append(interfaces, interfaz)
 	log.Printf("Received data: %+v", requestPort)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("Port received: %d", requestPort.Port)))
 }
 
-func SendIOToEntradaSalida(io int) error {
-	entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", Puerto)
-
+func SendIOToEntradaSalida(nombre string, io int) error {
 	payload := Payload{
-		IO: io,
+		Nombre: nombre,
+		IO:     io,
 	}
+	var interfazEncontrada interfaz // Asume que Interfaz es el tipo de tus interfaces
 
-	ioResponseTest, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("error al serializar el payload: %v", err)
+	for _, interfaz := range interfaces {
+		if interfaz.Name == payload.Nombre {
+			interfazEncontrada = interfaz
+			break
+		}
 	}
+	if interfazEncontrada != (interfaz{}) {
+		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
 
-	resp, err := http.Post(entradasalidaURL, "application/json", bytes.NewBuffer(ioResponseTest))
-	if err != nil {
-		return fmt.Errorf("error al enviar la solicitud al módulo de cpu: %v", err)
+		ioResponseTest, err := json.Marshal(payload)
+		if err != nil {
+			return fmt.Errorf("error al serializar el payload: %v", err)
+		}
+
+		resp, err := http.Post(entradasalidaURL, "application/json", bytes.NewBuffer(ioResponseTest))
+		if err != nil {
+			return fmt.Errorf("error al enviar la solicitud al módulo de cpu: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("error en la respuesta del módulo de cpu: %v", resp.StatusCode)
+		}
+
+		log.Println("Respuesta del módulo de IO recibida correctamente.")
+		return nil
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("error en la respuesta del módulo de cpu: %v", resp.StatusCode)
-	}
-
-	log.Println("Respuesta del módulo de IO recibida correctamente.")
 	return nil
 }
 
