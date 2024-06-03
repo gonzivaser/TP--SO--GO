@@ -20,6 +20,10 @@ type BodyRequestPort struct {
 	Port   int    `json:"port"`
 }
 
+type BodyRequest struct {
+	Instruction string `json:"instruction"`
+}
+
 func ConfigurarLogger() {
 	logFile, err := os.OpenFile("entradasalida.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
 	if err != nil {
@@ -42,13 +46,6 @@ func IniciarConfiguracion(filePath string) *globals.Config {
 
 	return config
 }
-
-/*type Config struct {
-	Type         string `json:"type"`
-	UnitWorkTime int    `json:"unit_work_time"` // Tiempo por unidad de trabajo
-	IPKernel     string `json:"ip_kernel"`      // Dirección IP del Kernel
-	PortKernel   int    `json:"port_kernel"`    // Puerto del Kernel
-}*/
 
 // Estructura para la interfaz genérica
 type InterfazIO struct {
@@ -112,8 +109,32 @@ func SendPort(nombreInterfaz string, pathToConfig string) error {
 	return nil
 }
 
+func SendInstructionToMemory(request BodyRequest) error {
+	memoriaURL := "http://localhost:8085/recieveInstructionFromIO"
+	savedPathJSON, err := json.Marshal(request)
+	if err != nil {
+		return fmt.Errorf("error al serializar los datos JSON: %v", err)
+	}
+
+	log.Println("Enviando solicitud con contenido:", string(savedPathJSON))
+
+	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(savedPathJSON))
+	if err != nil {
+		return fmt.Errorf("error al enviar la solicitud al módulo de memoria: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("error en la respuesta del módulo de memoria: %v", resp.StatusCode)
+	}
+
+	log.Println("Respuesta del módulo de memoria recibida correctamente.")
+	return nil
+}
+
 func Iniciar(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Recibiendo solicitud de I/O desde el kernel")
+
 	var payload Payload
 	err := json.NewDecoder(r.Body).Decode(&payload)
 	if err != nil {
@@ -125,6 +146,7 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 
 	interfaceName := os.Args[1]
 	log.Printf("Nombre de la interfaz: %s", interfaceName)
+
 	pathToConfig := os.Args[2]
 	log.Printf("Path al archivo de configuración: %s", pathToConfig)
 
@@ -132,14 +154,41 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatalf("Error al cargar la configuración desde '%s': %v", pathToConfig, err)
 	}
-	interfaz := &InterfazIO{
+
+	Interfaz := &InterfazIO{
 		Nombre: interfaceName,
 		Config: *config,
 	}
 
-	Puerto = interfaz.Config.Puerto
-	duracion := interfaz.IO_GEN_SLEEP(N)
-	log.Printf("La espera por %d unidades para la interfaz '%s' es de %v\n", N, interfaz.Nombre, duracion)
-	time.Sleep(duracion)
-	log.Printf("Termino de esperar por la interfaz genérica '%s' es de %v\n", interfaz.Nombre, duracion)
+	switch Interfaz.Config.Tipo {
+	case "STDIN":
+		Interfaz.IO_STDIN_READ()
+		log.Printf("Termino de leer desde la interfaz '%s'\n", Interfaz.Nombre)
+
+	case "GENERICA":
+		duracion := Interfaz.IO_GEN_SLEEP(N)
+		log.Printf("La espera por %d unidades para la interfaz '%s' es de %v\n", N, Interfaz.Nombre, duracion)
+		time.Sleep(duracion)
+		log.Printf("Termino de esperar por la interfaz genérica '%s' es de %v\n", Interfaz.Nombre, duracion)
+
+	default:
+		log.Fatalf("Tipo de interfaz desconocido: %s", Interfaz.Config.Tipo)
+	}
+}
+
+// INTERFAZ STDIN (IO_STDIN_READ)
+func (Interfaz *InterfazIO) IO_STDIN_READ() {
+	var input string
+
+	fmt.Print("Ingrese por teclado: ")
+	_, err := fmt.Scanln(&input)
+	if err != nil {
+		log.Fatalf("Error al leer desde stdin: %v", err)
+	}
+
+	// Guardar el texto en la memoria en la dirección especificada
+	err = SendInstructionToMemory(BodyRequest{Instruction: input})
+	if err != nil {
+		log.Fatalf("Error al escribir en la memoria: %v", err)
+	}
 }
