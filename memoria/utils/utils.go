@@ -117,7 +117,7 @@ func SetInstructionsFromFileToMap(w http.ResponseWriter, r *http.Request) {
 	}
 	mapInstructions[pid] = arrInstructions
 
-	fmt.Printf("%v\n", mapInstructions[pid])
+	fmt.Println("%v\n", mapInstructions[pid])
 	fmt.Println(mapInstructions)
 	defer readFile.Close()
 
@@ -163,7 +163,7 @@ func CreateProcess(pid int, pages int) error {
 	defer mu.Unlock()
 
 	if len(memory)/pageSize < pages { // Verifico si hay suficiente espacio en memoria en base a las paginas solicitadas
-		println("No hay suficiente espacio en memoria")
+		log.Printf("No hay suficiente espacio en memoria")
 	}
 
 	pageTable[pid] = make([]int, pages)
@@ -194,7 +194,7 @@ func TerminateProcess(pid int) error {
 	defer mu.Unlock()
 
 	if _, exists := pageTable[pid]; !exists {
-		println("Proceso no encontrado")
+		log.Printf("Proceso no encontrado")
 	}
 
 	delete(pageTable, pid) //Funcion que viene con map, libera los marcos asignados a un pid
@@ -222,13 +222,13 @@ func ResizeProcess(pid int, newSize int) error {
 
 	pages, exists := pageTable[pid]
 	if !exists { // Verifico si el proceso existe
-		println("Proceso no encontrado")
+		log.Printf("Proceso no encontrado")
 	}
 
 	currentSize := len(pages)
 	if newSize > currentSize { //Comparo el tamaño actual con el nuevo tamaño
 		if len(memory)/pageSize < newSize-currentSize { //Verifico si hay suficiente espacio en memoria despues de la ampliacion
-			println("Memoria insuficiente para la ampliación")
+			log.Printf("Memoria insuficiente para la ampliación")
 		} //A REVISAR ESTE IF
 		for i := currentSize; i < newSize; i++ { //Asigno nuevos marcos a la ampliacion
 			pageTable[pid] = append(pageTable[pid], i)
@@ -261,11 +261,11 @@ func ReadMemory(pid int, address int, size int) ([]byte, error) {
 	defer mu.Unlock()
 
 	if _, exists := pageTable[pid]; !exists { // Verifico si el proceso existe
-		println("Process not found")
+		log.Printf("Process not found")
 	}
 
 	if address+size > len(memory) { // Verifico si el acceso a memoria esta dentro de los limites del proceso
-		println("Memory access out of bounds")
+		log.Printf("Memory access out of bounds")
 	}
 
 	return memory[address : address+size], nil //Devuelvo todos los datos (desde la base hasta la base mas el desplazamiento)
@@ -291,11 +291,11 @@ func WriteMemory(pid int, address int, data []byte) error {
 	defer mu.Unlock()
 
 	if _, exists := pageTable[pid]; !exists { // Verifico si el proceso existe
-		println("Process not found")
+		log.Printf("Process not found")
 	}
 
 	if address+len(data) > len(memory) { //Verifico si la direccion de memoria donde quiero escribir esta dentro de los limites de la memoria
-		println("Memory access out of bounds")
+		log.Printf("Memory access out of bounds")
 	}
 
 	copy(memory[address:], data) // Funcion que viene con map, copia los datos en la direccion de memoria (data)
