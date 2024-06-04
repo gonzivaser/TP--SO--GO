@@ -317,7 +317,7 @@ func handleSyscallIO(proceso KernelRequest) {
 }
 
 func clockHandler(proceso KernelRequest) {
-	mutexExecutionCPU.Lock()
+	//mutexExecutionCPU.Lock()
 	readyChannel <- proceso.PcbUpdated
 	//mutexExecutionCPU.Unlock()
 
@@ -359,7 +359,7 @@ func startQuantum(quantum int, proceso PCB) {
 			if err := SendInterruptForClock(proceso.Pid); err != nil {
 				log.Printf("Error sending interrupt to CPU: %v", err)
 			}
-			mutexExecutionCPU.Unlock() //MIRAR ESTO
+			//mutexExecutionCPU.Unlock() //MIRAR ESTO
 
 		case <-done:
 			log.Printf("PID %d - Proceso finalizado antes de que el quantum termine", proceso.Pid)
