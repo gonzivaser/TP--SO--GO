@@ -40,7 +40,7 @@ var pageSize int
 var memorySize int
 
 // Espacio de memoria
-var memory = make([]byte, memorySize)
+var memory []byte
 
 // Tabla de páginas
 var pageTable = make(map[int][]int)
@@ -68,6 +68,7 @@ func init() {
 	if globals.ClientConfig != nil {
 		pageSize = globals.ClientConfig.PageSize
 		memorySize = globals.ClientConfig.MemorySize
+		memory = make([]byte, memorySize)
 	} else {
 		log.Fatal("ClientConfig is not initialized")
 	}
@@ -166,10 +167,17 @@ func CreateProcess(pid int, pages int) error {
 		log.Printf("No hay suficiente espacio en memoria")
 	}
 
-	pageTable[pid] = make([]int, pages)
-	for i := 0; i < pages; i++ {
-		pageTable[pid][i] = i // Asigno marcos/frames contiguos
+	if _, exists := pageTable[pid]; exists { //Verifico si ya existe un proceso con ese pid
+		log.Printf("Error: PID %d already has pages assigned", pid)
+	} else {
+		pageTable[pid] = make([]int, pages)
+		for i := 0; i < pages; i++ {
+			pageTable[pid][i] = i // Asigno marcos/frames contiguos
+		}
+		println("Proceso creado")
 	}
+
+	fmt.Println(pageTable)
 
 	return nil
 }
@@ -195,9 +203,13 @@ func TerminateProcess(pid int) error {
 
 	if _, exists := pageTable[pid]; !exists {
 		log.Printf("Proceso no encontrado")
+	} else {
+		delete(pageTable, pid) //Funcion que viene con map, libera los marcos asignados a un pid
+		log.Println("Proceso terminado")
 	}
 
-	delete(pageTable, pid) //Funcion que viene con map, libera los marcos asignados a un pid
+	fmt.Println(pageTable)
+
 	return nil
 }
 
@@ -232,11 +244,13 @@ func ResizeProcess(pid int, newSize int) error {
 		} //A REVISAR ESTE IF
 		for i := currentSize; i < newSize; i++ { //Asigno nuevos marcos a la ampliacion
 			pageTable[pid] = append(pageTable[pid], i)
+			fmt.Println("Proceso ampliado")
 		}
 	} else {
 		pageTable[pid] = pageTable[pid][:newSize] //Reduce el tamaño del proceso. :newSize es un slice de 0 a newSize (reduce el tope)
+		fmt.Println("Proceso reducido")
 	}
-
+	fmt.Println(pageTable)
 	return nil
 }
 
