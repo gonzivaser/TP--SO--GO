@@ -2,7 +2,7 @@ package utils
 
 // PONGO ACA ALGUNAS COSAS QUE NO SE DONDE PONERLAS
 // fALTA APLICAR CANALES PARA ATENDER LAS io PODEMOS DEJARLO COMO ESTA, PERO BUENO
-// FALTA PONER LAS COLAS DE BLOCKED, READY Y EXIT (CREO) ya ni me acuerdo cuales puse
+
 import (
 	"bytes"
 	"encoding/json"
@@ -117,11 +117,11 @@ var (
 )
 
 // ----------DECLARACION DE COLAS POR ESTADO----------------
-var colaNew []Proceso
-var colaReady []Proceso
-var colaExecution []Proceso
-var colaBlocked []Proceso
-var colaExit []Proceso
+var colaNew []PCB
+var colaReady []PCB
+var colaExecution []PCB
+var colaBlocked []PCB
+var colaExit []PCB
 
 // --------------------------------------------------------
 // ----------DECLARACION DE MUTEX POR COLAS DE ESTADO----------------
@@ -163,6 +163,10 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Proceso %v finalizado con éxito", CPURequest.PcbUpdated.Pid)
 		CPURequest.PcbUpdated.State = "EXIT"
 		//meter en cola exit
+		mutexExit.Lock()
+		colaExit = append(colaExit, CPURequest.PcbUpdated)
+		mutexExit.Unlock()
+
 	case "INTERRUPCION POR IO":
 		// aca manejar el handelSyscallIo
 		//ioChannel <- CPURequest //meto erl proceso en IO para atender ESTO HAY QUE VERLO
@@ -245,7 +249,7 @@ func IniciarPlanificacionDeProcesos(request BodyRequest, pcb PCB) {
 		PCB:     &pcb,
 	}
 	mutexNew.Lock()
-	colaNew = append(colaNew, proceso)
+	colaNew = append(colaNew, *proceso.PCB)
 	mutexNew.Unlock()
 
 	mutexExecutionMEMORIA.Lock()
@@ -263,7 +267,7 @@ func IniciarPlanificacionDeProcesos(request BodyRequest, pcb PCB) {
 
 	//meter en ready
 	mutexReady.Lock()
-	colaReady = append(colaReady, proceso)
+	colaReady = append(colaReady, *proceso.PCB)
 	mutexReady.Unlock()
 
 	readyChannel <- *proceso.PCB
@@ -280,7 +284,7 @@ func executeTask(proceso PCB) {
 
 	//meter en execution
 	mutexExecution.Lock()
-	colaExecution = append(colaExecution, procesoEXEC)
+	colaExecution = append(colaExecution, *procesoEXEC.PCB)
 	mutexExecution.Unlock()
 
 	if err := SendContextToCPU(*procesoEXEC.PCB); err != nil {
@@ -306,9 +310,18 @@ func handleSyscallIO(proceso KernelRequest) {
 
 	//proceso := <-ioChannel MIRAR ESTO
 	// meter en bloqueado
+	mutexBlocked.Lock()
+	colaBlocked = append(colaBlocked, proceso.PcbUpdated)
+	mutexBlocked.Unlock()
 	mutexExecutionIO.Lock()
 	SendIOToEntradaSalida(proceso.TimeIO)
 	mutexExecutionIO.Unlock()
+
+	if len(colaBlocked) > 0 { // aca lo saco de la cola blocked y lo mando a ready
+		mutexBlocked.Lock()
+		colaBlocked = append(colaBlocked[:0], colaBlocked[1:]...)
+		mutexBlocked.Unlock()
+	}
 
 	readyChannel <- proceso.PcbUpdated
 
@@ -359,7 +372,6 @@ func startQuantum(quantum int, proceso PCB) {
 			if err := SendInterruptForClock(proceso.Pid); err != nil {
 				log.Printf("Error sending interrupt to CPU: %v", err)
 			}
-			//mutexExecutionCPU.Unlock() //MIRAR ESTO
 
 		case <-done:
 			log.Printf("PID %d - Proceso finalizado antes de que el quantum termine", proceso.Pid)
@@ -525,13 +537,7 @@ func EstadoProceso(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var processState string
-	for _, process := range colaReady {
-		if process.PCB.Pid == pid {
-			processState = process.PCB.State
-			break
-		}
-	}
+	processState := findPID(pid)
 
 	BodyResponse := BodyResponseState{
 		State: processState,
@@ -554,23 +560,57 @@ func DetenerPlanificacion(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Planificación detenida"))
 }
 
-func ListarProcesos(w http.ResponseWriter, r *http.Request) {
-	var pids []int
-	for _, process := range colaReady {
-		pids = append(pids, process.PCB.Pid)
+func findPID(pid int) string {
+	queues := map[string][]PCB{
+		"New":       colaNew,
+		"Ready":     colaReady,
+		"Execution": colaExecution,
+		"Blocked":   colaBlocked,
+		"Exit":      colaExit,
 	}
 
-	pidsJSON, err := json.Marshal(pids)
+	for state, queue := range queues {
+		for _, pcb := range queue {
+			if pcb.Pid == pid {
+				return state
+			}
+		}
+	}
+
+	return "PID not found"
+}
+
+type ProcessState struct {
+	PID   int    `json:"pid"`
+	State string `json:"state"`
+}
+
+func ListarProcesos(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	queues := map[string][]PCB{
+		"New":       colaNew,
+		"Ready":     colaReady,
+		"Execution": colaExecution,
+		"Blocked":   colaBlocked,
+		"Exit":      colaExit,
+	}
+
+	var processStates []ProcessState
+	for state, queue := range queues {
+		for _, pcb := range queue {
+			processStates = append(processStates, ProcessState{PID: pcb.Pid, State: state})
+		}
+	}
+
+	json, err := json.Marshal(processStates)
 	if err != nil {
-		http.Error(w, "Error al convertir colaReady a JSON", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("Cola Ready COLA: %v", pids)
-
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(pidsJSON)
+	w.Write(json)
 }
 
 func ConfigurarLogger() {
