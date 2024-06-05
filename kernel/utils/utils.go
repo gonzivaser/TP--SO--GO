@@ -245,6 +245,8 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf(`{"pid":%d}`, pcb.Pid)))
 }
 
+var qqClockchoto int
+
 func init() {
 	globals.ClientConfig = IniciarConfiguracion("config.json") // tiene que prender la confi cuando arranca
 	readyChannel = make(chan PCB)                              // Ajusta el tamaño del buffer según sea necesario, lista por estado
@@ -256,7 +258,7 @@ func init() {
 		} else if globals.ClientConfig.AlgoritmoPlanificacion == "RR" {
 			go executeProcessRR(globals.ClientConfig.Quantum)
 		} else if globals.ClientConfig.AlgoritmoPlanificacion == "VRR" {
-			go executeProcessVRR(globals.ClientConfig.Quantum)
+			go executeProcessVRR()
 		}
 	} else {
 		log.Fatal("ClientConfig is not initialized")
@@ -377,7 +379,7 @@ func executeProcessRR(quantum int) {
 		mutexExecutionCPU.Lock()
 		proceso := <-readyChannel
 
-		startQuantum(quantum, proceso)
+		startQuantum(quantum, &proceso)
 		executeTask(proceso)
 		//mutexExecutionCPU.Unlock()
 
@@ -385,31 +387,28 @@ func executeProcessRR(quantum int) {
 
 }
 
-func executeProcessVRR(quantum int) {
-
+func executeProcessVRR() {
 	for {
 		mutexExecutionCPU.Lock()
-		var proceso PCB
-		if len(colaReadyVRR) > 0 {
-			proceso = colaReadyVRR[0]
-			quantum = proceso.Quantum
-		} else {
-			proceso = <-readyChannel
+
+		proceso := <-readyChannel
+
+		// Use the quantum from the process PCB if it's greater than 0, otherwise use the default quantum
+		quantum := proceso.Quantum
+		if quantum <= 0 {
+			quantum = globals.ClientConfig.Quantum
 		}
-		startQuantum(quantum, proceso)
+
+		startQuantum(quantum, &proceso)
 		executeTask(proceso)
-		//mutexExecutionCPU.Unlock()
-
 	}
-
 }
 
-func startQuantum(quantum int, proceso PCB) {
+func startQuantum(quantum int, proceso *PCB) {
 	log.Printf("PID %d - Quantum iniciado", proceso.Pid)
 
 	go func() {
 		done = make(chan struct{})
-		remainingQuantum = make(chan int)
 		ticker := time.NewTicker(time.Millisecond)
 		defer ticker.Stop()
 		for {
@@ -425,7 +424,7 @@ func startQuantum(quantum int, proceso PCB) {
 				}
 			case <-done:
 				log.Printf("PID %d - Proceso finalizado antes de que el quantum termine. Quantum restante %d", proceso.Pid, quantum)
-				remainingQuantum <- quantum
+				proceso.Quantum = quantum
 				return
 			}
 		}
