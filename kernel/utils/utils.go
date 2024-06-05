@@ -4,8 +4,14 @@ package utils
 // fALTA APLICAR CANALES PARA ATENDER LAS io
 // fALTA APLICAR EL ALGORITMO DE VRR
 // MANEJO DE RECURSOS:
-/* A la hora de recibir de la CPU un Contexto de Ejecución desalojado por WAIT, el Kernel deberá verificar primero que exista el recurso solicitado ("resources") y en caso de que exista restarle 1 a la cantidad de instancias del mismo (""resource_instances"). En caso de que el número sea estrictamente menor a 0, el proceso que realizó WAIT se bloqueará en la cola de bloqueados correspondiente al recurso.
-A la hora de recibir de la CPU un Contexto de Ejecución desalojado por SIGNAL, el Kernel deberá verificar primero que exista el recurso solicitado, luego sumarle 1 a la cantidad de instancias del mismo. En caso de que corresponda, desbloquea al primer proceso de la cola de bloqueados de ese recurso. Una vez hecho esto, se devuelve la ejecución al proceso que peticiona el SIGNAL.
+/* A la hora de recibir de la CPU un Contexto de Ejecución desalojado por WAIT, el Kernel deberá verificar primero que exista el recurso
+solicitado ("resources") y en caso de que exista restarle 1 a la cantidad de instancias del mismo (""resource_instances").
+En caso de que el número sea estrictamente menor a 0, el proceso que realizó WAIT se bloqueará en la cola de
+bloqueados correspondiente al recurso.
+A la hora de recibir de la CPU un Contexto de Ejecución desalojado por SIGNAL,
+el Kernel deberá verificar primero que exista el recurso solicitado, luego sumarle 1 a la cantidad de instancias del mismo.
+En caso de que corresponda, desbloquea al primer proceso de la cola de bloqueados de ese recurso. Una vez hecho esto, se devuelve la
+ejecución al proceso que peticiona el SIGNAL.
 Para las operaciones de WAIT y SIGNAL donde no se cumpla que el recurso exista, se deberá enviar el proceso a EXIT.*/
 //MANEJO DE I/O:
 /**/
@@ -116,15 +122,18 @@ type RequestInterrupt struct {
 /*---------------------------------------------------VAR GLOBALES------------------------------------------------*/
 
 var (
-	ioChannel    chan KernelRequest
-	readyChannel chan PCB
-	nextPid      = 1
+	ioChannel        chan KernelRequest
+	readyChannel     chan PCB
+	nextPid          = 1
+	done             chan struct{}
+	remainingQuantum chan int
 	//CPURequest   KernelRequest
 )
 
 // ----------DECLARACION DE COLAS POR ESTADO----------------
 var colaNew []PCB
 var colaReady []PCB
+var colaReadyVRR []PCB
 var colaExecution []PCB
 var colaBlocked []PCB
 var colaExit []PCB
@@ -133,6 +142,7 @@ var colaExit []PCB
 // ----------DECLARACION DE MUTEX POR COLAS DE ESTADO----------------
 var mutexNew sync.Mutex
 var mutexReady sync.Mutex
+var mutexReadyVRR sync.Mutex
 var mutexExecution sync.Mutex
 var mutexBlocked sync.Mutex
 var mutexExit sync.Mutex
@@ -153,7 +163,12 @@ var procesoEXEC Proceso // este proceso es el que se esta ejecutando
 /*-------------------------------------------------FUNCIONES CREADAS----------------------------------------------*/
 
 func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Recibiendo solicitud de I/O desde el cpu")
+	close(done)
+	if len(remainingQuantum) > 0 {
+		procesoEXEC.PCB.Quantum = <-remainingQuantum
+		log.Printf("Recibido syscall: %d", procesoEXEC.PCB.Quantum)
+
+	}
 
 	// CREO VARIABLE I/O
 	var CPURequest KernelRequest
@@ -241,6 +256,8 @@ func init() {
 			go executeProcessFIFO()
 		} else if globals.ClientConfig.AlgoritmoPlanificacion == "RR" {
 			go executeProcessRR(globals.ClientConfig.Quantum)
+		} else if globals.ClientConfig.AlgoritmoPlanificacion == "VRR" {
+			go executeProcessVRR(globals.ClientConfig.Quantum)
 		}
 	} else {
 		log.Fatal("ClientConfig is not initialized")
@@ -369,21 +386,51 @@ func executeProcessRR(quantum int) {
 
 }
 
+func executeProcessVRR(quantum int) {
+
+	for {
+		mutexExecutionCPU.Lock()
+		var proceso PCB
+		if len(colaReadyVRR) > 0 {
+			proceso = colaReadyVRR[0]
+			quantum = proceso.Quantum
+		} else {
+			proceso = <-readyChannel
+		}
+		startQuantum(quantum, proceso)
+		executeTask(proceso)
+		//mutexExecutionCPU.Unlock()
+
+	}
+
+}
+
 func startQuantum(quantum int, proceso PCB) {
 	log.Printf("PID %d - Quantum iniciado", proceso.Pid)
-	go func() {
-		done := make(chan struct{})
-		select {
-		case <-time.After(time.Duration(quantum) * time.Millisecond):
-			if err := SendInterruptForClock(proceso.Pid); err != nil {
-				log.Printf("Error sending interrupt to CPU: %v", err)
-			}
 
-		case <-done:
-			log.Printf("PID %d - Proceso finalizado antes de que el quantum termine", proceso.Pid)
+	go func() {
+		done = make(chan struct{})
+		remainingQuantum = make(chan int)
+		ticker := time.NewTicker(time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				log.Printf("PID %d - Quantum restante: %d", proceso.Pid, quantum)
+				quantum -= 10
+				if quantum == 0 {
+					if err := SendInterruptForClock(proceso.Pid); err != nil {
+						log.Printf("Error sending interrupt to CPU: %v", err)
+					}
+					return
+				}
+			case <-done:
+				log.Printf("PID %d - Proceso finalizado antes de que el quantum termine. Quantum restante %d", proceso.Pid, quantum)
+				remainingQuantum <- quantum
+				return
+			}
 		}
 	}()
-
 }
 
 func createPCB() PCB {
