@@ -164,11 +164,6 @@ var procesoEXEC Proceso // este proceso es el que se esta ejecutando
 
 func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	close(done)
-	if len(remainingQuantum) > 0 {
-		procesoEXEC.PCB.Quantum = <-remainingQuantum
-		log.Printf("Recibido syscall: %d", procesoEXEC.PCB.Quantum)
-
-	}
 
 	// CREO VARIABLE I/O
 	var CPURequest KernelRequest
@@ -179,6 +174,10 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Printf("Recibido syscall: %+v", CPURequest)
+	if len(remainingQuantum) > 0 {
+		procesoEXEC.PCB.Quantum = <-remainingQuantum
+		log.Printf("Recibido quantum restante: %d", procesoEXEC.PCB.Quantum)
+	}
 	switch CPURequest.MotivoDesalojo {
 	case "FINALIZADO":
 		log.Printf("Proceso %v finalizado con éxito", CPURequest.PcbUpdated.Pid)
