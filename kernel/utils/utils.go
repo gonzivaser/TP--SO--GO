@@ -173,28 +173,29 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
 		return
 	}
-	log.Printf("Recibido syscall: %+v", CPURequest)
-	if len(remainingQuantum) > 0 {
-		procesoEXEC.PCB.Quantum = <-remainingQuantum
-		log.Printf("Recibido quantum restante: %d", procesoEXEC.PCB.Quantum)
-	}
+	log.Printf("Recibido syscall de la CPU: %+v", CPURequest)
+	// if len(remainingQuantum) > 0 {
+	// 	procesoEXEC.PCB.Quantum = <-remainingQuantum
+	// 	log.Printf("Recibido quantum restante: %d", procesoEXEC.PCB.Quantum)
+	// }
+	procesoEXEC.PCB.CpuReg = CPURequest.PcbUpdated.CpuReg
 	switch CPURequest.MotivoDesalojo {
 	case "FINALIZADO":
 		log.Printf("Proceso %v finalizado con éxito", CPURequest.PcbUpdated.Pid)
 		CPURequest.PcbUpdated.State = "EXIT"
 		//meter en cola exit
 		mutexExit.Lock()
-		colaExit = append(colaExit, CPURequest.PcbUpdated)
+		colaExit = append(colaExit, *procesoEXEC.PCB)
 		mutexExit.Unlock()
 
 	case "INTERRUPCION POR IO":
 		// aca manejar el handelSyscallIo
 		//ioChannel <- CPURequest //meto erl proceso en IO para atender ESTO HAY QUE VERLO
-		go handleSyscallIO(CPURequest)
+		go handleSyscallIO(*procesoEXEC.PCB, CPURequest.TimeIO)
 		CPURequest.PcbUpdated.State = "BLOCKED"
 	case "CLOCK":
 		log.Printf("Proceso %v desalojado por fin de Quantum", CPURequest.PcbUpdated.Pid)
-		go clockHandler(CPURequest)
+		go clockHandler(*procesoEXEC.PCB)
 		CPURequest.PcbUpdated.State = "BLOCKED"
 		//actualizo el proceso
 		//volver a meter proceso en ready
@@ -330,15 +331,15 @@ func executeTask(proceso PCB) {
 	}
 }*/
 
-func handleSyscallIO(proceso KernelRequest) {
+func handleSyscallIO(pcb PCB, timeIo int) {
 
 	//proceso := <-ioChannel MIRAR ESTO
 	// meter en bloqueado
 	mutexBlocked.Lock()
-	colaBlocked = append(colaBlocked, proceso.PcbUpdated)
+	colaBlocked = append(colaBlocked, pcb)
 	mutexBlocked.Unlock()
 	mutexExecutionIO.Lock()
-	SendIOToEntradaSalida(proceso.TimeIO)
+	SendIOToEntradaSalida(timeIo)
 	mutexExecutionIO.Unlock()
 
 	if len(colaBlocked) > 0 { // aca lo saco de la cola blocked y lo mando a ready
@@ -346,16 +347,16 @@ func handleSyscallIO(proceso KernelRequest) {
 		colaBlocked = append(colaBlocked[:0], colaBlocked[1:]...)
 		mutexBlocked.Unlock()
 	}
-
-	readyChannel <- proceso.PcbUpdated
+	log.Printf("Proceso %+v desalojado por IO", pcb)
+	readyChannel <- pcb
 
 	//requeueProcess(proceso.PcbUpdated)
 
 }
 
-func clockHandler(proceso KernelRequest) {
+func clockHandler(pcb PCB) {
 	//mutexExecutionCPU.Lock()
-	readyChannel <- proceso.PcbUpdated
+	readyChannel <- pcb
 	//mutexExecutionCPU.Unlock()
 
 	//requeueProcess(proceso.PcbUpdated)
@@ -392,10 +393,12 @@ func executeProcessVRR() {
 		mutexExecutionCPU.Lock()
 
 		proceso := <-readyChannel
-
-		// Use the quantum from the process PCB if it's greater than 0, otherwise use the default quantum
-		quantum := proceso.Quantum
-		if quantum <= 0 {
+		var quantum int
+		log.Printf("Quantum: %d", proceso.Quantum)
+		if proceso.Quantum > 0 {
+			quantum = proceso.Quantum
+			proceso.Quantum = 0
+		} else {
 			quantum = globals.ClientConfig.Quantum
 		}
 
@@ -424,7 +427,7 @@ func startQuantum(quantum int, proceso *PCB) {
 				}
 			case <-done:
 				log.Printf("PID %d - Proceso finalizado antes de que el quantum termine. Quantum restante %d", proceso.Pid, quantum)
-				proceso.Quantum = quantum
+				procesoEXEC.PCB.Quantum = quantum
 				return
 			}
 		}
