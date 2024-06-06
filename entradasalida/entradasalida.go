@@ -29,5 +29,5 @@ func main() {
 
 	// Cargar la configuración desde el archivo
 
-	http.ListenAndServe(":"+strconv.Itoa(Puerto), nil)
+	go http.ListenAndServe(":"+strconv.Itoa(Puerto), nil)
 }

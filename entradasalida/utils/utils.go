@@ -1,5 +1,15 @@
 package utils
 
+//vana  a ir llegando prcesos segun la interfaz. primero chequear que intefaz es de esta froma
+// If Int1-->Io_GEN_SLEEP
+// If Int2-->Io_STDIN_READ Y ASI....
+
+//YA ESTOY A DENTRO DE LA INTERFAZ
+// aca voy a poner un canal a forma de buffer para que vayan llegando los procesos
+// voy a ir sacando de a uno y haciendo lo que tenga que hacer la entradasalida
+// cuando termino de hacer lo que tenga que hacer la entradasalida, le aviso al kernel que termine
+// y saco el proximo proceso del canal
+
 import (
 	"bytes"
 	"encoding/json"
@@ -115,6 +125,8 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Termino de leer desde la interfaz '%s'\n", Interfaz.Nombre)
 
 	case "GENERICA":
+		//HANDLER DE PROCESOS
+		// EL HANDLER ESTE LO QUE A HACER ES, EL CANAL QUE VA A FUNCIONAR A FORMA DE COLA
 		duracion := Interfaz.IO_GEN_SLEEP(N)
 		log.Printf("La espera por %d unidades para la interfaz '%s' es de %v\n", N, Interfaz.Nombre, duracion)
 		time.Sleep(duracion)
