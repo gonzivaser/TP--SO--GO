@@ -22,6 +22,7 @@ type KernelRequest struct {
 	TimeIO         int              `json:"timeIO"`
 	Interface      string           `json:"interface"`
 	IoType         string           `json:"ioType"`
+	Recurso        string           `json:"recurso"`
 }
 
 type PCB struct { //ESTO NO VA ACA
@@ -119,7 +120,7 @@ func InstructionCycle(contextoDeEjecucion ExecutionContext) {
 
 	}
 	log.Printf("PID: %d - Sale de CPU - PCB actualizado: %d\n", contextoDeEjecucion.Pid, contextoDeEjecucion.CpuReg) //LOG no officia
-	if requestCPU.MotivoDesalojo != "FINALIZADO" && requestCPU.MotivoDesalojo != "INTERRUPCION POR IO" {
+	if requestCPU.MotivoDesalojo != "FINALIZADO" && requestCPU.MotivoDesalojo != "INTERRUPCION POR IO" && requestCPU.MotivoDesalojo != "WAIT" {
 		requestCPU.MotivoDesalojo = "CLOCK"
 	}
 	requestCPU.PcbUpdated = contextoDeEjecucion
@@ -207,6 +208,11 @@ func Execute(instruction string, line []string, contextoDeEjecucion *ExecutionCo
 		}
 	case "IO_GEN_SLEEP":
 		err := IO(instruction, words)
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	case "WAIT":
+		err := Wait(&contextoDeEjecucion.CpuReg, words[1])
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
@@ -434,6 +440,16 @@ func IO(kind string, words []string) error {
 	default:
 		return fmt.Errorf("tipo de instrucción no soportado")
 	}
+	return nil
+}
+
+func Wait(registerCPU *RegisterCPU, valor string) error {
+	interrupt = true
+	requestCPU = KernelRequest{
+		MotivoDesalojo: "WAIT",
+		Recurso:        valor,
+	}
+
 	return nil
 }
 

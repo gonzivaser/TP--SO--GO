@@ -112,6 +112,7 @@ type KernelRequest struct {
 	TimeIO         int    `json:"timeIO"`
 	Interface      string `json:"interface"`
 	IoType         string `json:"ioType"`
+	Recurso        string `json:"recurso"`
 }
 
 type RequestInterrupt struct {
@@ -199,7 +200,11 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 		CPURequest.PcbUpdated.State = "BLOCKED"
 		//actualizo el proceso
 		//volver a meter proceso en ready
+	case "WAIT":
+		log.Printf("Proceso %v desalojado por WAIT", CPURequest.PcbUpdated.Pid)
+		go waitHandler(*procesoEXEC.PCB, CPURequest.Recurso)
 
+		CPURequest.PcbUpdated.State = "BLOCKED"
 	default:
 		log.Printf("Proceso %v desalojado desconocido por %v", CPURequest.PcbUpdated.Pid, CPURequest.MotivoDesalojo)
 	}
@@ -318,18 +323,22 @@ func executeTask(proceso PCB) {
 	}
 }
 
-/*func requeueProcess(proceso PCB) {
-	mu.Lock()
-	defer mu.Unlock()
-	readyChannel <- proceso
-}*/
-
-/*func handleIOQueue() {
-	for proceso := range ioChannel {
-		go handleSyscallIO(proceso)
-
+func waitHandler(pcb PCB, recurso string) {
+	// Iterar sobre la lista de recursos
+	for i, r := range globals.ClientConfig.Recursos {
+		// Si el recurso coincide, guardar la posición y restar 1 de las instancias
+		if r == recurso {
+			globals.ClientConfig.InstanciasRecursos[i] -= 1
+			break
+		}
 	}
-}*/
+	if len(globals.ClientConfig.InstanciasRecursos) > 0 {
+		log.Printf("la instancia ahora es: %v", globals.ClientConfig.InstanciasRecursos[0])
+	} else {
+		log.Printf("la instancia ahora es: %v", "No instances available")
+	}
+	readyChannel <- pcb
+}
 
 func handleSyscallIO(pcb PCB, timeIo int) {
 
@@ -417,7 +426,7 @@ func startQuantum(quantum int, proceso *PCB) {
 		for {
 			select {
 			case <-ticker.C:
-				log.Printf("PID %d - Quantum restante: %d", proceso.Pid, quantum)
+				//log.Printf("PID %d - Quantum restante: %d", proceso.Pid, quantum)
 				quantum -= 10
 				if quantum == 0 {
 					if err := SendInterruptForClock(proceso.Pid); err != nil {
