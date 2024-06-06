@@ -32,6 +32,10 @@ type RegisterCPU struct {
 	AX, BX, CX, DX                 uint8
 }
 
+type BodyRequestInput struct {
+	Input string `json:"input"`
+}
+
 var m = make(map[int][][]string)
 
 func IniciarConfiguracion(filePath string) *globals.Config {
@@ -100,4 +104,30 @@ func GetInstruction(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(instructionResponse)
 
 	w.Write([]byte(instruction))
+}
+
+func RecieveInputSTDINFromIO(w http.ResponseWriter, r *http.Request) {
+	var inputRecieved BodyRequestInput
+	err := json.NewDecoder(r.Body).Decode(&inputRecieved)
+
+	if err != nil {
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Input recibido correctamente"))
+}
+
+func RecieveAdressSTDOUTFromIO(w http.ResponseWriter, r *http.Request) {
+	var body BodyRequest
+	err := json.NewDecoder(r.Body).Decode(&body)
+
+	if err != nil {
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Adress recibido correctamente"))
 }

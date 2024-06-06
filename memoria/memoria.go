@@ -21,6 +21,8 @@ func main() {
 
 	http.HandleFunc("POST /setInstructionFromFileToMap", utils.SetInstructionsFromFileToMap)
 	http.HandleFunc("GET /getInstructionFromPid", utils.GetInstruction)
+	http.HandleFunc("POST /SendInputSTDINToMemory", utils.RecieveInputSTDINFromIO)
+	http.HandleFunc("POST /SendAdressSTDOUTToMemory", utils.RecieveAdressSTDOUTFromIO)
 
 	http.ListenAndServe(":"+strconv.Itoa(puerto), nil)
 }

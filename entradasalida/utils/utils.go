@@ -52,6 +52,14 @@ type BodyRequestPort struct {
 	Port   int    `json:"port"`
 }
 
+type BodyRequestInput struct {
+	Input string `json:"input"`
+}
+
+type Adress struct {
+	Adress int `json:"adress"`
+}
+
 type Finalizado struct {
 	Finalizado bool `json:"finalizado"`
 }
@@ -125,12 +133,14 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Termino de leer desde la interfaz '%s'\n", Interfaz.Nombre)
 
 	case "GENERICA":
-		//HANDLER DE PROCESOS
-		// EL HANDLER ESTE LO QUE A HACER ES, EL CANAL QUE VA A FUNCIONAR A FORMA DE COLA
 		duracion := Interfaz.IO_GEN_SLEEP(N)
 		log.Printf("La espera por %d unidades para la interfaz '%s' es de %v\n", N, Interfaz.Nombre, duracion)
 		time.Sleep(duracion)
 		log.Printf("Termino de esperar por la interfaz genérica '%s' es de %v\n", Interfaz.Nombre, duracion)
+
+	case "STDOUT":
+		//Interfaz.IO_STDOUT_WRITE(N)
+		log.Printf("Termino de escribir en la interfaz '%s'\n", Interfaz.Nombre)
 
 	default:
 		log.Fatalf("Tipo de interfaz desconocido: %s", Interfaz.Config.Tipo)
@@ -169,34 +179,10 @@ func SendPort(nombreInterfaz string, pathToConfig string) error {
 	return nil
 }
 
-func SendInstructionToMemory(request BodyRequest) error {
-	memoriaURL := "http://localhost:8085/recieveInstructionFromIO"
-	savedPathJSON, err := json.Marshal(request)
-	if err != nil {
-		return fmt.Errorf("error al serializar los datos JSON: %v", err)
-	}
-
-	log.Println("Enviando solicitud con contenido:", string(savedPathJSON))
-
-	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(savedPathJSON))
-	if err != nil {
-		return fmt.Errorf("error al enviar la solicitud al módulo de memoria: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("error en la respuesta del módulo de memoria: %v", resp.StatusCode)
-	}
-
-	log.Println("Respuesta del módulo de memoria recibida correctamente.")
-	return nil
-}
-
 func IOFinished(w http.ResponseWriter, r *http.Request) {
 	kernelURL := "http://localhost:8080/IOFinished"
 
-	var finished Finalizado
-	finished = Finalizado{
+	finished := Finalizado{
 		Finalizado: true,
 	}
 
@@ -218,21 +204,68 @@ func IOFinished(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func SendAdressSTDOUTToMemory(adress Adress) error {
+	memoriaURL := "http://localhost:8085/SendAdressSTDOUTToMemory"
+
+	adressResponseTest, err := json.Marshal(adress)
+	if err != nil {
+		log.Fatalf("Error al serializar el adress: %v", err)
+	}
+
+	log.Println("Enviando solicitud con contenido:", adressResponseTest)
+
+	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(adressResponseTest))
+	if err != nil {
+		log.Fatalf("Error al enviar la solicitud al módulo de memoria: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Fatalf("Error en la respuesta del módulo de memoria: %v", resp.StatusCode)
+	}
+
+	return nil
+}
+
+func SendInputSTDINToMemory(input BodyRequestInput) error {
+	memoriaURL := fmt.Sprintf("http://localhost:%d/SendInputSTDINToMemory", globals.ClientConfig.PuertoMemoria)
+
+	inputResponseTest, err := json.Marshal(input)
+	if err != nil {
+		log.Fatalf("Error al serializar el Input: %v", err)
+	}
+
+	log.Println("Enviando solicitud con contenido:", inputResponseTest)
+
+	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(inputResponseTest))
+	if err != nil {
+		log.Fatalf("Error al enviar la solicitud al módulo de memoria: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Fatalf("Error en la respuesta del módulo de memoria: %v", resp.StatusCode)
+	}
+
+	return nil
+}
+
 /*---------------------------------------------- INTERFACES -------------------------------------------------------*/
 // INTERFAZ STDOUT (IO_STDOUT_WRITE)
-func (Interfaz *InterfazIO) IO_STDOUT_WRITE(address int) {
+/*func (Interfaz *InterfazIO) IO_STDOUT_WRITE() {
 	// IO_STDOUT_WRITE Int3 BX EAX
 	// BX: REGISTRO QUE CONTIENE DIRECCION FISICA EN MEMORIA DONDE SE LEERA EL VALOR
 	// EAX: REGISTRO QUE VA A CONTENER EL VALOR QUE SE LEA
+	var adress Adress
 
-	/*	instruccion, err := ReadFromMemory(address)
-		if err != nil {
-			log.Fatalf("Error al leer desde la memoria: %v", err)
-		}
+	adress, err := SendAdressSTDOUTToMemory(adress)
+	if err != nil {
+		log.Fatalf("Error al leer desde la memoria: %v", err)
+	}
 
-		// Imprimir el texto en la consola
-		fmt.Println(instruccion)*/
-}
+	// Imprimir el texto en la consola
+	fmt.Println(adress)
+}*/
 
 // INTERFAZ STDIN (IO_STDIN_READ)
 func (Interfaz *InterfazIO) IO_STDIN_READ() {
@@ -240,6 +273,7 @@ func (Interfaz *InterfazIO) IO_STDIN_READ() {
 		EAX: Registro que contiene la dirección física en memoria donde se almacenará el texto ingresado.
 		AX: Registro donde se almacena el valor resultante (puede usarse para alguna otra operación posterior).
 	*/
+	var BodyInput BodyRequestInput
 	var input string
 
 	fmt.Print("Ingrese por teclado: ")
@@ -248,8 +282,25 @@ func (Interfaz *InterfazIO) IO_STDIN_READ() {
 		log.Fatalf("Error al leer desde stdin: %v", err)
 	}
 
+	BodyInput.Input = input
 	// Guardar el texto en la memoria en la dirección especificada
-	err = SendInstructionToMemory(BodyRequest{Instruction: input})
+	err = SendInputSTDINToMemory(BodyInput)
+	if err != nil {
+		log.Fatalf("Error al escribir en la memoria: %v", err)
+	}
+}
+
+func IO_STDIN_READ() {
+	var input BodyRequestInput
+
+	fmt.Print("Ingrese por teclado: ")
+	_, err := fmt.Scanln(&input)
+	if err != nil {
+		log.Fatalf("Error al leer desde stdin: %v", err)
+	}
+
+	// Guardar el texto en la memoria en la dirección especificada
+	err = SendInputSTDINToMemory(input)
 	if err != nil {
 		log.Fatalf("Error al escribir en la memoria: %v", err)
 	}
