@@ -528,6 +528,20 @@ func SendInterruptForClock(pid int) error {
 	return nil
 }
 
+func IOFinished(w http.ResponseWriter, r *http.Request) {
+	var finished bool
+	err := json.NewDecoder(r.Body).Decode(&finished)
+	if err != nil {
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("Termino: %+v", finished)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("Termino: %d", finished)))
+}
+
 /*---------------------------------------------FUNCIONES OBLIGATORIAS--------------------------------------------------*/
 
 func FinalizarProceso(w http.ResponseWriter, r *http.Request) {

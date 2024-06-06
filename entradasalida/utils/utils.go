@@ -176,6 +176,28 @@ func SendInstructionToMemory(request BodyRequest) error {
 	return nil
 }
 
+func IOFinished(w http.ResponseWriter, r *http.Request) {
+	kernelURL := "http://localhost:8080/IOFinished"
+
+	finished := true
+	finishedResponseTest, err := json.Marshal(finished)
+	if err != nil {
+		log.Fatalf("Error al serializar el PCB: %v", err)
+	}
+
+	log.Println("Enviando solicitud con contenido:", string(finishedResponseTest))
+
+	resp, err := http.Post(kernelURL, "application/json", bytes.NewBuffer(finishedResponseTest))
+	if err != nil {
+		log.Fatalf("Error al enviar la solicitud al módulo de kernel: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Fatalf("Error en la respuesta del módulo de kernel: %v", resp.StatusCode)
+	}
+}
+
 /*---------------------------------------------- INTERFACES -------------------------------------------------------*/
 // INTERFAZ STDOUT (IO_STDOUT_WRITE)
 func (Interfaz *InterfazIO) IO_STDOUT_WRITE(address int) {
@@ -183,13 +205,13 @@ func (Interfaz *InterfazIO) IO_STDOUT_WRITE(address int) {
 	// BX: REGISTRO QUE CONTIENE DIRECCION FISICA EN MEMORIA DONDE SE LEERA EL VALOR
 	// EAX: REGISTRO QUE VA A CONTENER EL VALOR QUE SE LEA
 
-	instruccion, err := ReadFromMemory(address)
-	if err != nil {
-		log.Fatalf("Error al leer desde la memoria: %v", err)
-	}
+	/*	instruccion, err := ReadFromMemory(address)
+		if err != nil {
+			log.Fatalf("Error al leer desde la memoria: %v", err)
+		}
 
-	// Imprimir el texto en la consola
-	fmt.Println(instruccion)
+		// Imprimir el texto en la consola
+		fmt.Println(instruccion)*/
 }
 
 // INTERFAZ STDIN (IO_STDIN_READ)
