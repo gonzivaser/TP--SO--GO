@@ -131,6 +131,7 @@ var (
 	nextPid      = 1
 	//CPURequest   KernelRequest
 )
+var mutexes = make(map[string]*sync.Mutex)
 
 // ----------DECLARACION DE COLAS POR ESTADO----------------
 var colaNew []Proceso
@@ -179,7 +180,7 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 		//meter en cola exit
 	case "INTERRUPCION POR IO":
 		// aca manejar el handelSyscallIo
-		//ioChannel <- CPURequest //meto erl proceso en IO para atender ESTO HAY QUE VERLO
+		ioChannel <- CPURequest //meto erl proceso en IO para atender ESTO HAY QUE VERLO
 		go handleSyscallIO(CPURequest)
 		CPURequest.PcbUpdated.State = "BLOCKED"
 	case "CLOCK":
@@ -319,13 +320,17 @@ func handleSyscallIO(proceso KernelRequest) {
 
 	//proceso := <-ioChannel MIRAR ESTO
 	// meter en bloqueado
-	mutexExecutionIO.Lock()
+	mutex, ok := mutexes[proceso.Interface]
+	if !ok {
+		mutex = &sync.Mutex{}
+		mutexes[proceso.Interface] = mutex
+	}
+
+	mutex.Lock()
 	SendIOToEntradaSalida(proceso.Interface, proceso.TimeIO)
-	mutexExecutionIO.Unlock()
+	mutex.Unlock()
 	readyChannel <- proceso.PcbUpdated
-
 	//requeueProcess(proceso.PcbUpdated)
-
 }
 
 func clockHandler(proceso KernelRequest) {
@@ -544,7 +549,7 @@ func IOFinished(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Termino: %+v", finished)
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("Termino: %d", finished)))
+	w.Write([]byte(fmt.Sprintf("Termino: %+v", finished)))
 }
 
 /*---------------------------------------------FUNCIONES OBLIGATORIAS--------------------------------------------------*/
