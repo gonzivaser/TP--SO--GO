@@ -86,6 +86,10 @@ type Payload struct {
 	IO     int    `json:"io"`
 }
 
+type Finalizado struct {
+	Finalizado bool `json:"finalizado"`
+}
+
 type Proceso struct {
 	Request BodyRequest
 	PCB     *PCB
@@ -529,8 +533,9 @@ func SendInterruptForClock(pid int) error {
 }
 
 func IOFinished(w http.ResponseWriter, r *http.Request) {
-	var finished bool
+	var finished Finalizado
 	err := json.NewDecoder(r.Body).Decode(&finished)
+
 	if err != nil {
 		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
 		return

@@ -42,6 +42,10 @@ type BodyRequestPort struct {
 	Port   int    `json:"port"`
 }
 
+type Finalizado struct {
+	Finalizado bool `json:"finalizado"`
+}
+
 type BodyRequest struct {
 	Instruction string `json:"instruction"`
 }
@@ -179,7 +183,11 @@ func SendInstructionToMemory(request BodyRequest) error {
 func IOFinished(w http.ResponseWriter, r *http.Request) {
 	kernelURL := "http://localhost:8080/IOFinished"
 
-	finished := true
+	var finished Finalizado
+	finished = Finalizado{
+		Finalizado: true,
+	}
+
 	finishedResponseTest, err := json.Marshal(finished)
 	if err != nil {
 		log.Fatalf("Error al serializar el PCB: %v", err)
