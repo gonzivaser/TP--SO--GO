@@ -140,19 +140,21 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch Interfaz.Config.Tipo {
-	case "STDIN":
-		Interfaz.IO_STDIN_READ(lengthREG)
-		log.Printf("Termino de leer desde la interfaz '%s'\n", Interfaz.Nombre)
-
 	case "GENERICA":
 		duracion := Interfaz.IO_GEN_SLEEP(N)
 		log.Printf("La espera por %d unidades para la interfaz '%s' es de %v\n", N, Interfaz.Nombre, duracion)
 		time.Sleep(duracion)
 		log.Printf("Termino de esperar por la interfaz genérica '%s' es de %v\n", Interfaz.Nombre, duracion)
 
+	case "STDIN":
+		Interfaz.IO_STDIN_READ(lengthREG)
+		log.Printf("Termino de leer desde la interfaz '%s'\n", Interfaz.Nombre)
+
 	case "STDOUT":
 		Interfaz.IO_STDOUT_WRITE(direccionFisica, lengthREG) //esto está re hardcodeado loco, no me juzguen
 		log.Printf("Termino de escribir en la interfaz '%s'\n", Interfaz.Nombre)
+
+	case "DialFS":
 
 	default:
 		log.Fatalf("Tipo de interfaz desconocido: %s", Interfaz.Config.Tipo)
@@ -306,7 +308,8 @@ func (Interfaz *InterfazIO) IO_STDOUT_WRITE(adress int, length int) {
 	if err != nil {
 		log.Fatalf("Error al leer desde la memoria: %v", err)
 	}
-	time.Sleep(1 * time.Millisecond)
+
+	time.Sleep(time.Duration(globals.ClientConfig.UnidadDeTiempo) * time.Millisecond)
 	// Imprimir el texto en la consola
 	fmt.Println(memoryContent)
 }
