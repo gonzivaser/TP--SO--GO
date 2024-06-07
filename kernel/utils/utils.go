@@ -126,10 +126,12 @@ var interfaces []interfaz
 /*---------------------------------------------------VAR GLOBALES------------------------------------------------*/
 
 var (
+
 	ioChannel    chan KernelRequest
 	readyChannel chan PCB
 	nextPid      = 1
 	//CPURequest   KernelRequest
+
 )
 var mutexes = make(map[string]*sync.Mutex)
 
@@ -162,8 +164,6 @@ var procesoEXEC Proceso // este proceso es el que se esta ejecutando
 /*-------------------------------------------------FUNCIONES CREADAS----------------------------------------------*/
 
 func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Recibiendo solicitud de I/O desde el cpu")
-
 	// CREO VARIABLE I/O
 	var CPURequest KernelRequest
 
@@ -175,7 +175,7 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Recibido syscall: %+v", CPURequest)
 	switch CPURequest.MotivoDesalojo {
 	case "FINALIZADO":
-		log.Printf("Proceso %v finalizado con éxito", CPURequest.PcbUpdated.Pid)
+		log.Printf("Finaliza el proceso %v - Motivo: <SUCCESS>", CPURequest.PcbUpdated.Pid)
 		CPURequest.PcbUpdated.State = "EXIT"
 		//meter en cola exit
 	case "INTERRUPCION POR IO":
@@ -226,6 +226,9 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	// Create PCB
 	pcb := createPCB()
 	log.Printf("Se crea el proceso %v en NEW", pcb.Pid) // log obligatorio
+	response := BodyResponsePid{
+		Pid: pcb.Pid,
+	}
 
 	IniciarPlanificacionDeProcesos(request, pcb)
 
@@ -250,7 +253,6 @@ func init() {
 		log.Fatal("ClientConfig is not initialized")
 	}
 	//go executeProcessFIFO()
-
 }
 
 func IniciarPlanificacionDeProcesos(request BodyRequest, pcb PCB) {
@@ -291,7 +293,6 @@ func executeTask(proceso PCB) {
 		colaReady = append(colaReady[:0], colaReady[1:]...)
 		mutexReady.Unlock()
 	}
-
 	//meter en execution
 	mutexExecution.Lock()
 	colaExecution = append(colaExecution, procesoEXEC)

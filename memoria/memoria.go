@@ -20,9 +20,16 @@ func main() {
 	puerto := globals.ClientConfig.Puerto
 
 	http.HandleFunc("POST /setInstructionFromFileToMap", utils.SetInstructionsFromFileToMap)
-	http.HandleFunc("GET /getInstructionFromPid", utils.GetInstruction)
+
+	http.HandleFunc("GET  /getInstructionFromPid", utils.GetInstruction)
+	http.HandleFunc("POST /createProcess", utils.CreateProcessHandler)
+	http.HandleFunc("POST /terminateProcess", utils.TerminateProcessHandler)
+	http.HandleFunc("POST /resizeProcess", utils.ResizeProcessHandler)
+	http.HandleFunc("POST /readMemory", utils.ReadMemoryHandler)
+	http.HandleFunc("POST /writeMemory", utils.WriteMemoryHandler)
 	http.HandleFunc("POST /SendInputSTDINToMemory", utils.RecieveInputSTDINFromIO)
 	http.HandleFunc("POST /SendAdressSTDOUTToMemory", utils.RecieveAdressSTDOUTFromIO)
+
 
 	http.ListenAndServe(":"+strconv.Itoa(puerto), nil)
 }
