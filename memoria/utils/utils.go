@@ -60,7 +60,7 @@ var mu sync.Mutex
 // Estructura del proceso
 type Process struct {
 	PID   int `json:"pid"`
-	Pages int `json:"pages"`
+	Pages int `json:"pages,omitempty"`
 }
 
 // Estructura de la solicitud de lectura/escritura
@@ -84,11 +84,15 @@ func init() {
 }
 
 type BodyRequestInput struct {
-	Input string `json:"input"`
+	Input   string `json:"input"`
+	Address int    `json:"address"`
+	Pid     int    `json:"pid"`
 }
 
 var adress int
 var length int
+var IOaddress int
+var IOpid int
 var IOinput string
 
 func IniciarConfiguracion(filePath string) *globals.Config {
@@ -187,16 +191,26 @@ func CreateProcess(pid int, pages int) error {
 	if _, exists := pageTable[pid]; exists { //Verifico si ya existe un proceso con ese pid
 		log.Printf("Error: PID %d already has pages assigned", pid)
 	} else {
-		pageTable[pid] = make([]int, pages)
-		for i := 0; i < pages; i++ {
-			pageTable[pid][i] = -1 // Asigno marcos/frames contiguos -> -1 == no asignado
-		}
-
+		pageTable[pid] = make([]int, pages) // Creo un slice de paginas para el proceso
 		println("Proceso creado")
 	}
 
 	fmt.Println(pageTable)
 
+	return nil
+}
+
+// Pasado un dato de IO a memoria, le asigno la direccion fisica del dato a la pagina del proceso
+func AssignAddressToProcess(pid int, address int) error {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if _, exists := pageTable[pid]; !exists { // Verifico si el proceso existe
+		log.Printf("Process not found")
+	}
+
+	pageTable[pid] = append(pageTable[pid], address) // Asigno la direccion fisica al proceso\
+	fmt.Println(pageTable)
 	return nil
 }
 
@@ -310,7 +324,7 @@ func WriteMemoryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := WriteMemory(memReq.PID, memReq.Address, memReq.Data); err != nil {
+	if err := WriteMemory(memReq.Address, memReq.Data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -318,13 +332,9 @@ func WriteMemoryHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func WriteMemory(pid int, address int, data []byte) error {
+func WriteMemory(address int, data []byte) error {
 	mu.Lock()
 	defer mu.Unlock()
-
-	if _, exists := pageTable[pid]; !exists { // Verifico si el proceso existe
-		log.Printf("Process not found")
-	}
 
 	if address+len(data) > len(memory) { //Verifico si la direccion de memoria donde quiero escribir esta dentro de los limites de la memoria
 		log.Printf("Memory access out of bounds")
@@ -344,6 +354,13 @@ func RecieveInputSTDINFromIO(w http.ResponseWriter, r *http.Request) {
 	}
 
 	IOinput = inputRecieved.Input
+	IOaddress = inputRecieved.Address
+	IOpid = inputRecieved.Pid
+
+	_ = WriteMemory(IOaddress, []byte(IOinput)) //Copio en memoria lo recibido por IO
+	AssignAddressToProcess(IOpid, IOaddress)    //Asigno la direccion fisica al proceso
+
+	fmt.Println(memory)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Input recibido correctamente"))

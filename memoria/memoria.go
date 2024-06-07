@@ -27,8 +27,8 @@ func main() {
 	http.HandleFunc("POST /resizeProcess", utils.ResizeProcessHandler)
 	http.HandleFunc("POST /readMemory", utils.ReadMemoryHandler)
 	http.HandleFunc("POST /writeMemory", utils.WriteMemoryHandler)
-	http.HandleFunc("POST /SendInputSTDINToMemory", utils.RecieveInputSTDINFromIO)
-	http.HandleFunc("POST /SendAdressSTDOUTToMemory", utils.RecieveAdressSTDOUTFromIO)
+	http.HandleFunc("POST /SendInputSTDINToMemory", utils.RecieveInputSTDINFromIO)     // Escribir en memoria el input de un proceso
+	http.HandleFunc("POST /SendAdressSTDOUTToMemory", utils.RecieveAdressSTDOUTFromIO) // Agarra una dir de memoria y lo muestra por pantalla
 
 	http.ListenAndServe(":"+strconv.Itoa(puerto), nil)
 }

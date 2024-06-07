@@ -53,14 +53,19 @@ type BodyRequestPort struct {
 }
 
 type BodyRequestRegister struct {
-	Length int `json:"length"`
+	Length  int `json:"length"`
+	Address int `json:"address"`
+	Pid     int `json:"pid"`
 }
 
 type BodyRequestInput struct {
-	Input string `json:"input"`
+	Pid     int    `json:"pid"`
+	Input   string `json:"input"`
+	Address int    `json:"address"` //Esto viene desde kernel
 }
 
 type BodyAdress struct {
+	Pid    int `json:"pid"`
 	Adress int `json:"adress"`
 	Length int `json:"length"`
 }
@@ -93,6 +98,7 @@ var Puerto int
 var lengthREG int
 var memoryContent string
 var direccionFisica int
+var pid int
 
 /*---------------------------------------------------- FUNCIONES ------------------------------------------------------*/
 
@@ -274,6 +280,9 @@ func RecieveREG(w http.ResponseWriter, r *http.Request) {
 	}
 
 	lengthREG = requestRegister.Length
+	direccionFisica = requestRegister.Address
+	pid = requestRegister.Pid
+
 	log.Printf("Received data: %d", lengthREG)
 
 	w.WriteHeader(http.StatusOK)
@@ -335,6 +344,8 @@ func (Interfaz *InterfazIO) IO_STDIN_READ(lengthREG int) {
 	}
 
 	BodyInput.Input = input
+	BodyInput.Address = direccionFisica
+	BodyInput.Pid = pid
 	// Guardar el texto en la memoria en la dirección especificada
 	err = SendInputSTDINToMemory(&BodyInput)
 	if err != nil {
