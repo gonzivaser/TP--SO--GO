@@ -65,7 +65,6 @@ type BodyRequestInput struct {
 }
 
 type BodyAdress struct {
-	Pid    int `json:"pid"`
 	Adress int `json:"adress"`
 	Length int `json:"length"`
 }
@@ -313,6 +312,7 @@ func (Interfaz *InterfazIO) IO_STDOUT_WRITE(adress int, length int) {
 	// EAX: REGISTRO QUE VA A CONTENER EL VALOR QUE SE LEA
 	var Bodyadress BodyAdress
 	Bodyadress.Adress = adress
+	Bodyadress.Length = length
 	err := SendAdressSTDOUTToMemory(Bodyadress, length)
 	if err != nil {
 		log.Fatalf("Error al leer desde la memoria: %v", err)

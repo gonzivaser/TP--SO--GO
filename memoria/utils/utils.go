@@ -377,13 +377,17 @@ func RecieveAdressSTDOUTFromIO(w http.ResponseWriter, r *http.Request) {
 
 	adress = BodyRequestAdress.Adress
 	length = BodyRequestAdress.Length
+
+	data := memory[adress : adress+length]
+	SendContentToIO(string(data))
+
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Adress recibido correctamente"))
 }
 
 func SendContentToIO(content string) error {
 	var BodyContent BodyContent
-	IOurl := "http://localhost:8090/receiveContentFromMemory" //esto está mal, no está el puerto de IO en el config
+	IOurl := "http://localhost:8091/receiveContentFromMemory" //esto está mal, no está el puerto de IO en el config
 	BodyContent.Content = content
 	ContentResponseTest, err := json.Marshal(BodyContent)
 	if err != nil {
