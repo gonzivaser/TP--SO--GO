@@ -114,8 +114,9 @@ func InstructionCycle(contextoDeEjecucion ExecutionContext) {
 
 	}
 	log.Printf("PID: %d - Sale de CPU - PCB actualizado: %d\n", contextoDeEjecucion.Pid, contextoDeEjecucion.CpuReg) //LOG no officia
-	if requestCPU.MotivoDesalojo != "FINALIZADO" && requestCPU.MotivoDesalojo != "INTERRUPCION POR IO" && requestCPU.MotivoDesalojo != "WAIT" || requestCPU.MotivoDesalojo != "SIGNAL" {
+	if requestCPU.MotivoDesalojo != "FINALIZADO" && requestCPU.MotivoDesalojo != "INTERRUPCION POR IO" && requestCPU.MotivoDesalojo != "WAIT" && requestCPU.MotivoDesalojo != "SIGNAL" {
 		requestCPU.MotivoDesalojo = "CLOCK"
+
 	}
 	requestCPU.PcbUpdated = contextoDeEjecucion
 	responsePCBtoKernel()
@@ -219,7 +220,8 @@ func Execute(instruction string, line []string, contextoDeEjecucion *ExecutionCo
 		requestCPU = KernelRequest{
 			MotivoDesalojo: "FINALIZADO",
 		}
-		interrupt = true // Aquí va el valor booleano que quieres enviar
+		interrupt = true // Aquí va el valor booleano que quieres enviar}
+		contextoDeEjecucion.CpuReg.PC--
 	default:
 		return nil
 	}
@@ -443,6 +445,7 @@ func IO(kind string, words []string) error {
 }
 
 func ManejoRecursos(registerCPU *RegisterCPU, motivo string, recurso string) error {
+	log.Print("Manejo de recursos")
 	interrupt = true
 	requestCPU = KernelRequest{
 		MotivoDesalojo: motivo,

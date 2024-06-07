@@ -8,8 +8,8 @@ type Config struct {
 	PuertoCPU              int      `json:"port_cpu"`
 	AlgoritmoPlanificacion string   `json:"planning_algorithm"`
 	Quantum                int      `json:"quantum"`
-	Recursos               []string `json:"recursos"`
-	InstanciasRecursos     []int    `json:"instancias_recursos"`
+	Recursos               []string `json:"resources"`
+	InstanciasRecursos     []int    `json:"resource_instances"`
 	Multiprogramacion      int      `json:"multiprogramacion"`
 }
 
