@@ -25,9 +25,11 @@ func main() {
 	utils.SendPort(interfaceName, pathToConfig)
 	Puerto := config.Puerto
 	//http.HandleFunc("GET /input", utils.Prueba)
+	http.HandleFunc("POST /recieveREG", utils.RecieveREG)
 	http.HandleFunc("/interfaz", utils.Iniciar)
+	http.HandleFunc("/receiveContentFromMemory", utils.ReceiveContentFromMemory)
 
 	// Cargar la configuración desde el archivo
 
-	go http.ListenAndServe(":"+strconv.Itoa(Puerto), nil)
+	http.ListenAndServe(":"+strconv.Itoa(Puerto), nil)
 }

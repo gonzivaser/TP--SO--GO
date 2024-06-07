@@ -52,12 +52,17 @@ type BodyRequestPort struct {
 	Port   int    `json:"port"`
 }
 
+type BodyRequestRegister struct {
+	Length int `json:"length"`
+}
+
 type BodyRequestInput struct {
 	Input string `json:"input"`
 }
 
-type Adress struct {
+type BodyAdress struct {
 	Adress int `json:"adress"`
+	Length int `json:"length"`
 }
 
 type Finalizado struct {
@@ -66,6 +71,10 @@ type Finalizado struct {
 
 type BodyRequest struct {
 	Instruction string `json:"instruction"`
+}
+
+type BodyContent struct {
+	Content string `json:"content"`
 }
 
 // Estructura para la interfaz genérica
@@ -81,6 +90,9 @@ type Payload struct {
 /*--------------------------------------------------- VAR GLOBALES ------------------------------------------------------*/
 
 var Puerto int
+var lengthREG int
+var memoryContent string
+var direccionFisica int
 
 /*---------------------------------------------------- FUNCIONES ------------------------------------------------------*/
 
@@ -129,7 +141,7 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 
 	switch Interfaz.Config.Tipo {
 	case "STDIN":
-		Interfaz.IO_STDIN_READ()
+		Interfaz.IO_STDIN_READ(lengthREG)
 		log.Printf("Termino de leer desde la interfaz '%s'\n", Interfaz.Nombre)
 
 	case "GENERICA":
@@ -139,7 +151,7 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Termino de esperar por la interfaz genérica '%s' es de %v\n", Interfaz.Nombre, duracion)
 
 	case "STDOUT":
-		//Interfaz.IO_STDOUT_WRITE(N)
+		Interfaz.IO_STDOUT_WRITE(direccionFisica, lengthREG) //esto está re hardcodeado loco, no me juzguen
 		log.Printf("Termino de escribir en la interfaz '%s'\n", Interfaz.Nombre)
 
 	default:
@@ -204,9 +216,9 @@ func IOFinished(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func SendAdressSTDOUTToMemory(adress Adress) error {
+func SendAdressSTDOUTToMemory(adress BodyAdress, lengthREG int) error {
 	memoriaURL := "http://localhost:8085/SendAdressSTDOUTToMemory"
-
+	adress.Length = lengthREG
 	adressResponseTest, err := json.Marshal(adress)
 	if err != nil {
 		log.Fatalf("Error al serializar el adress: %v", err)
@@ -227,8 +239,8 @@ func SendAdressSTDOUTToMemory(adress Adress) error {
 	return nil
 }
 
-func SendInputSTDINToMemory(input BodyRequestInput) error {
-	memoriaURL := fmt.Sprintf("http://localhost:%d/SendInputSTDINToMemory", globals.ClientConfig.PuertoMemoria)
+func SendInputSTDINToMemory(input *BodyRequestInput) error {
+	memoriaURL := "http://localhost:8085/SendInputSTDINToMemory"
 
 	inputResponseTest, err := json.Marshal(input)
 	if err != nil {
@@ -250,25 +262,58 @@ func SendInputSTDINToMemory(input BodyRequestInput) error {
 	return nil
 }
 
+func RecieveREG(w http.ResponseWriter, r *http.Request) {
+	var requestRegister BodyRequestRegister
+
+	err := json.NewDecoder(r.Body).Decode(&requestRegister)
+	if err != nil {
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
+		return
+	}
+
+	lengthREG = requestRegister.Length
+	log.Printf("Received data: %d", lengthREG)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("length received: %d", requestRegister.Length)))
+}
+
+func ReceiveContentFromMemory(w http.ResponseWriter, r *http.Request) {
+	var content BodyContent
+	err := json.NewDecoder(r.Body).Decode(&content)
+
+	if err != nil {
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
+		return
+	}
+
+	memoryContent = content.Content
+	log.Printf("Received data: %s", memoryContent)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Content received correctly"))
+}
+
 /*---------------------------------------------- INTERFACES -------------------------------------------------------*/
 // INTERFAZ STDOUT (IO_STDOUT_WRITE)
-/*func (Interfaz *InterfazIO) IO_STDOUT_WRITE() {
+func (Interfaz *InterfazIO) IO_STDOUT_WRITE(adress int, length int) {
 	// IO_STDOUT_WRITE Int3 BX EAX
 	// BX: REGISTRO QUE CONTIENE DIRECCION FISICA EN MEMORIA DONDE SE LEERA EL VALOR
 	// EAX: REGISTRO QUE VA A CONTENER EL VALOR QUE SE LEA
-	var adress Adress
-
-	adress, err := SendAdressSTDOUTToMemory(adress)
+	var Bodyadress BodyAdress
+	Bodyadress.Adress = adress
+	err := SendAdressSTDOUTToMemory(Bodyadress, length)
 	if err != nil {
 		log.Fatalf("Error al leer desde la memoria: %v", err)
 	}
-
+	time.Sleep(1 * time.Millisecond)
 	// Imprimir el texto en la consola
-	fmt.Println(adress)
-}*/
+	fmt.Println(memoryContent)
+}
 
 // INTERFAZ STDIN (IO_STDIN_READ)
-func (Interfaz *InterfazIO) IO_STDIN_READ() {
+
+func (Interfaz *InterfazIO) IO_STDIN_READ(lengthREG int) {
 	/*
 		EAX: Registro que contiene la dirección física en memoria donde se almacenará el texto ingresado.
 		AX: Registro donde se almacena el valor resultante (puede usarse para alguna otra operación posterior).
@@ -281,26 +326,14 @@ func (Interfaz *InterfazIO) IO_STDIN_READ() {
 	if err != nil {
 		log.Fatalf("Error al leer desde stdin: %v", err)
 	}
+	if len(input) > lengthREG {
+		input = input[:lengthREG]
+		log.Println("El texto ingresado es mayor al tamaño del registro, se truncará a: ", input)
+	}
 
 	BodyInput.Input = input
 	// Guardar el texto en la memoria en la dirección especificada
-	err = SendInputSTDINToMemory(BodyInput)
-	if err != nil {
-		log.Fatalf("Error al escribir en la memoria: %v", err)
-	}
-}
-
-func IO_STDIN_READ() {
-	var input BodyRequestInput
-
-	fmt.Print("Ingrese por teclado: ")
-	_, err := fmt.Scanln(&input)
-	if err != nil {
-		log.Fatalf("Error al leer desde stdin: %v", err)
-	}
-
-	// Guardar el texto en la memoria en la dirección especificada
-	err = SendInputSTDINToMemory(input)
+	err = SendInputSTDINToMemory(&BodyInput)
 	if err != nil {
 		log.Fatalf("Error al escribir en la memoria: %v", err)
 	}
