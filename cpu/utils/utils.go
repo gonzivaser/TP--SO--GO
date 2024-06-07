@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/sisoputnfrba/tp-golang/cpu/globals"
 )
@@ -53,6 +54,30 @@ var interrupt bool = false
 var requestCPU KernelRequest
 var responseQuantum ResponseQuantum
 
+type TranslationRequest struct {
+	DireccionLogica int `json:"logical_address"`
+	TamPag          int `json:"page_size"`
+	TamData         int `json:"data_size"`
+	PID             int `json:"pid"`
+}
+
+type TranslationResponse struct {
+	DireccionesFisicas []int `json:"physical_addresses"`
+}
+
+type TLBEntry struct {
+	PID          int
+	Pagina       int
+	Frame        int
+	UltimoAcceso time.Time // Para LRU
+	PosicionFila int       // Para FIFO
+}
+
+var tlb []TLBEntry
+var tlbSize int
+var replacementAlgorithm string
+var posicionFila int
+
 func ConfigurarLogger() {
 
 	logFile, err := os.OpenFile("cpu.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
@@ -61,6 +86,17 @@ func ConfigurarLogger() {
 	}
 	mw := io.MultiWriter(os.Stdout, logFile)
 	log.SetOutput(mw)
+}
+
+func init() {
+	globals.ClientConfig = IniciarConfiguracion("config.json") // tiene que prender la confi cuando arranca
+
+	if globals.ClientConfig != nil {
+		tlbSize = globals.ClientConfig.NumberFellingTLB
+		replacementAlgorithm = globals.ClientConfig.AlgorithmTLB
+	} else {
+		log.Fatal("ClientConfig is not initialized")
+	}
 }
 
 func IniciarConfiguracion(filePath string) *globals.Config {
@@ -445,4 +481,94 @@ func Checkinterrupts(w http.ResponseWriter, r *http.Request) { // A chequear
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(interrupt)
+}
+
+func CheckTLB(pid, page int) (int, bool) { //Verifica si la etrada ya estaba en la TLB. Si se usa LRU, actualiza el tiempo de acceso
+	for i, entry := range tlb {
+		if entry.PID == pid && entry.Pagina == page {
+			if replacementAlgorithm == "LRU" {
+				tlb[i].UltimoAcceso = time.Now()
+			}
+			return entry.Frame, true
+		}
+	}
+	return -1, false
+}
+
+func ReplaceTLBEntry(pid, page, frame int) { //Reemplazo una entrada de TLB según el algoritmo de reemplazo
+	newEntry := TLBEntry{
+		PID:          pid,
+		Pagina:       page,
+		Frame:        frame,
+		UltimoAcceso: time.Now(),
+		PosicionFila: posicionFila,
+	}
+
+	if len(tlb) < tlbSize {
+		tlb = append(tlb, newEntry) //Si la TLB no está llena, agrego la entrada
+	} else {
+		if replacementAlgorithm == "FIFO" {
+			oldestPos := 0
+			for i, entry := range tlb {
+				if entry.PosicionFila < tlb[oldestPos].PosicionFila {
+					oldestPos = i
+				}
+			}
+			tlb[oldestPos] = newEntry
+		} else if replacementAlgorithm == "LRU" {
+			oldestPos := 0
+			for i, entry := range tlb {
+				if entry.UltimoAcceso.Before(tlb[oldestPos].UltimoAcceso) {
+					oldestPos = i
+				}
+			}
+			tlb[oldestPos] = newEntry
+		}
+	}
+	posicionFila++
+}
+
+func TranslateHandler(w http.ResponseWriter, r *http.Request) {
+	var req TranslationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Realizar la traducción
+	addresses := TranslateAddress(req.PID, req.DireccionLogica, req.TamPag, req.TamData)
+
+	// Responder con las direcciones físicas
+	res := TranslationResponse{DireccionesFisicas: addresses}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(res)
+}
+
+// Función de traducción de direcciones
+func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
+	var DireccionesFisicas []int
+
+	for offset := 0; offset < TamData; offset += TamPag {
+		pageNumber := (DireccionLogica + offset) / TamPag
+		pageOffset := (DireccionLogica + offset) % TamPag
+
+		frame, found := CheckTLB(pid, pageNumber)
+		if !found {
+			fmt.Println("TLB Miss")
+			frame = FetchFrameFromMemory(pid, pageNumber)
+			ReplaceTLBEntry(pid, pageNumber, frame)
+		} else {
+			fmt.Println("TLB Hit")
+		}
+
+		physicalAddress := frame*TamPag + pageOffset
+		DireccionesFisicas = append(DireccionesFisicas, physicalAddress)
+	}
+	return DireccionesFisicas
+}
+
+// Simulación de la obtención de un marco desde la memoria
+func FetchFrameFromMemory(pid, pageNumber int) int {
+	// Aquí podrías consultar una tabla de páginas real o hacer una simulación
+	return pageNumber // Simulación simple
 }
