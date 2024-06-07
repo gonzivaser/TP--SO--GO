@@ -52,7 +52,7 @@ var memorySize int
 var memory []byte
 
 // Tabla de páginas
-var pageTable = make(map[int][]int)
+var pageTable = make(map[int][]int) // Map de pids con pagina asociada, cuya pagina tiene un marco asociado
 
 // Mutex para manejar la concurrencia
 var mu sync.Mutex
@@ -82,6 +82,7 @@ func init() {
 		log.Fatal("ClientConfig is not initialized")
 	}
 }
+
 type BodyRequestInput struct {
 	Input string `json:"input"`
 }
@@ -89,7 +90,6 @@ type BodyRequestInput struct {
 var adress int
 var length int
 var IOinput string
-
 
 func IniciarConfiguracion(filePath string) *globals.Config {
 	var config *globals.Config
@@ -135,7 +135,7 @@ func SetInstructionsFromFileToMap(w http.ResponseWriter, r *http.Request) {
 	}
 	mapInstructions[pid] = arrInstructions
 
-	fmt.Println("%v\n", mapInstructions[pid])
+	fmt.Fprintln(os.Stdout, []any{"%v\n", mapInstructions[pid]}...)
 	fmt.Println(mapInstructions)
 	defer readFile.Close()
 
@@ -158,6 +158,7 @@ func GetInstruction(w http.ResponseWriter, r *http.Request) {
 
 	w.Write([]byte(instruction))
 }
+
 // COMUNICACION
 // Creacion de procesos
 func CreateProcessHandler(w http.ResponseWriter, r *http.Request) {
@@ -188,8 +189,9 @@ func CreateProcess(pid int, pages int) error {
 	} else {
 		pageTable[pid] = make([]int, pages)
 		for i := 0; i < pages; i++ {
-			pageTable[pid][i] = i // Asigno marcos/frames contiguos
+			pageTable[pid][i] = -1 // Asigno marcos/frames contiguos -> -1 == no asignado
 		}
+
 		println("Proceso creado")
 	}
 
@@ -259,7 +261,7 @@ func ResizeProcess(pid int, newSize int) error {
 			log.Printf("Memoria insuficiente para la ampliación")
 		} //A REVISAR ESTE IF
 		for i := currentSize; i < newSize; i++ { //Asigno nuevos marcos a la ampliacion
-			pageTable[pid] = append(pageTable[pid], i)
+			pageTable[pid] = append(pageTable[pid], i) // Convert i to a slice of int
 			fmt.Println("Proceso ampliado")
 		}
 	} else {
@@ -329,6 +331,8 @@ func WriteMemory(pid int, address int, data []byte) error {
 	}
 
 	copy(memory[address:], data) // Funcion que viene con map, copia los datos en la direccion de memoria (data)
+	return nil
+}
 
 func RecieveInputSTDINFromIO(w http.ResponseWriter, r *http.Request) {
 	var inputRecieved BodyRequestInput

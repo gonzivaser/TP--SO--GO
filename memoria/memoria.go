@@ -30,6 +30,5 @@ func main() {
 	http.HandleFunc("POST /SendInputSTDINToMemory", utils.RecieveInputSTDINFromIO)
 	http.HandleFunc("POST /SendAdressSTDOUTToMemory", utils.RecieveAdressSTDOUTFromIO)
 
-
 	http.ListenAndServe(":"+strconv.Itoa(puerto), nil)
 }
