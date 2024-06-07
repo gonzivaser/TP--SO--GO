@@ -20,6 +20,7 @@ func main() {
 
 	http.HandleFunc("/receivePCB", utils.ReceivePCB)
 	http.HandleFunc("/interrupt", utils.Checkinterrupts)
+	http.HandleFunc("/translate", utils.TranslateHandler)
 
 	http.ListenAndServe(":"+strconv.Itoa(puerto), nil)
 }
