@@ -126,7 +126,6 @@ var interfaces []interfaz
 /*---------------------------------------------------VAR GLOBALES------------------------------------------------*/
 
 var (
-
 	ioChannel    chan KernelRequest
 	readyChannel chan PCB
 	nextPid      = 1
@@ -226,9 +225,6 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	// Create PCB
 	pcb := createPCB()
 	log.Printf("Se crea el proceso %v en NEW", pcb.Pid) // log obligatorio
-	response := BodyResponsePid{
-		Pid: pcb.Pid,
-	}
 
 	IniciarPlanificacionDeProcesos(request, pcb)
 
