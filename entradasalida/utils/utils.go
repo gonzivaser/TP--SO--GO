@@ -98,6 +98,7 @@ var lengthREG int
 var memoryContent string
 var direccionFisica int
 var pid int
+var config *globals.Config
 
 /*---------------------------------------------------- FUNCIONES ------------------------------------------------------*/
 
@@ -134,7 +135,7 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 	pathToConfig := os.Args[2]
 	log.Printf("Path al archivo de configuración: %s", pathToConfig)
 
-	config, err := LoadConfig(pathToConfig)
+	config, err = LoadConfig(pathToConfig)
 	if err != nil {
 		log.Fatalf("Error al cargar la configuración desde '%s': %v", pathToConfig, err)
 	}
@@ -310,6 +311,7 @@ func (Interfaz *InterfazIO) IO_STDOUT_WRITE(adress int, length int) {
 	// IO_STDOUT_WRITE Int3 BX EAX
 	// BX: REGISTRO QUE CONTIENE DIRECCION FISICA EN MEMORIA DONDE SE LEERA EL VALOR
 	// EAX: REGISTRO QUE VA A CONTENER EL VALOR QUE SE LEA
+
 	var Bodyadress BodyAdress
 	Bodyadress.Adress = adress
 	Bodyadress.Length = length
@@ -318,7 +320,7 @@ func (Interfaz *InterfazIO) IO_STDOUT_WRITE(adress int, length int) {
 		log.Fatalf("Error al leer desde la memoria: %v", err)
 	}
 
-	time.Sleep(time.Duration(globals.ClientConfig.UnidadDeTiempo) * time.Millisecond)
+	time.Sleep(time.Duration(config.UnidadDeTiempo) * time.Millisecond)
 	// Imprimir el texto en la consola
 	fmt.Println(memoryContent)
 }

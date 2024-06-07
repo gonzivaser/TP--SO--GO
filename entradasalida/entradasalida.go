@@ -27,7 +27,7 @@ func main() {
 	//http.HandleFunc("GET /input", utils.Prueba)
 	http.HandleFunc("POST /recieveREG", utils.RecieveREG)
 	http.HandleFunc("/interfaz", utils.Iniciar)
-	go http.HandleFunc("/receiveContentFromMemory", utils.ReceiveContentFromMemory)
+	http.HandleFunc("/receiveContentFromMemory", utils.ReceiveContentFromMemory)
 
 	// Cargar la configuración desde el archivo
 
