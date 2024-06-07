@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -18,6 +19,14 @@ type BodyRequest struct {
 	Path string `json:"path"`
 }
 
+type BodyAdress struct {
+	Adress int `json:"adress"`
+	Length int `json:"length"`
+}
+
+type BodyContent struct {
+	Content string `json:"content"`
+}
 type InstructionResposne struct {
 	Instruction string `json:"instruction"`
 }
@@ -73,6 +82,14 @@ func init() {
 		log.Fatal("ClientConfig is not initialized")
 	}
 }
+type BodyRequestInput struct {
+	Input string `json:"input"`
+}
+
+var adress int
+var length int
+var IOinput string
+
 
 func IniciarConfiguracion(filePath string) *globals.Config {
 	var config *globals.Config
@@ -141,7 +158,6 @@ func GetInstruction(w http.ResponseWriter, r *http.Request) {
 
 	w.Write([]byte(instruction))
 }
-
 // COMUNICACION
 // Creacion de procesos
 func CreateProcessHandler(w http.ResponseWriter, r *http.Request) {
@@ -313,5 +329,57 @@ func WriteMemory(pid int, address int, data []byte) error {
 	}
 
 	copy(memory[address:], data) // Funcion que viene con map, copia los datos en la direccion de memoria (data)
+
+func RecieveInputSTDINFromIO(w http.ResponseWriter, r *http.Request) {
+	var inputRecieved BodyRequestInput
+	err := json.NewDecoder(r.Body).Decode(&inputRecieved)
+
+	if err != nil {
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
+		return
+	}
+
+	IOinput = inputRecieved.Input
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Input recibido correctamente"))
+}
+
+func RecieveAdressSTDOUTFromIO(w http.ResponseWriter, r *http.Request) {
+	var BodyRequestAdress BodyAdress
+	err := json.NewDecoder(r.Body).Decode(&BodyRequestAdress)
+
+	if err != nil {
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
+		return
+	}
+
+	adress = BodyRequestAdress.Adress
+	length = BodyRequestAdress.Length
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Adress recibido correctamente"))
+}
+
+func SendContentToIO(content string) error {
+	var BodyContent BodyContent
+	IOurl := "http://localhost:8090/receiveContentFromMemory" //esto está mal, no está el puerto de IO en el config
+	BodyContent.Content = content
+	ContentResponseTest, err := json.Marshal(BodyContent)
+	if err != nil {
+		log.Fatalf("Error al serializar el Input: %v", err)
+	}
+
+	log.Println("Enviando solicitud con contenido:", ContentResponseTest)
+
+	resp, err := http.Post(IOurl, "application/json", bytes.NewBuffer(ContentResponseTest))
+	if err != nil {
+		log.Fatalf("Error al enviar la solicitud al módulo de memoria: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Fatalf("Error en la respuesta del módulo de memoria: %v", resp.StatusCode)
+	}
+
 	return nil
 }
