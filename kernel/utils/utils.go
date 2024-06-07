@@ -129,7 +129,7 @@ type RequestInterrupt struct {
 /*---------------------------------------------------VAR GLOBALES------------------------------------------------*/
 
 var (
-	// ioChannel       chan KernelRequest
+	ioChannel       chan KernelRequest
 	readyChannel    chan PCB
 	readyChannelVRR chan PCB
 	nextPid         = 1
@@ -142,7 +142,7 @@ var colaNew []PCB
 var colaReady []PCB
 var colaReadyVRR []PCB
 var colaExecution []PCB
-var colaBlocked map[string][]PCB // Corregir la declaración del mapa
+var colaBlocked []PCB // Tiene que ser un map string[]PCB[]
 var colaExit []PCB
 
 // --------------------------------------------------------
@@ -246,6 +246,7 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 
 	IniciarPlanificacionDeProcesos(request, pcb)
 
+	fmt.Println("Proceso en new: ", pcb)
 	// Response with the PID
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -254,9 +255,9 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 
 func init() {
 	globals.ClientConfig = IniciarConfiguracion("config.json") // tiene que prender la confi cuando arranca
-	readyChannel = make(chan PCB)
-	readyChannelVRR = make(chan PCB, 10) // Ajusta el tamaño del buffer según sea necesario, lista por estado
-	// ioChannel = make(chan KernelRequest)
+	readyChannel = make(chan PCB, 1)
+	readyChannelVRR = make(chan PCB) // Ajusta el tamaño del buffer según sea necesario, lista por estado
+	ioChannel = make(chan KernelRequest)
 
 	if globals.ClientConfig != nil {
 		if globals.ClientConfig.AlgoritmoPlanificacion == "FIFO" {
@@ -299,6 +300,7 @@ func IniciarPlanificacionDeProcesos(request BodyRequest, pcb PCB) {
 	mutexReady.Unlock()
 
 	readyChannel <- *proceso.PCB
+	fmt.Println("Proceso en ready: ", *proceso.PCB)
 }
 
 func executeTask(proceso PCB) {
@@ -340,10 +342,7 @@ func waitHandler(pcb PCB, recurso string) {
 			if globals.ClientConfig.InstanciasRecursos[i] < 0 {
 				// Bloquear el proceso en la cola de bloqueados correspondiente al recurso
 				mutexBlocked.Lock()
-				if _, ok := colaBlocked[recurso]; !ok {
-					colaBlocked[recurso] = []PCB{}
-				}
-				colaBlocked[recurso] = append(colaBlocked[recurso], pcb)
+				colaBlocked = append(colaBlocked, pcb)
 				mutexBlocked.Unlock()
 				log.Printf("Proceso %+v bloqueado por recurso %s", pcb, recurso)
 				return
@@ -364,7 +363,7 @@ func waitHandler(pcb PCB, recurso string) {
 		mutexExit.Unlock()
 		readyChannel <- pcb
 	}
-	fmt.Println("Instancias recursos: ", globals.ClientConfig.InstanciasRecursos)
+	// Enviar el proceso a la cola de ready
 }
 func handleSignal(pcb PCB, recurso string) {
 	// Verificar si el recurso existe
@@ -376,31 +375,31 @@ func handleSignal(pcb PCB, recurso string) {
 			globals.ClientConfig.InstanciasRecursos[i]++
 			break
 		}
-		//Si el recurso existe, desbloquear al primer proceso de la cola de bloqueados
-		if recursoExistente {
-			for i, p := range colaBlocked[recurso] {
-				if p == pcb {
-					// Desbloquear al proceso
-					colaBlocked[recurso] = append(colaBlocked[recurso][:i], colaBlocked[recurso][i+1:]...)
-					// Devolver la ejecución al proceso que peticiona el SIGNAL
-					readyChannel <- pcb
-					log.Printf("Proceso %+v desbloqueado por SIGNAL", pcb)
-					break
-				}
-			}
-		}
-		if !recursoExistente {
-			mutexExit.Lock()
-			colaExit = append(colaExit, pcb)
-			mutexExit.Unlock()
-			log.Printf("Proceso %+v enviado a EXIT por recurso inexistente: %s", pcb, recurso)
-			return
-		} else {
-			mutexExit.Lock()
-			colaReady = append(colaReady, pcb)
-			mutexExit.Unlock()
-			readyChannel <- pcb
-		}
+	}
+	// Si el recurso existe, desbloquear al primer proceso de la cola de bloqueados
+	// if recursoExistente {
+	// for i, p := range colaBlocked {
+	// 	if p == recurso {
+	// 		// Desbloquear al proceso
+	// 		colaBlocked = append(colaBlocked[:i], colaBlocked[i+1:]...)
+	// 		// Devolver la ejecución al proceso que peticiona el SIGNAL
+	// 		readyChannel <- pcb
+	// 		log.Printf("Proceso %+v desbloqueado por SIGNAL", pcb)
+	// 		break
+	// 	}
+	// }
+	//}
+	if !recursoExistente {
+		mutexExit.Lock()
+		colaExit = append(colaExit, pcb)
+		mutexExit.Unlock()
+		log.Printf("Proceso %+v enviado a EXIT por recurso inexistente: %s", pcb, recurso)
+		return
+	} else {
+		mutexExit.Lock()
+		colaReady = append(colaReady, pcb)
+		mutexExit.Unlock()
+		readyChannel <- pcb
 	}
 }
 
@@ -409,18 +408,20 @@ func handleSyscallIO(pcb PCB, timeIo int) {
 	//proceso := <-ioChannel MIRAR ESTO
 	// meter en bloqueado
 	mutexBlocked.Lock()
-	colaBlocked["IO"] = append(colaBlocked["IO"], pcb)
+	colaBlocked = append(colaBlocked, pcb)
 	mutexBlocked.Unlock()
-	mutexExecutionIO.Lock()
-	SendIOToEntradaSalida(timeIo)
+	//log.Printf("Proceso %+v desalojado por IO p1. Quantum: %d", pcb, pcb.Quantum)
+	mutexExecutionIO.Lock()       // el 2
+	SendIOToEntradaSalida(timeIo) //el 1
 	mutexExecutionIO.Unlock()
+	//log.Printf("Proceso %+v desalojado por IO p2. Quantum: %d", pcb, pcb.Quantum)
 
 	if len(colaBlocked) > 0 { // aca lo saco de la cola blocked y lo mando a ready
 		mutexBlocked.Lock()
-		colaBlocked["IO"] = append(colaBlocked["IO"][:0], colaBlocked["IO"][1:]...)
+		colaBlocked = append(colaBlocked[:0], colaBlocked[1:]...)
 		mutexBlocked.Unlock()
 	}
-	log.Printf("Proceso %+v desalojado por IO. Quantum: %d", pcb, pcb.Quantum)
+
 	if pcb.Quantum > 0 && globals.ClientConfig.AlgoritmoPlanificacion == "VRR" {
 		mutexReadyVRR.Lock()
 		colaReadyVRR = append(colaReadyVRR, pcb)
@@ -428,6 +429,7 @@ func handleSyscallIO(pcb PCB, timeIo int) {
 		readyChannelVRR <- pcb
 	} else {
 		mutexReady.Lock()
+		log.Printf("Proceso %+v con. Quantum: %d", pcb.Pid, pcb.Quantum)
 		pcb.Quantum = 0
 		colaReady = append(colaReady, pcb)
 		mutexReady.Unlock()
@@ -483,15 +485,15 @@ func executeProcessVRR() {
 		select {
 		case <-readyChannelVRR: // Intenta recibir de readyChannelVRR primero
 			proceso = colaReadyVRR[0] // Tomar el primer proceso de readyVRR
-		// No es necesario hacer nada aquí, proceso ya tiene el valor
-		case <-readyChannel: // Si readyChannelVRR no está listo, intenta recibir de readyChannel
+		case procesoReady := <-readyChannel: // Si readyChannelVRR no está listo, intenta recibir de readyChannel
 			// Verifica si readyChannelVRR recibió algo mientras tanto
 			select {
 			case <-readyChannelVRR:
 				// Si readyChannelVRR tiene un proceso, lo usa y devuelve el otro proceso a readyChannel
-				proceso = colaReadyVRR[0] // Tomar el primer proceso de readyVRR
+				proceso = colaReadyVRR[0]    // Tomar el primer proceso de readyVRR
+				readyChannel <- procesoReady // Devuelve el proceso a readyChannel
 			default:
-				proceso = colaReady[0] // Tomar el primer proceso de ready
+				proceso = procesoReady // Usa el proceso que recibió de readyChannel
 			}
 		}
 		if proceso.Quantum > 0 {
@@ -566,7 +568,7 @@ func SendPathToMemory(request BodyRequest, pid int) error {
 		return fmt.Errorf("error al serializar los datos JSON: %v", err)
 	}
 
-	log.Println("Enviando solicitud con contenido:", string(savedPathJSON))
+	//log.Println("Enviando solicitud con contenido:", string(savedPathJSON))
 
 	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(savedPathJSON))
 	if err != nil {
@@ -591,7 +593,7 @@ func SendContextToCPU(pcb PCB) error {
 		return fmt.Errorf("error al serializar el PCB: %v", err)
 	}
 
-	log.Println("Enviando solicitud con contenido:", string(pcbResponseTest))
+	//log.Println("Enviando solicitud con contenido:", string(pcbResponseTest))
 
 	resp, err := http.Post(cpuURL, "application/json", bytes.NewBuffer(pcbResponseTest))
 	if err != nil {
@@ -719,11 +721,8 @@ func findPID(pid int) string {
 		"New":       colaNew,
 		"Ready":     colaReady,
 		"Execution": colaExecution,
+		"Blocked":   colaBlocked,
 		"Exit":      colaExit,
-	}
-
-	for state, queue := range colaBlocked {
-		queues["Blocked"+state] = queue
 	}
 
 	for state, queue := range queues {
@@ -749,11 +748,8 @@ func ListarProcesos(w http.ResponseWriter, r *http.Request) {
 		"New":       colaNew,
 		"Ready":     colaReady,
 		"Execution": colaExecution,
+		"Blocked":   colaBlocked,
 		"Exit":      colaExit,
-	}
-
-	for state, queue := range colaBlocked {
-		queues["Blocked"+state] = queue
 	}
 
 	var processStates []ProcessState
