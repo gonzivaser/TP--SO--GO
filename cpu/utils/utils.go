@@ -82,12 +82,6 @@ func IniciarConfiguracion(filePath string) *globals.Config {
 var contextoDeEjecucion ExecutionContext //PCB recibido desde kernel
 
 func ReceivePCB(w http.ResponseWriter, r *http.Request) {
-
-	// HAGO UN LOG PARA CHEQUEAR RECEPCION
-	log.Printf("Recibiendo solicitud de contexto de ejecucuion desde el kernel")
-
-	// GUARDO PCB RECIBIDO EN sendPCB
-
 	err := json.NewDecoder(r.Body).Decode(&contextoDeEjecucion)
 	if err != nil {
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
@@ -120,7 +114,7 @@ func InstructionCycle(contextoDeEjecucion ExecutionContext) {
 
 	}
 	log.Printf("PID: %d - Sale de CPU - PCB actualizado: %d\n", contextoDeEjecucion.Pid, contextoDeEjecucion.CpuReg) //LOG no officia
-	if requestCPU.MotivoDesalojo != "FINALIZADO" && requestCPU.MotivoDesalojo != "INTERRUPCION POR IO" && requestCPU.MotivoDesalojo != "WAIT" {
+	if requestCPU.MotivoDesalojo != "FINALIZADO" && requestCPU.MotivoDesalojo != "INTERRUPCION POR IO" && requestCPU.MotivoDesalojo != "WAIT" || requestCPU.MotivoDesalojo != "SIGNAL" {
 		requestCPU.MotivoDesalojo = "CLOCK"
 	}
 	requestCPU.PcbUpdated = contextoDeEjecucion
@@ -212,7 +206,12 @@ func Execute(instruction string, line []string, contextoDeEjecucion *ExecutionCo
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "WAIT":
-		err := Wait(&contextoDeEjecucion.CpuReg, words[1])
+		err := ManejoRecursos(&contextoDeEjecucion.CpuReg, instruction, words[1])
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	case "SIGNAL":
+		err := ManejoRecursos(&contextoDeEjecucion.CpuReg, instruction, words[1])
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
@@ -222,7 +221,7 @@ func Execute(instruction string, line []string, contextoDeEjecucion *ExecutionCo
 		}
 		interrupt = true // Aquí va el valor booleano que quieres enviar
 	default:
-		fmt.Println("Instruction no implementada")
+		return nil
 	}
 	return nil
 }
@@ -443,11 +442,11 @@ func IO(kind string, words []string) error {
 	return nil
 }
 
-func Wait(registerCPU *RegisterCPU, valor string) error {
+func ManejoRecursos(registerCPU *RegisterCPU, motivo string, recurso string) error {
 	interrupt = true
 	requestCPU = KernelRequest{
-		MotivoDesalojo: "WAIT",
-		Recurso:        valor,
+		MotivoDesalojo: motivo,
+		Recurso:        recurso,
 	}
 
 	return nil

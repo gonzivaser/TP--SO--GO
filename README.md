@@ -32,7 +32,7 @@ antes de subir el tag.
 
 - Módulo Kernel:
   
-    - [ ] Es capaz de crear un PCB y planificarlo por FIFO y RR.
+    - [x] Es capaz de crear un PCB y planificarlo por FIFO y RR.
     - [x] Es capaz de enviar un proceso a la CPU para que sea procesado.
 
 - Módulo CPU:
