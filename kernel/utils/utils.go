@@ -168,8 +168,9 @@ var procesoEXEC Proceso // este proceso es el que se esta ejecutando
 /*-------------------------------------------------FUNCIONES CREADAS----------------------------------------------*/
 
 func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
-	close(done)
-
+	if globals.ClientConfig.AlgoritmoPlanificacion != "FIFO" {
+		close(done)
+	}
 	var CPURequest KernelRequest
 
 	err := json.NewDecoder(r.Body).Decode(&CPURequest)
@@ -245,6 +246,7 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 
 	IniciarPlanificacionDeProcesos(request, pcb)
 
+	fmt.Println("Proceso en new: ", pcb)
 	// Response with the PID
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -268,8 +270,6 @@ func init() {
 	} else {
 		log.Fatal("ClientConfig is not initialized")
 	}
-	//go executeProcessFIFO()
-
 }
 
 func IniciarPlanificacionDeProcesos(request BodyRequest, pcb PCB) {
@@ -300,6 +300,7 @@ func IniciarPlanificacionDeProcesos(request BodyRequest, pcb PCB) {
 	mutexReady.Unlock()
 
 	readyChannel <- *proceso.PCB
+	fmt.Println("Proceso en ready: ", *proceso.PCB)
 }
 
 func executeTask(proceso PCB) {
@@ -419,13 +420,14 @@ func handleSyscallIO(pcb PCB, timeIo int) {
 		mutexBlocked.Unlock()
 	}
 	log.Printf("Proceso %+v desalojado por IO. Quantum: %d", pcb, pcb.Quantum)
-	if pcb.Quantum > 0 {
+	if pcb.Quantum > 0 && globals.ClientConfig.AlgoritmoPlanificacion == "VRR" {
 		mutexReadyVRR.Lock()
 		colaReadyVRR = append(colaReadyVRR, pcb)
 		mutexReadyVRR.Unlock()
 		readyChannelVRR <- pcb
 	} else {
 		mutexReady.Lock()
+		pcb.Quantum = 0
 		colaReady = append(colaReady, pcb)
 		mutexReady.Unlock()
 		readyChannel <- pcb
@@ -462,7 +464,8 @@ func executeProcessRR(quantum int) {
 	for {
 		mutexExecutionCPU.Lock()
 		proceso := <-readyChannel
-
+		proceso = colaReady[0]
+		log.Printf("Proceso recibido de readyChannel: %d", proceso.Pid)
 		startQuantum(quantum, &proceso)
 		executeTask(proceso)
 		//mutexExecutionCPU.Unlock()
@@ -477,20 +480,17 @@ func executeProcessVRR() {
 		var proceso PCB
 		var quantum int
 		select {
-		case procesoCanal := <-readyChannelVRR: // Intenta recibir de readyChannelVRR primero
+		case <-readyChannelVRR: // Intenta recibir de readyChannelVRR primero
 			proceso = colaReadyVRR[0] // Tomar el primer proceso de readyVRR
-			log.Printf("Proceso recibido de readyChannelVRR: %d. Canal %d", proceso.Pid, procesoCanal.Pid)
 		// No es necesario hacer nada aquí, proceso ya tiene el valor
-		case procesoCanal := <-readyChannel: // Si readyChannelVRR no está listo, intenta recibir de readyChannel
+		case <-readyChannel: // Si readyChannelVRR no está listo, intenta recibir de readyChannel
 			// Verifica si readyChannelVRR recibió algo mientras tanto
 			select {
-			case procesoCanal = <-readyChannelVRR:
+			case <-readyChannelVRR:
 				// Si readyChannelVRR tiene un proceso, lo usa y devuelve el otro proceso a readyChannel
 				proceso = colaReadyVRR[0] // Tomar el primer proceso de readyVRR
-				log.Printf("Proceso recibido tempranamente de readyChannelVRR: %d. Canal %d", proceso.Pid, procesoCanal.Pid)
 			default:
 				proceso = colaReady[0] // Tomar el primer proceso de ready
-				log.Printf("Proceso recibido de readyChannel: %d. Canal %d", proceso.Pid, procesoCanal.Pid)
 			}
 		}
 		if proceso.Quantum > 0 {
