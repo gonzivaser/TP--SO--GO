@@ -435,7 +435,6 @@ func handleSyscallIO(pcb PCB, timeIo int) {
 		mutexReady.Unlock()
 		readyChannel <- pcb
 	}
-	//requeueProcess(proceso.PcbUpdated)
 
 }
 
@@ -747,6 +746,7 @@ func ListarProcesos(w http.ResponseWriter, r *http.Request) {
 	queues := map[string][]PCB{
 		"New":       colaNew,
 		"Ready":     colaReady,
+		"ReadyVRR":  colaReadyVRR,
 		"Execution": colaExecution,
 		"Blocked":   colaBlocked,
 		"Exit":      colaExit,
