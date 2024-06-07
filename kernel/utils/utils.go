@@ -54,6 +54,10 @@ type BodyResponsePid struct {
 	Pid int `json:"pid"`
 }
 
+type Finalizado struct {
+	Finalizado bool `json:"finalizado"`
+}
+
 type BodyResponseState struct {
 	State string `json:"state"`
 }
@@ -100,8 +104,21 @@ type InterfazIO struct {
 }
 
 type Payload struct {
-	IO int `json:"io"`
+	Nombre string `json:"nombre"`
+	IO     int    `json:"io"`
 }
+
+type BodyRequestPort struct {
+	Nombre string `json:"nombre"`
+	Port   int    `json:"port"`
+}
+
+type interfaz struct {
+	Name string
+	Port int
+}
+
+var interfaces []interfaz
 
 type Proceso struct {
 	Request BodyRequest
@@ -160,6 +177,8 @@ var mutexExecutionCPU sync.Mutex // este mutex es para que no se envie dos proce
 var mutexExecutionMEMORIA sync.Mutex
 var mutexExecutionIO sync.Mutex
 
+var mutexes = make(map[string]*sync.Mutex)
+
 // --------------------------------------------------------
 
 // ----------DECLARACION DE PROCESO EN EJECUCION----------------
@@ -195,7 +214,7 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 		// aca manejar el handelSyscallIo
 		log.Printf("PID: %v desalojado por IO", CPURequest.PcbUpdated.Pid)
 		//ioChannel <- CPURequest //meto erl proceso en IO para atender ESTO HAY QUE VERLO
-		go handleSyscallIO(*procesoEXEC.PCB, CPURequest.TimeIO)
+		go handleSyscallIO(*procesoEXEC.PCB, CPURequest.TimeIO, CPURequest.Interface)
 		CPURequest.PcbUpdated.State = "BLOCKED"
 	case "CLOCK":
 		log.Printf("PID: %v desalojado por fin de Quantum", CPURequest.PcbUpdated.Pid)
@@ -403,7 +422,7 @@ func handleSignal(pcb PCB, recurso string) {
 	}
 }
 
-func handleSyscallIO(pcb PCB, timeIo int) {
+func handleSyscallIO(pcb PCB, timeIo int, ioInterface string) {
 
 	//proceso := <-ioChannel MIRAR ESTO
 	// meter en bloqueado
@@ -411,9 +430,15 @@ func handleSyscallIO(pcb PCB, timeIo int) {
 	colaBlocked = append(colaBlocked, pcb)
 	mutexBlocked.Unlock()
 	//log.Printf("Proceso %+v desalojado por IO p1. Quantum: %d", pcb, pcb.Quantum)
-	mutexExecutionIO.Lock()       // el 2
-	SendIOToEntradaSalida(timeIo) //el 1
-	mutexExecutionIO.Unlock()
+	mutex, ok := mutexes[ioInterface]
+	if !ok {
+		mutex = &sync.Mutex{}
+		mutexes[ioInterface] = mutex
+	}
+
+	mutex.Lock()                               // el 2
+	SendIOToEntradaSalida(ioInterface, timeIo) //el 1
+	mutex.Unlock()
 	//log.Printf("Proceso %+v desalojado por IO p2. Quantum: %d", pcb, pcb.Quantum)
 
 	if len(colaBlocked) > 0 { // aca lo saco de la cola blocked y lo mando a ready
@@ -608,30 +633,59 @@ func SendContextToCPU(pcb PCB) error {
 	return nil
 }
 
-func SendIOToEntradaSalida(io int) error {
-	entradasalidaURL := "http://localhost:8090/interfaz"
-
+func SendIOToEntradaSalida(nombre string, io int) error {
 	payload := Payload{
-		IO: io,
+		Nombre: nombre,
+		IO:     io,
 	}
+	var interfazEncontrada interfaz // Asume que Interfaz es el tipo de tus interfaces
 
-	ioResponseTest, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("error al serializar el payload: %v", err)
+	for _, interfaz := range interfaces {
+		if interfaz.Name == payload.Nombre {
+			interfazEncontrada = interfaz
+			break
+		}
 	}
+	if interfazEncontrada != (interfaz{}) {
+		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
 
-	resp, err := http.Post(entradasalidaURL, "application/json", bytes.NewBuffer(ioResponseTest))
-	if err != nil {
-		return fmt.Errorf("error al enviar la solicitud al módulo de cpu: %v", err)
+		ioResponseTest, err := json.Marshal(payload)
+		if err != nil {
+			return fmt.Errorf("error al serializar el payload: %v", err)
+		}
+
+		resp, err := http.Post(entradasalidaURL, "application/json", bytes.NewBuffer(ioResponseTest))
+		if err != nil {
+			return fmt.Errorf("error al enviar la solicitud al módulo de cpu: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("error en la respuesta del módulo de cpu: %v", resp.StatusCode)
+		}
+
+		log.Println("Respuesta del módulo de IO recibida correctamente.")
+		return nil
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("error en la respuesta del módulo de cpu: %v", resp.StatusCode)
-	}
-
-	log.Println("Respuesta del módulo de IO recibida correctamente.")
 	return nil
+}
+
+func RecievePort(w http.ResponseWriter, r *http.Request) {
+	var requestPort BodyRequestPort
+	var interfaz interfaz
+	err := json.NewDecoder(r.Body).Decode(&requestPort)
+	if err != nil {
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
+		return
+	}
+	interfaz.Name = requestPort.Nombre
+	interfaz.Port = requestPort.Port
+
+	interfaces = append(interfaces, interfaz)
+	log.Printf("Received data: %+v", requestPort)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("Port received: %d", requestPort.Port)))
 }
 
 func SendInterruptForClock(pid int) error {
@@ -661,6 +715,21 @@ func SendInterruptForClock(pid int) error {
 
 	log.Println("Solicitado la interrupción del módulo CPU.")
 	return nil
+}
+
+func IOFinished(w http.ResponseWriter, r *http.Request) {
+	var finished Finalizado
+	err := json.NewDecoder(r.Body).Decode(&finished)
+
+	if err != nil {
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("Termino: %+v", finished)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("Termino: %+v", finished)))
 }
 
 /*---------------------------------------------FUNCIONES OBLIGATORIAS--------------------------------------------------*/
