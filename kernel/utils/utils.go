@@ -146,14 +146,10 @@ type RequestInterrupt struct {
 /*---------------------------------------------------VAR GLOBALES------------------------------------------------*/
 
 var (
-	ioChannel       chan KernelRequest
-	readyChannel    chan PCB
-	readyChannelVRR chan PCB
-	nextPid         = 1
-	done            chan struct{}
-
-	readyGeneralVRR chan PCB
-
+	ioChannel    chan KernelRequest
+	readyChannel chan PCB
+	nextPid      = 1
+	done         chan struct{}
 	//CPURequest   KernelRequest
 
 )
@@ -163,7 +159,7 @@ var colaNew []PCB
 var colaReady []PCB
 var colaReadyVRR []PCB
 var colaExecution []PCB
-var colaBlocked []PCB // Tiene que ser un map string[]PCB[]
+var colaBlocked = make(map[string][]PCB) // Tiene que ser un map string[]PCB[]
 var colaExit []PCB
 
 // --------------------------------------------------------
@@ -289,7 +285,6 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 func init() {
 	globals.ClientConfig = IniciarConfiguracion("config.json") // tiene que prender la confi cuando arranca
 	readyChannel = make(chan PCB, 1)
-	readyChannelVRR = make(chan PCB) // Ajusta el tamaño del buffer según sea necesario, lista por estado
 	ioChannel = make(chan KernelRequest)
 
 	if globals.ClientConfig != nil {
@@ -372,11 +367,15 @@ func waitHandler(pcb PCB, recurso string) {
 			recursoExistente = true
 			// Restar 1 a las instancias del recurso
 			globals.ClientConfig.InstanciasRecursos[i] -= 1
+			fmt.Println("Instancias recursos: ", globals.ClientConfig.InstanciasRecursos, recurso)
 			// Verificar si el número de instancias es menor a 0
 			if globals.ClientConfig.InstanciasRecursos[i] < 0 {
 				// Bloquear el proceso en la cola de bloqueados correspondiente al recurso
+				if _, ok := colaBlocked[recurso]; !ok {
+					colaBlocked[recurso] = []PCB{}
+				}
 				mutexBlocked.Lock()
-				colaBlocked = append(colaBlocked, pcb)
+				colaBlocked[recurso] = append(colaBlocked[recurso], pcb)
 				mutexBlocked.Unlock()
 				log.Printf("Proceso %+v bloqueado por recurso %s", pcb, recurso)
 				return
@@ -397,8 +396,8 @@ func waitHandler(pcb PCB, recurso string) {
 		mutexExit.Unlock()
 		readyChannel <- pcb
 	}
-	// Enviar el proceso a la cola de ready
 }
+
 func handleSignal(pcb PCB, recurso string) {
 	// Verificar si el recurso existe
 	recursoExistente := false
@@ -409,31 +408,31 @@ func handleSignal(pcb PCB, recurso string) {
 			globals.ClientConfig.InstanciasRecursos[i]++
 			break
 		}
-	}
-	// Si el recurso existe, desbloquear al primer proceso de la cola de bloqueados
-	// if recursoExistente {
-	// for i, p := range colaBlocked {
-	// 	if p == recurso {
-	// 		// Desbloquear al proceso
-	// 		colaBlocked = append(colaBlocked[:i], colaBlocked[i+1:]...)
-	// 		// Devolver la ejecución al proceso que peticiona el SIGNAL
-	// 		readyChannel <- pcb
-	// 		log.Printf("Proceso %+v desbloqueado por SIGNAL", pcb)
-	// 		break
-	// 	}
-	// }
-	//}
-	if !recursoExistente {
-		mutexExit.Lock()
-		colaExit = append(colaExit, pcb)
-		mutexExit.Unlock()
-		log.Printf("Proceso %+v enviado a EXIT por recurso inexistente: %s", pcb, recurso)
-		return
-	} else {
-		mutexExit.Lock()
-		colaReady = append(colaReady, pcb)
-		mutexExit.Unlock()
-		readyChannel <- pcb
+		//Si el recurso existe, desbloquear al primer proceso de la cola de bloqueados
+		if recursoExistente {
+			for i, p := range colaBlocked[recurso] {
+				if p == pcb {
+					// Desbloquear al proceso
+					colaBlocked[recurso] = append(colaBlocked[recurso][:i], colaBlocked[recurso][i+1:]...)
+					// Devolver la ejecución al proceso que peticiona el SIGNAL
+					readyChannel <- pcb
+					log.Printf("Proceso %+v desbloqueado por SIGNAL", pcb)
+					break
+				}
+			}
+		}
+		if !recursoExistente {
+			mutexExit.Lock()
+			colaExit = append(colaExit, pcb)
+			mutexExit.Unlock()
+			log.Printf("Proceso %+v enviado a EXIT por recurso inexistente: %s", pcb, recurso)
+			return
+		} else {
+			mutexExit.Lock()
+			colaReady = append(colaReady, pcb)
+			mutexExit.Unlock()
+			readyChannel <- pcb
+		}
 	}
 }
 
@@ -442,7 +441,7 @@ func handleSyscallIO(pcb PCB, timeIo int, ioInterface string) {
 	//proceso := <-ioChannel MIRAR ESTO
 	// meter en bloqueado
 	mutexBlocked.Lock()
-	colaBlocked = append(colaBlocked, pcb)
+	colaBlocked[ioInterface] = append(colaBlocked[ioInterface], pcb)
 	mutexBlocked.Unlock()
 	//log.Printf("Proceso %+v desalojado por IO p1. Quantum: %d", pcb, pcb.Quantum)
 	mutex, ok := mutexes[ioInterface]
@@ -458,7 +457,7 @@ func handleSyscallIO(pcb PCB, timeIo int, ioInterface string) {
 
 	if len(colaBlocked) > 0 { // aca lo saco de la cola blocked y lo mando a ready
 		mutexBlocked.Lock()
-		colaBlocked = append(colaBlocked[:0], colaBlocked[1:]...)
+		colaBlocked[ioInterface] = append(colaBlocked[ioInterface][:0], colaBlocked[ioInterface][1:]...)
 		mutexBlocked.Unlock()
 
 	}
@@ -804,8 +803,11 @@ func findPID(pid int) string {
 		"New":       colaNew,
 		"Ready":     colaReady,
 		"Execution": colaExecution,
-		"Blocked":   colaBlocked,
 		"Exit":      colaExit,
+	}
+
+	for state, queue := range colaBlocked {
+		queues["Blocked "+state] = queue
 	}
 
 	for state, queue := range queues {
@@ -830,10 +832,13 @@ func ListarProcesos(w http.ResponseWriter, r *http.Request) {
 	queues := map[string][]PCB{
 		"New":       colaNew,
 		"Ready":     colaReady,
-		"ReadyVRR":  colaReadyVRR,
+		"Ready+":    colaReadyVRR,
 		"Execution": colaExecution,
-		"Blocked":   colaBlocked,
 		"Exit":      colaExit,
+	}
+
+	for state, queue := range colaBlocked {
+		queues["Blocked "+state] = queue
 	}
 
 	var processStates []ProcessState
