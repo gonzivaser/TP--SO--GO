@@ -450,7 +450,7 @@ func SendContextToCPU(pcb PCB) error {
 	return nil
 }
 
-func RecievePort(w http.ResponseWriter, r *http.Request) {
+func RecievePortOfInterfaceFromIO(w http.ResponseWriter, r *http.Request) {
 	var requestPort BodyRequestPort
 	var interfaz interfaz
 	err := json.NewDecoder(r.Body).Decode(&requestPort)
@@ -464,8 +464,36 @@ func RecievePort(w http.ResponseWriter, r *http.Request) {
 	interfaces = append(interfaces, interfaz)
 	log.Printf("Received data: %+v", requestPort)
 
+	SendPortOfInterfaceToMemory(interfaz.Name, interfaz.Port)
+
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("Port received: %d", requestPort.Port)))
+}
+
+func SendPortOfInterfaceToMemory(nombreInterfaz string, puerto int) error {
+	memoriaURL := fmt.Sprintf("http://localhost:%d/SendPortOfInterfaceToMemory", globals.ClientConfig.PuertoMemoria)
+	body := BodyRequestPort{
+		Nombre: nombreInterfaz,
+		Port:   puerto,
+	}
+
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("error al serializar el body: %v", err)
+	}
+
+	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(bodyBytes))
+	if err != nil {
+		return fmt.Errorf("error al enviar la solicitud al módulo de memoria: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("error en la respuesta del módulo de memoria: %v", resp.StatusCode)
+	}
+
+	log.Println("Respuesta del módulo de memoria recibida correctamente.")
+	return nil
 }
 
 func SendIOToEntradaSalida(nombre string, io int) error {

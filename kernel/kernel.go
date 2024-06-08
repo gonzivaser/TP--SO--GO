@@ -22,7 +22,7 @@ func main() {
 	http.HandleFunc("PUT /process", utils.IniciarProceso)
 
 	http.HandleFunc("POST /syscall", utils.ProcessSyscall)
-	http.HandleFunc("POST /recievePort", utils.RecievePort)
+	http.HandleFunc("POST /SendPortOfInterfaceToKernel", utils.RecievePortOfInterfaceFromIO)
 	http.HandleFunc("POST /IOFinished", utils.IOFinished)
 
 	http.HandleFunc("DELETE /process/{pid}", utils.FinalizarProceso)
