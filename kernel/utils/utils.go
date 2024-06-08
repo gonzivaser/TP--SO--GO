@@ -146,7 +146,6 @@ type RequestInterrupt struct {
 /*---------------------------------------------------VAR GLOBALES------------------------------------------------*/
 
 var (
-
 	ioChannel       chan KernelRequest
 	readyChannel    chan PCB
 	readyChannelVRR chan PCB
@@ -198,7 +197,6 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	}
 	var CPURequest KernelRequest
 
-
 	err := json.NewDecoder(r.Body).Decode(&CPURequest)
 	if err != nil {
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
@@ -244,7 +242,6 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 		go handleSignal(*procesoEXEC.PCB, CPURequest.Recurso)
 		// aca manejar el handelSyscaSignal
 
-
 	default:
 		log.Printf("PID: %v desalojado desconocido por %v", CPURequest.PcbUpdated.Pid, CPURequest.MotivoDesalojo)
 	}
@@ -286,7 +283,7 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	w.Write([]byte(fmt.Sprintf(`{"pid":%d}`, pcb.Pid)))
+	w.Write([]byte(fmt.Sprintf(`{"pid":%d}`, response.Pid)))
 }
 
 func init() {
@@ -360,7 +357,6 @@ func executeTask(proceso PCB) {
 	mutexExecution.Lock()
 	colaExecution = append(colaExecution, *procesoEXEC.PCB)
 	mutexExecution.Unlock()
-
 
 	if err := SendContextToCPU(*procesoEXEC.PCB); err != nil {
 		log.Printf("Error sending context to CPU: %v", err)
@@ -441,7 +437,6 @@ func handleSignal(pcb PCB, recurso string) {
 	}
 }
 
-
 func handleSyscallIO(pcb PCB, timeIo int, ioInterface string) {
 
 	//proceso := <-ioChannel MIRAR ESTO
@@ -455,7 +450,6 @@ func handleSyscallIO(pcb PCB, timeIo int, ioInterface string) {
 		mutex = &sync.Mutex{}
 		mutexes[ioInterface] = mutex
 	}
-
 
 	mutex.Lock()                               // el 2
 	SendIOToEntradaSalida(ioInterface, timeIo) //el 1
@@ -486,7 +480,6 @@ func handleSyscallIO(pcb PCB, timeIo int, ioInterface string) {
 
 }
 
-
 func clockHandler(pcb PCB) {
 	//mutexExecutionCPU.Lock()
 	mutexReady.Lock()
@@ -494,7 +487,6 @@ func clockHandler(pcb PCB) {
 	mutexReady.Unlock()
 	readyChannel <- pcb
 	//mutexExecutionCPU.Unlock()
-
 
 	//requeueProcess(proceso.PcbUpdated)
 }
@@ -509,7 +501,6 @@ func executeProcessFIFO() {
 		executeTask(proceso)
 
 	}
-
 
 }
 

@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/sisoputnfrba/tp-golang/cpu/globals"
 )
@@ -101,6 +102,7 @@ func InstructionCycle(contextoDeEjecucion ExecutionContext) {
 		contextoDeEjecucion.CpuReg.PC++
 
 		instruction, _ := Decode(line)
+		time.Sleep(1 * time.Second)
 		Execute(instruction, line, &contextoDeEjecucion)
 		log.Printf("PID: %d - Ejecutando: %s - %s”.", contextoDeEjecucion.Pid, instruction, line)
 
@@ -115,7 +117,6 @@ func InstructionCycle(contextoDeEjecucion ExecutionContext) {
 
 	if requestCPU.MotivoDesalojo != "FINALIZADO" && requestCPU.MotivoDesalojo != "INTERRUPCION POR IO" && requestCPU.MotivoDesalojo != "WAIT" && requestCPU.MotivoDesalojo != "SIGNAL" {
 		requestCPU.MotivoDesalojo = "CLOCK"
-
 
 	}
 	requestCPU.PcbUpdated = contextoDeEjecucion
@@ -448,7 +449,6 @@ func IO(kind string, words []string) error {
 	return nil
 }
 
-
 func ManejoRecursos(registerCPU *RegisterCPU, motivo string, recurso string) error {
 	log.Print("Manejo de recursos")
 	interrupt = true
@@ -459,7 +459,6 @@ func ManejoRecursos(registerCPU *RegisterCPU, motivo string, recurso string) err
 
 	return nil
 }
-
 
 func Checkinterrupts(w http.ResponseWriter, r *http.Request) { // A chequear
 	log.Printf("Recibiendo solicitud de Interrupcionde quantum")
