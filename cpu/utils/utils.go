@@ -21,6 +21,7 @@ type KernelRequest struct {
 	TimeIO         int              `json:"timeIO"`
 	Interface      string           `json:"interface"`
 	IoType         string           `json:"ioType"`
+	Recurso        string           `json:"recurso"`
 }
 
 type PCB struct { //ESTO NO VA ACA
@@ -80,12 +81,6 @@ func IniciarConfiguracion(filePath string) *globals.Config {
 var contextoDeEjecucion ExecutionContext //PCB recibido desde kernel
 
 func ReceivePCB(w http.ResponseWriter, r *http.Request) {
-
-	// HAGO UN LOG PARA CHEQUEAR RECEPCION
-	log.Printf("Recibiendo solicitud de contexto de ejecucuion desde el kernel")
-
-	// GUARDO PCB RECIBIDO EN sendPCB
-
 	err := json.NewDecoder(r.Body).Decode(&contextoDeEjecucion)
 	if err != nil {
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
@@ -117,8 +112,11 @@ func InstructionCycle(contextoDeEjecucion ExecutionContext) {
 
 	}
 	log.Printf("PID: %d - Sale de CPU - PCB actualizado: %d\n", contextoDeEjecucion.Pid, contextoDeEjecucion.CpuReg) //LOG no officia
-	if requestCPU.MotivoDesalojo != "FINALIZADO" && requestCPU.MotivoDesalojo != "INTERRUPCION POR IO" {
+
+	if requestCPU.MotivoDesalojo != "FINALIZADO" && requestCPU.MotivoDesalojo != "INTERRUPCION POR IO" && requestCPU.MotivoDesalojo != "WAIT" && requestCPU.MotivoDesalojo != "SIGNAL" {
 		requestCPU.MotivoDesalojo = "CLOCK"
+
+
 	}
 	requestCPU.PcbUpdated = contextoDeEjecucion
 	responsePCBtoKernel()
@@ -207,14 +205,29 @@ func Execute(instruction string, line []string, contextoDeEjecucion *ExecutionCo
 		err := IO(instruction, words)
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
+
+		}
+	case "WAIT":
+		err := ManejoRecursos(&contextoDeEjecucion.CpuReg, instruction, words[1])
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	case "SIGNAL":
+		err := ManejoRecursos(&contextoDeEjecucion.CpuReg, instruction, words[1])
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+
 		}
 	case "EXIT":
 		requestCPU = KernelRequest{
 			MotivoDesalojo: "FINALIZADO",
 		}
-		interrupt = true // Aquí va el valor booleano que quieres enviar
+
+		interrupt = true // Aquí va el valor booleano que quieres enviar}
+		contextoDeEjecucion.CpuReg.PC--
+
 	default:
-		fmt.Println("Instruction no implementada")
+		return nil
 	}
 	return nil
 }
@@ -434,6 +447,19 @@ func IO(kind string, words []string) error {
 	}
 	return nil
 }
+
+
+func ManejoRecursos(registerCPU *RegisterCPU, motivo string, recurso string) error {
+	log.Print("Manejo de recursos")
+	interrupt = true
+	requestCPU = KernelRequest{
+		MotivoDesalojo: motivo,
+		Recurso:        recurso,
+	}
+
+	return nil
+}
+
 
 func Checkinterrupts(w http.ResponseWriter, r *http.Request) { // A chequear
 	log.Printf("Recibiendo solicitud de Interrupcionde quantum")
