@@ -21,7 +21,7 @@ func main() {
 
 	http.HandleFunc("PUT /process", utils.IniciarProceso)
 	http.HandleFunc("POST /recievePort", utils.RecievePort)
-	//http.HandleFunc("POST /IOFinished", utils.IOFinished)
+	http.HandleFunc("POST /IOFinished", utils.IOFinished)
 
 	http.HandleFunc("POST /syscall", utils.ProcessSyscall)
 

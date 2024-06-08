@@ -151,6 +151,9 @@ var (
 	readyChannelVRR chan PCB
 	nextPid         = 1
 	done            chan struct{}
+
+	readyGeneralVRR chan PCB
+
 	//CPURequest   KernelRequest
 )
 
@@ -446,12 +449,13 @@ func handleSyscallIO(pcb PCB, timeIo int, ioInterface string) {
 		colaBlocked = append(colaBlocked[:0], colaBlocked[1:]...)
 		mutexBlocked.Unlock()
 	}
+	log.Printf("Proceso %+v con11. Quantum: %d", pcb.Pid, pcb.Quantum)
 
 	if pcb.Quantum > 0 && globals.ClientConfig.AlgoritmoPlanificacion == "VRR" {
 		mutexReadyVRR.Lock()
 		colaReadyVRR = append(colaReadyVRR, pcb)
 		mutexReadyVRR.Unlock()
-		readyChannelVRR <- pcb
+		readyChannel <- pcb
 	} else {
 		mutexReady.Lock()
 		log.Printf("Proceso %+v con. Quantum: %d", pcb.Pid, pcb.Quantum)
@@ -501,25 +505,23 @@ func executeProcessRR(quantum int) {
 
 }
 
+//var readyQueue = make(chan PCB)
+
 func executeProcessVRR() {
 	for {
 		mutexExecutionCPU.Lock()
 		var proceso PCB
 		var quantum int
-		select {
-		case <-readyChannelVRR: // Intenta recibir de readyChannelVRR primero
-			proceso = colaReadyVRR[0] // Tomar el primer proceso de readyVRR
-		case procesoReady := <-readyChannel: // Si readyChannelVRR no está listo, intenta recibir de readyChannel
-			// Verifica si readyChannelVRR recibió algo mientras tanto
-			select {
-			case <-readyChannelVRR:
-				// Si readyChannelVRR tiene un proceso, lo usa y devuelve el otro proceso a readyChannel
-				proceso = colaReadyVRR[0]    // Tomar el primer proceso de readyVRR
-				readyChannel <- procesoReady // Devuelve el proceso a readyChannel
-			default:
-				proceso = procesoReady // Usa el proceso que recibió de readyChannel
-			}
+
+		proceso = <-readyChannel
+		fmt.Printf("Process %d arrived in the ready queue\n", proceso.Pid)
+		if len(colaReadyVRR) > 0 {
+			proceso = colaReadyVRR[0]
+			log.Printf("Proceso recibido de readyChannelVRR: %d", proceso.Pid)
+		} else {
+			proceso = colaReady[0]
 		}
+
 		if proceso.Quantum > 0 {
 			quantum = proceso.Quantum
 		} else {
@@ -530,7 +532,6 @@ func executeProcessVRR() {
 		executeTask(proceso)
 	}
 }
-
 func startQuantum(quantum int, proceso *PCB) {
 	log.Printf("PID %d - Quantum iniciado %d", proceso.Pid, quantum)
 
@@ -552,8 +553,8 @@ func startQuantum(quantum int, proceso *PCB) {
 					return
 				}
 			case <-done:
-				log.Printf("PID %d - Proceso finalizado antes de que el quantum termine. Quantum restante %d", proceso.Pid, quantum)
 				procesoEXEC.PCB.Quantum = quantum
+				log.Printf("PID %d - Proceso finalizado antes de que el quantum termine. Quantum restante %d", proceso.Pid, quantum)
 				return
 			}
 		}

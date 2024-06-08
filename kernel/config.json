@@ -8,6 +8,9 @@
     "quantum": 5000,
     "resources": ["RECURSO_1","RECURSO_2","RECURSO_3"],
     "resource_instances": [1,2,1],
-    "multiprogramming": 10
+    "multiprogramming": 10 
 }
+
+
+
 
