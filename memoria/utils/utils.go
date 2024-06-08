@@ -71,6 +71,19 @@ type MemoryRequest struct {
 	Data    []byte `json:"data,omitempty"` //Si es 0, se omite Util para creacion y terminacion de procesos)
 }
 
+type BodyFrame struct {
+	Frame int `json:"frame"`
+}
+
+type BodyRequestPort struct {
+	Nombre string `json:"nombre"`
+	Port   int    `json:"port"`
+}
+type interfaz struct {
+	Name string
+	Port int
+}
+
 func init() {
 	globals.ClientConfig = IniciarConfiguracion("config.json") // tiene que prender la confi cuando arranca
 
@@ -84,9 +97,15 @@ func init() {
 }
 
 type BodyRequestInput struct {
-	Input   string `json:"input"`
-	Address int    `json:"address"`
-	Pid     int    `json:"pid"`
+	NombreInterfaz string `json:"nombreInterfaz"`
+	Input          string `json:"input"`
+	Address        int    `json:"address"`
+	Pid            int    `json:"pid"`
+}
+
+type bodyCPUpage struct {
+	Pid  int `json:"pid"`
+	Page int `json:"page"`
 }
 
 var adress int
@@ -94,6 +113,9 @@ var length int
 var IOaddress int
 var IOpid int
 var IOinput string
+var IOPort int
+var CPUpid int
+var CPUpage int
 
 func IniciarConfiguracion(filePath string) *globals.Config {
 	var config *globals.Config
@@ -385,10 +407,29 @@ func RecieveAdressSTDOUTFromIO(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Adress recibido correctamente"))
 }
 
+func RecievePortOfInterfaceFromKernel(w http.ResponseWriter, r *http.Request) {
+	var requestPort BodyRequestPort
+	var interfaz interfaz
+	err := json.NewDecoder(r.Body).Decode(&requestPort)
+	if err != nil {
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
+		return
+	}
+	interfaz.Name = requestPort.Nombre
+	IOPort = requestPort.Port
+
+	// interfaces = append(interfaces, interfaz)
+
+	log.Printf("Received data: %+v", requestPort)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("Port received: %d", requestPort.Port)))
+}
+
 func SendContentToIO(content string) error {
 	var BodyContent BodyContent
-	IOurl := "http://localhost:8091/receiveContentFromMemory" //esto está mal, no está el puerto de IO en el config
-	BodyContent.Content = content
+
+	IOurl := fmt.Sprintf("http://localhost:%d/receiveContentFromMemory", IOPort)
 	ContentResponseTest, err := json.Marshal(BodyContent)
 	if err != nil {
 		log.Fatalf("Error al serializar el Input: %v", err)
@@ -406,5 +447,40 @@ func SendContentToIO(content string) error {
 		log.Fatalf("Error en la respuesta del módulo de memoria: %v", resp.StatusCode)
 	}
 
+	return nil
+}
+
+func GetPageFromCPU(w http.ResponseWriter, r *http.Request) {
+	var bodyCPUpage bodyCPUpage
+	err := json.NewDecoder(r.Body).Decode(&bodyCPUpage)
+	if err != nil {
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
+		return
+	}
+	CPUpid = bodyCPUpage.Pid
+	CPUpage = bodyCPUpage.Page
+
+	sendFrameToCPU(CPUpid, CPUpage)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Page recibido correctamente"))
+}
+
+func sendFrameToCPU(pid int, page int) error {
+	var bodyFrame BodyFrame
+	CPUurl := fmt.Sprintf("http://localhost:%d/recieveFrame", globals.ClientConfig.PuertoCPU)
+	frame := pageTable[pid][page]
+	bodyFrame.Frame = frame
+	FrameResponseTest, err := json.Marshal(bodyFrame)
+	if err != nil {
+		log.Fatalf("Error al serializar el frame: %v", err)
+	}
+	log.Println("Enviando solicitud con contenido:", FrameResponseTest)
+
+	resp, err := http.Post(CPUurl, "application/json", nil)
+	if err != nil {
+		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
+	}
+	defer resp.Body.Close()
 	return nil
 }
