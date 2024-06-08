@@ -167,7 +167,7 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func SendPort(nombreInterfaz string, pathToConfig string) error {
+func SendPortOfInterfaceToKernel(nombreInterfaz string, pathToConfig string) error {
 	config, err := LoadConfig(pathToConfig)
 	if err != nil {
 		log.Fatalf("Error al cargar la configuración desde '%s': %v", pathToConfig, err)
@@ -200,8 +200,7 @@ func SendPort(nombreInterfaz string, pathToConfig string) error {
 }
 
 func IOFinished(w http.ResponseWriter, r *http.Request) {
-	kernelURL := "http://localhost:8080/IOFinished"
-
+	kernelURL := fmt.Sprintf("http://localhost:%d/IOFinished", config.PuertoKernel)
 	finished := Finalizado{
 		Finalizado: true,
 	}
@@ -326,7 +325,6 @@ func (Interfaz *InterfazIO) IO_STDOUT_WRITE(adress int, length int) {
 }
 
 // INTERFAZ STDIN (IO_STDIN_READ)
-
 func (Interfaz *InterfazIO) IO_STDIN_READ(lengthREG int) {
 	/*
 		EAX: Registro que contiene la dirección física en memoria donde se almacenará el texto ingresado.
