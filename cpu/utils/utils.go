@@ -16,6 +16,7 @@ import (
 	"github.com/sisoputnfrba/tp-golang/cpu/globals"
 )
 
+/*---------------------------------------------- STRUCTS --------------------------------------------------------*/
 type KernelRequest struct {
 	PcbUpdated     PCB    `json:"pcbUpdated"`
 	MotivoDesalojo string `json:"motivoDesalojo"`
@@ -50,10 +51,6 @@ type ResponseQuantum struct {
 	Pid       int  `json:"pid"`
 }
 
-var interrupt bool = false
-var requestCPU KernelRequest
-var responseQuantum ResponseQuantum
-
 type TranslationRequest struct {
 	DireccionLogica int `json:"logical_address"`
 	TamPag          int `json:"page_size"`
@@ -73,10 +70,27 @@ type TLBEntry struct {
 	PosicionFila int       // Para FIFO
 }
 
+type bodyProcess struct {
+	Pid   int `json:"pid"`
+	Pages int `json:"pages,omitempty"`
+}
+
+type bodyPageTable struct {
+	Pid  int `json:"pid"`
+	Page int `json:"page"`
+}
+
+/*------------------------------------------------- VAR GLOBALES --------------------------------------------------------*/
+
 var tlb []TLBEntry
 var tlbSize int
 var replacementAlgorithm string
 var posicionFila int
+var interrupt bool = false
+var requestCPU KernelRequest
+var responseQuantum ResponseQuantum
+var contextoDeEjecucion PCB //PCB recibido desde kernel
+var MemoryFrame int
 
 func ConfigurarLogger() {
 
@@ -112,8 +126,6 @@ func IniciarConfiguracion(filePath string) *globals.Config {
 
 	return config
 }
-
-var contextoDeEjecucion PCB //PCB recibido desde kernel
 
 func ReceivePCB(w http.ResponseWriter, r *http.Request) {
 
@@ -162,7 +174,7 @@ func InstructionCycle(contextoDeEjecucion PCB) {
 }
 
 func responsePCBtoKernel() {
-	kernelURL := "http://localhost:8080/syscall"
+	kernelURL := fmt.Sprintf("http://localhost:%d/syscall", globals.ClientConfig.PortKernel)
 
 	requestJSON, err := json.Marshal(requestCPU)
 	if err != nil {
@@ -244,6 +256,12 @@ func Execute(instruction string, line []string, contextoDeEjecucion *PCB) error 
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
+	case "RESIZE":
+		tam, err := strconv.Atoi(words[1])
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+		sendResizeMemory(tam)
 	case "EXIT":
 		requestCPU = KernelRequest{
 			MotivoDesalojo: "FINALIZADO",
@@ -555,8 +573,11 @@ func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 		frame, found := CheckTLB(pid, pageNumber)
 		if !found {
 			fmt.Println("TLB Miss")
-			frame = FetchFrameFromMemory(pid, pageNumber)
-			ReplaceTLBEntry(pid, pageNumber, frame)
+			err := FetchFrameFromMemory(pid, pageNumber)
+			if err != nil {
+				fmt.Println("Error al obtener el marco desde la memoria")
+			}
+			ReplaceTLBEntry(pid, pageNumber, MemoryFrame) //frame encontrado en memoria con la funcion FetchFrameFromMemory
 		} else {
 			fmt.Println("TLB Hit")
 		}
@@ -567,8 +588,53 @@ func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 	return DireccionesFisicas
 }
 
-// Simulación de la obtención de un marco desde la memoria
-func FetchFrameFromMemory(pid, pageNumber int) int {
-	// Aquí podrías consultar una tabla de páginas real o hacer una simulación
-	return pageNumber // Simulación simple
+// simulacion de la obtención de un marco desde la memoria
+func FetchFrameFromMemory(pid, pageNumber int) error {
+	memoryURL := fmt.Sprintf("http://localhost:%d/getFramefromCPU", globals.ClientConfig.PortMemory)
+	var pageTable bodyPageTable
+	pageTable.Pid = pid
+	pageTable.Page = pageNumber
+
+	pageTableJSON, err := json.Marshal(pageTable)
+	if err != nil {
+		log.Fatalf("Error al serializar el Input: %v", err)
+	}
+
+	log.Println("Enviando solicitud con contenido:", pageTableJSON)
+
+	resp, err := http.Post(memoryURL, "application/json", nil)
+	if err != nil {
+		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
+	}
+	defer resp.Body.Close()
+	return nil
+}
+
+func RecieveFramefromMemory(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Recibiendo solicitud de marco desde la memoria")
+
+	var pageTable bodyPageTable
+	err := json.NewDecoder(r.Body).Decode(&pageTable)
+	if err != nil {
+		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
+		return
+	}
+	log.Printf("Marco recibido desde la memoria: %+v", pageTable)
+
+	MemoryFrame = pageTable.Page
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func sendResizeMemory(tam int) {
+	memoriaURL := fmt.Sprintf("http://localhost:%d//resizeProcess", globals.ClientConfig.PortMemory)
+	var process bodyProcess
+	process.Pid = contextoDeEjecucion.Pid
+	process.Pages = tam
+	resp, err := http.Post(memoriaURL, "application/json", nil)
+	if err != nil {
+		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
+	}
+	defer resp.Body.Close()
+
 }
