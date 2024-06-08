@@ -11,7 +11,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/sisoputnfrba/tp-golang/cpu/globals"
 )
@@ -103,7 +102,6 @@ func InstructionCycle(contextoDeEjecucion ExecutionContext) {
 
 		instruction, _ := Decode(line)
 		Execute(instruction, line, &contextoDeEjecucion)
-		time.Sleep(1 * time.Second)
 		log.Printf("PID: %d - Ejecutando: %s - %s”.", contextoDeEjecucion.Pid, instruction, line)
 
 		if responseQuantum.Interrupt && responseQuantum.Pid == contextoDeEjecucion.Pid || interrupt {
@@ -114,8 +112,10 @@ func InstructionCycle(contextoDeEjecucion ExecutionContext) {
 
 	}
 	log.Printf("PID: %d - Sale de CPU - PCB actualizado: %d\n", contextoDeEjecucion.Pid, contextoDeEjecucion.CpuReg) //LOG no officia
+
 	if requestCPU.MotivoDesalojo != "FINALIZADO" && requestCPU.MotivoDesalojo != "INTERRUPCION POR IO" && requestCPU.MotivoDesalojo != "WAIT" && requestCPU.MotivoDesalojo != "SIGNAL" {
 		requestCPU.MotivoDesalojo = "CLOCK"
+
 
 	}
 	requestCPU.PcbUpdated = contextoDeEjecucion
@@ -205,6 +205,7 @@ func Execute(instruction string, line []string, contextoDeEjecucion *ExecutionCo
 		err := IO(instruction, words)
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
+
 		}
 	case "WAIT":
 		err := ManejoRecursos(&contextoDeEjecucion.CpuReg, instruction, words[1])
@@ -215,13 +216,16 @@ func Execute(instruction string, line []string, contextoDeEjecucion *ExecutionCo
 		err := ManejoRecursos(&contextoDeEjecucion.CpuReg, instruction, words[1])
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
+
 		}
 	case "EXIT":
 		requestCPU = KernelRequest{
 			MotivoDesalojo: "FINALIZADO",
 		}
+
 		interrupt = true // Aquí va el valor booleano que quieres enviar}
 		contextoDeEjecucion.CpuReg.PC--
+
 	default:
 		return nil
 	}
@@ -444,6 +448,7 @@ func IO(kind string, words []string) error {
 	return nil
 }
 
+
 func ManejoRecursos(registerCPU *RegisterCPU, motivo string, recurso string) error {
 	log.Print("Manejo de recursos")
 	interrupt = true
@@ -454,6 +459,7 @@ func ManejoRecursos(registerCPU *RegisterCPU, motivo string, recurso string) err
 
 	return nil
 }
+
 
 func Checkinterrupts(w http.ResponseWriter, r *http.Request) { // A chequear
 	log.Printf("Recibiendo solicitud de Interrupcionde quantum")

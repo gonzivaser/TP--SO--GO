@@ -146,6 +146,7 @@ type RequestInterrupt struct {
 /*---------------------------------------------------VAR GLOBALES------------------------------------------------*/
 
 var (
+
 	ioChannel       chan KernelRequest
 	readyChannel    chan PCB
 	readyChannelVRR chan PCB
@@ -155,6 +156,7 @@ var (
 	readyGeneralVRR chan PCB
 
 	//CPURequest   KernelRequest
+
 )
 
 // ----------DECLARACION DE COLAS POR ESTADO----------------
@@ -190,10 +192,12 @@ var procesoEXEC Proceso // este proceso es el que se esta ejecutando
 /*-------------------------------------------------FUNCIONES CREADAS----------------------------------------------*/
 
 func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
+
 	if globals.ClientConfig.AlgoritmoPlanificacion != "FIFO" {
 		close(done)
 	}
 	var CPURequest KernelRequest
+
 
 	err := json.NewDecoder(r.Body).Decode(&CPURequest)
 	if err != nil {
@@ -206,7 +210,9 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	procesoEXEC.PCB.Pid = CPURequest.PcbUpdated.Pid
 	switch CPURequest.MotivoDesalojo {
 	case "FINALIZADO":
-		log.Printf("PID: %v finalizado con éxito", CPURequest.PcbUpdated.Pid)
+
+		log.Printf("Finaliza el proceso %v - Motivo: <SUCCESS>", CPURequest.PcbUpdated.Pid)
+
 		CPURequest.PcbUpdated.State = "EXIT"
 		//meter en cola exit
 		mutexExit.Lock()
@@ -214,12 +220,15 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 		mutexExit.Unlock()
 
 	case "INTERRUPCION POR IO":
+
 		// aca manejar el handelSyscallIo
 		log.Printf("PID: %v desalojado por IO", CPURequest.PcbUpdated.Pid)
 		//ioChannel <- CPURequest //meto erl proceso en IO para atender ESTO HAY QUE VERLO
 		go handleSyscallIO(*procesoEXEC.PCB, CPURequest.TimeIO, CPURequest.Interface)
+
 		CPURequest.PcbUpdated.State = "BLOCKED"
 	case "CLOCK":
+
 		log.Printf("PID: %v desalojado por fin de Quantum", CPURequest.PcbUpdated.Pid)
 		go clockHandler(*procesoEXEC.PCB)
 		CPURequest.PcbUpdated.State = "BLOCKED"
@@ -234,6 +243,7 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 		log.Printf("PID: %v desalojado por SIGNAL", CPURequest.PcbUpdated.Pid)
 		go handleSignal(*procesoEXEC.PCB, CPURequest.Recurso)
 		// aca manejar el handelSyscaSignal
+
 
 	default:
 		log.Printf("PID: %v desalojado desconocido por %v", CPURequest.PcbUpdated.Pid, CPURequest.MotivoDesalojo)
@@ -265,6 +275,9 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	// Create PCB
 	pcb := createPCB()
 	log.Printf("Se crea el proceso %v en NEW", pcb.Pid) // log obligatorio
+	response := BodyResponsePid{
+		Pid: pcb.Pid,
+	}
 
 	IniciarPlanificacionDeProcesos(request, pcb)
 
@@ -272,6 +285,7 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	// Response with the PID
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+
 	w.Write([]byte(fmt.Sprintf(`{"pid":%d}`, pcb.Pid)))
 }
 
@@ -292,6 +306,7 @@ func init() {
 	} else {
 		log.Fatal("ClientConfig is not initialized")
 	}
+
 }
 
 func IniciarPlanificacionDeProcesos(request BodyRequest, pcb PCB) {
@@ -345,6 +360,7 @@ func executeTask(proceso PCB) {
 	mutexExecution.Lock()
 	colaExecution = append(colaExecution, *procesoEXEC.PCB)
 	mutexExecution.Unlock()
+
 
 	if err := SendContextToCPU(*procesoEXEC.PCB); err != nil {
 		log.Printf("Error sending context to CPU: %v", err)
@@ -425,6 +441,7 @@ func handleSignal(pcb PCB, recurso string) {
 	}
 }
 
+
 func handleSyscallIO(pcb PCB, timeIo int, ioInterface string) {
 
 	//proceso := <-ioChannel MIRAR ESTO
@@ -439,6 +456,7 @@ func handleSyscallIO(pcb PCB, timeIo int, ioInterface string) {
 		mutexes[ioInterface] = mutex
 	}
 
+
 	mutex.Lock()                               // el 2
 	SendIOToEntradaSalida(ioInterface, timeIo) //el 1
 	mutex.Unlock()
@@ -448,6 +466,7 @@ func handleSyscallIO(pcb PCB, timeIo int, ioInterface string) {
 		mutexBlocked.Lock()
 		colaBlocked = append(colaBlocked[:0], colaBlocked[1:]...)
 		mutexBlocked.Unlock()
+
 	}
 	log.Printf("Proceso %+v con11. Quantum: %d", pcb.Pid, pcb.Quantum)
 
@@ -467,6 +486,7 @@ func handleSyscallIO(pcb PCB, timeIo int, ioInterface string) {
 
 }
 
+
 func clockHandler(pcb PCB) {
 	//mutexExecutionCPU.Lock()
 	mutexReady.Lock()
@@ -475,18 +495,21 @@ func clockHandler(pcb PCB) {
 	readyChannel <- pcb
 	//mutexExecutionCPU.Unlock()
 
+
 	//requeueProcess(proceso.PcbUpdated)
 }
 
 func executeProcessFIFO() {
 	// infinitamente estar sacando el primero de taskque ---> readyqueue
 	for {
+
 		//mutex para no enviar dos procesos al mismo timepo a cpu
 		mutexExecutionCPU.Lock()
 		proceso := <-readyChannel
 		executeTask(proceso)
 
 	}
+
 
 }
 
