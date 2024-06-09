@@ -228,15 +228,15 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 		CPURequest.PcbUpdated.State = "BLOCKED"
 		//actualizo el proceso
 		//volver a meter proceso en ready
-	case "WAIT":
-		log.Printf("PID: %v desalojado por WAIT", CPURequest.PcbUpdated.Pid)
-		go waitHandler(*procesoEXEC.PCB, CPURequest.Recurso)
+	// case "WAIT":
+	// 	log.Printf("PID: %v desalojado por WAIT", CPURequest.PcbUpdated.Pid)
+	// 	go HandleWait(*procesoEXEC.PCB, CPURequest.Recurso)
 
-		CPURequest.PcbUpdated.State = "BLOCKED"
-	case "SIGNAL":
-		log.Printf("PID: %v desalojado por SIGNAL", CPURequest.PcbUpdated.Pid)
-		go handleSignal(*procesoEXEC.PCB, CPURequest.Recurso)
-		// aca manejar el handelSyscaSignal
+	// 	CPURequest.PcbUpdated.State = "BLOCKED"
+	// case "SIGNAL":
+	// 	log.Printf("PID: %v desalojado por SIGNAL", CPURequest.PcbUpdated.Pid)
+	// 	go handleSignal(*procesoEXEC.PCB, CPURequest.Recurso)
+	// 	// aca manejar el handelSyscaSignal
 
 	default:
 		log.Printf("PID: %v desalojado desconocido por %v", CPURequest.PcbUpdated.Pid, CPURequest.MotivoDesalojo)
@@ -359,25 +359,37 @@ func executeTask(proceso PCB) {
 	}
 }
 
-func waitHandler(pcb PCB, recurso string) {
+func HandleWait(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		Pid     int    `json:"pid"`
+		Recurso string `json:"recurso"`
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	// Verificar si el recurso existe
 	recursoExistente := false
 	for i, r := range globals.ClientConfig.Recursos {
-		if r == recurso {
+		if r == request.Recurso {
 			recursoExistente = true
 			// Restar 1 a las instancias del recurso
 			globals.ClientConfig.InstanciasRecursos[i] -= 1
-			fmt.Println("Instancias recursos: ", globals.ClientConfig.InstanciasRecursos, recurso)
+			fmt.Println("Instancias recursos: ", globals.ClientConfig.InstanciasRecursos, request.Recurso)
 			// Verificar si el número de instancias es menor a 0
 			if globals.ClientConfig.InstanciasRecursos[i] < 0 {
 				// Bloquear el proceso en la cola de bloqueados correspondiente al recurso
-				if _, ok := colaBlocked[recurso]; !ok {
-					colaBlocked[recurso] = []PCB{}
-				}
-				mutexBlocked.Lock()
-				colaBlocked[recurso] = append(colaBlocked[recurso], pcb)
-				mutexBlocked.Unlock()
-				log.Printf("Proceso %+v bloqueado por recurso %s", pcb, recurso)
+				// if _, ok := colaBlocked[request.Recurso]; !ok {
+				// 	colaBlocked[request.Recurso] = []PCB{}
+				// }
+				// mutexBlocked.Lock()
+				// colaBlocked[request.Recurso] = append(colaBlocked[request.Recurso], getPCBByID(request.Pid))
+				// mutexBlocked.Unlock()
+				// log.Printf("Proceso %+v bloqueado por recurso %s", getPCBByID(request.Pid), request.Recurso)
+				w.Write([]byte(`{"success": false}`))
 				return
 			}
 			break
@@ -385,16 +397,11 @@ func waitHandler(pcb PCB, recurso string) {
 	}
 	// Si el recurso no existe, enviar el proceso a EXIT
 	if !recursoExistente {
-		mutexExit.Lock()
-		colaExit = append(colaExit, pcb)
-		mutexExit.Unlock()
-		log.Printf("Proceso %+v enviado a EXIT por recurso inexistente: %s", pcb, recurso)
-		return
+		w.Write([]byte(`{"success": exit}`))
 	} else {
-		mutexExit.Lock()
-		colaReady = append(colaReady, pcb)
-		mutexExit.Unlock()
-		readyChannel <- pcb
+		// Devolver la ejecución al proceso que peticiona el WAIT
+		log.Printf("Proceso devuelto con true")
+		w.Write([]byte(`{"success": true}`))
 	}
 }
 
