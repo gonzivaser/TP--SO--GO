@@ -57,8 +57,8 @@ antes de subir el tag.
 - Módulo Kernel:
 
     - [x] Es capaz de planificar por VRR.
-    - [] Es capaz de realizar manejo de recursos.
-    - [] Es capaz de manejar el planificador de largo plazo
+    - [ ] Es capaz de realizar manejo de recursos.
+    - [ ] Es capaz de manejar el planificador de largo plazo
 
 - Módulo CPU:
 
