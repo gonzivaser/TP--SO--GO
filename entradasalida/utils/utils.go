@@ -48,8 +48,7 @@ func IniciarConfiguracion(filePath string) *globals.Config {
 
 /*---------------------------------------------------- STRUCTS ------------------------------------------------------*/
 type BodyRequestPort struct {
-	Nombre string `json:"nombre"`
-	Port   int    `json:"port"`
+	Port int `json:"port"`
 }
 
 type BodyRequestRegister struct {
@@ -93,7 +92,7 @@ type Payload struct {
 
 /*--------------------------------------------------- VAR GLOBALES ------------------------------------------------------*/
 
-var Puerto int
+var Puerto int = config.Puerto
 var lengthREG int
 var memoryContent string
 var direccionFisica int
@@ -167,18 +166,11 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func SendPortOfInterfaceToKernel(nombreInterfaz string, pathToConfig string) error {
-	config, err := LoadConfig(pathToConfig)
-	if err != nil {
-		log.Fatalf("Error al cargar la configuración desde '%s': %v", pathToConfig, err)
-	}
-	Puerto = config.Puerto
-	PuertoKernel := config.PuertoKernel
-	kernelURL := fmt.Sprintf("http://localhost:%d/recievePort", PuertoKernel)
+func SendPortOfInterfaceToKernel(Puerto1 int) error {
+	kernelURL := fmt.Sprintf("http://localhost:%d/recievePort", config.PuertoKernel)
 
 	port := BodyRequestPort{
-		Nombre: nombreInterfaz,
-		Port:   Puerto,
+		Port: Puerto1,
 	}
 	portJSON, err := json.Marshal(port)
 	if err != nil {
@@ -312,8 +304,10 @@ func (Interfaz *InterfazIO) IO_STDOUT_WRITE(adress int, length int) {
 	// EAX: REGISTRO QUE VA A CONTENER EL VALOR QUE SE LEA
 
 	var Bodyadress BodyAdress
+
 	Bodyadress.Adress = adress
 	Bodyadress.Length = length
+	SendPortOfInterfaceToKernel(Puerto)
 	err := SendAdressSTDOUTToMemory(Bodyadress, length)
 	if err != nil {
 		log.Fatalf("Error al leer desde la memoria: %v", err)

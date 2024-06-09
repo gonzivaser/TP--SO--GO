@@ -418,8 +418,6 @@ func RecievePortOfInterfaceFromKernel(w http.ResponseWriter, r *http.Request) {
 	interfaz.Name = requestPort.Nombre
 	IOPort = requestPort.Port
 
-	// interfaces = append(interfaces, interfaz)
-
 	log.Printf("Received data: %+v", requestPort)
 
 	w.WriteHeader(http.StatusOK)
