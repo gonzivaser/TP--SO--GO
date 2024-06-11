@@ -52,20 +52,20 @@ type BodyRequestPort struct {
 }
 
 type BodyRequestRegister struct {
-	Length  int `json:"length"`
-	Address int `json:"address"`
-	Pid     int `json:"pid"`
+	Length  int   `json:"length"`
+	Address []int `json:"address"`
+	Pid     int   `json:"pid"`
 }
 
 type BodyRequestInput struct {
 	Pid     int    `json:"pid"`
 	Input   string `json:"input"`
-	Address int    `json:"address"` //Esto viene desde kernel
+	Address []int  `json:"address"` //Esto viene desde kernel
 }
 
 type BodyAdress struct {
-	Adress int `json:"adress"`
-	Length int `json:"length"`
+	Adress []int `json:"adress"`
+	Length int   `json:"length"`
 }
 
 type Finalizado struct {
@@ -95,7 +95,7 @@ type Payload struct {
 var Puerto int = config.Puerto
 var lengthREG int
 var memoryContent string
-var direccionFisica int
+var direccionFisica []int
 var pid int
 var config *globals.Config
 
@@ -298,7 +298,7 @@ func ReceiveContentFromMemory(w http.ResponseWriter, r *http.Request) {
 
 /*---------------------------------------------- INTERFACES -------------------------------------------------------*/
 // INTERFAZ STDOUT (IO_STDOUT_WRITE)
-func (Interfaz *InterfazIO) IO_STDOUT_WRITE(adress int, length int) {
+func (Interfaz *InterfazIO) IO_STDOUT_WRITE(adress []int, length int) {
 	// IO_STDOUT_WRITE Int3 BX EAX
 	// BX: REGISTRO QUE CONTIENE DIRECCION FISICA EN MEMORIA DONDE SE LEERA EL VALOR
 	// EAX: REGISTRO QUE VA A CONTENER EL VALOR QUE SE LEA

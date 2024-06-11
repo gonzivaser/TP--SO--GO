@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"reflect"
@@ -78,6 +79,11 @@ type bodyProcess struct {
 type bodyPageTable struct {
 	Pid  int `json:"pid"`
 	Page int `json:"page"`
+}
+
+type bodyRegisters struct {
+	DirFisica []int `json:"dirFisica"`
+	LengthREG int   `json:"lengthREG"`
 }
 
 /*------------------------------------------------- VAR GLOBALES --------------------------------------------------------*/
@@ -252,6 +258,16 @@ func Execute(instruction string, line []string, contextoDeEjecucion *PCB) error 
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "IO_GEN_SLEEP":
+		err := IO(instruction, words)
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	case "IO_STDIN_READ":
+		err := IO(instruction, words)
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	case "IO_STDOUT_WRITE":
 		err := IO(instruction, words)
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
@@ -470,7 +486,39 @@ func IO(kind string, words []string) error {
 			TimeIO:         timeIO,
 		}
 	case "IO_STDIN_READ":
-		fmt.Println("IO_STDOUT_READ")
+		adressREG, err := strconv.Atoi(words[2])
+		if err != nil {
+			return err
+		}
+		lengthREG, err := strconv.Atoi(words[3])
+		if err != nil {
+			return err
+		}
+		direcciones := TranslateAddress(contextoDeEjecucion.Pid, adressREG, 16, lengthREG)
+		sendREGtoKernel(direcciones, lengthREG)
+		requestCPU = KernelRequest{
+			MotivoDesalojo: "INTERRUPCION POR IO",
+			IoType:         "IO_STDIN_READ",
+			Interface:      words[1],
+			TimeIO:         0,
+		}
+	case "IO_STDOUT_WRITE":
+		adressREG, err := strconv.Atoi(words[2])
+		if err != nil {
+			return err
+		}
+		lengthREG, err := strconv.Atoi(words[3])
+		if err != nil {
+			return err
+		}
+		direcciones := TranslateAddress(contextoDeEjecucion.Pid, adressREG, 16, lengthREG) //el 16 está en el config de memoria, hay que ver eso
+		sendREGtoKernel(direcciones, lengthREG)
+		requestCPU = KernelRequest{
+			MotivoDesalojo: "INTERRUPCION POR IO",
+			IoType:         "IO_STDOUT_WRITE",
+			Interface:      words[1],
+			TimeIO:         0,
+		}
 	case "IO_FS_CREATE":
 		fmt.Println("IO_FS_CREATE")
 	case "IO_FS_DELETE":
@@ -567,8 +615,8 @@ func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 	var DireccionesFisicas []int
 
 	for offset := 0; offset < TamData; offset += TamPag {
-		pageNumber := (DireccionLogica + offset) / TamPag
-		pageOffset := (DireccionLogica + offset) % TamPag
+		pageNumber := int(math.Floor(float64(DireccionLogica) / float64(TamPag)))
+		pageOffset := DireccionLogica - (pageNumber * TamPag)
 
 		frame, found := CheckTLB(pid, pageNumber)
 		if !found {
@@ -637,4 +685,16 @@ func sendResizeMemory(tam int) {
 	}
 	defer resp.Body.Close()
 
+}
+
+func sendREGtoKernel(addres []int, length int) {
+	kernelURL := fmt.Sprintf("http://localhost:%d/sendREGtoKernel", globals.ClientConfig.PortKernel)
+	var BodyRegisters bodyRegisters
+	BodyRegisters.DirFisica = addres
+	BodyRegisters.LengthREG = length
+	resp, err := http.Post(kernelURL, "application/json", nil)
+	if err != nil {
+		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
+	}
+	defer resp.Body.Close()
 }

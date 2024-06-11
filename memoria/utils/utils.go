@@ -20,8 +20,8 @@ type BodyRequest struct {
 }
 
 type BodyAdress struct {
-	Adress int `json:"adress"`
-	Length int `json:"length"`
+	Adress []int `json:"adress"`
+	Length int   `json:"length"`
 }
 
 type BodyContent struct {
@@ -108,7 +108,7 @@ type bodyCPUpage struct {
 	Page int `json:"page"`
 }
 
-var adress int
+var adress []int
 var length int
 var IOaddress int
 var IOpid int
@@ -400,7 +400,16 @@ func RecieveAdressSTDOUTFromIO(w http.ResponseWriter, r *http.Request) {
 	adress = BodyRequestAdress.Adress
 	length = BodyRequestAdress.Length
 
-	data := memory[adress : adress+length]
+	var data []byte
+	for i := 0; i < len(adress); i++ {
+		data, err = ReadMemory(IOpid, adress[i], length)
+		data = append(data, []byte("\n")...)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	// data := memory[adress : adress+length]
 	SendContentToIO(string(data))
 
 	w.WriteHeader(http.StatusOK)

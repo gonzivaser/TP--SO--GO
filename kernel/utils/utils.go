@@ -121,6 +121,11 @@ type interfaz struct {
 	Port int
 }
 
+type BodyRegisters struct {
+	DirFisica []int `json:"dirFisica"`
+	LengthREG int   `json:"lengthREG"`
+}
+
 var interfaces []interfaz
 
 /*---------------------------------------------------VAR GLOBALES------------------------------------------------*/
@@ -129,6 +134,8 @@ var (
 	ioChannel    chan KernelRequest
 	readyChannel chan PCB
 	nextPid      = 1
+	DirFisica    []int
+	LengthREG    int
 	//CPURequest   KernelRequest
 
 )
@@ -496,6 +503,47 @@ func SendPortOfInterfaceToMemory(nombreInterfaz string, puerto int) error {
 	return nil
 }
 
+func RecieveREGFromCPU(w http.ResponseWriter, r *http.Request) {
+	var bodyRegisters BodyRegisters
+	err := json.NewDecoder(r.Body).Decode(&bodyRegisters)
+	if err != nil {
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
+		return
+	}
+	DirFisica = bodyRegisters.DirFisica
+	LengthREG = bodyRegisters.LengthREG
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("Registers received: %v", bodyRegisters)))
+}
+
+func SendREGtoIO(REGdireccion []int, lengthREG int, port int) error {
+	ioURL := fmt.Sprintf("http://localhost:%d/ReceiveREGFromCPU", port)
+	body := BodyRegisters{
+		DirFisica: REGdireccion,
+		LengthREG: lengthREG,
+	}
+	savedRegJSON, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("error al serializar los datos JSON: %v", err)
+	}
+
+	log.Println("Enviando solicitud con contenido:", string(savedRegJSON))
+
+	resp, err := http.Post(ioURL, "application/json", bytes.NewBuffer(savedRegJSON))
+	if err != nil {
+		return fmt.Errorf("error al enviar la solicitud al módulo de entradasalida: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("error en la respuesta del módulo de entradasalida: %v", resp.StatusCode)
+	}
+
+	log.Println("Respuesta del módulo de entradasalida recibida correctamente.")
+	return nil
+}
+
 func SendIOToEntradaSalida(nombre string, io int) error {
 	payload := Payload{
 		Nombre: nombre,
@@ -510,6 +558,8 @@ func SendIOToEntradaSalida(nombre string, io int) error {
 		}
 	}
 	if interfazEncontrada != (interfaz{}) {
+		SendREGtoIO(DirFisica, LengthREG, interfazEncontrada.Port) //envia los registros a IO
+		//envia el payload a IO
 		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
 
 		ioResponseTest, err := json.Marshal(payload)
