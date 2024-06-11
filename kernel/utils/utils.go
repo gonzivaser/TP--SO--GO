@@ -233,9 +233,9 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	// 	go HandleWait(*procesoEXEC.PCB, CPURequest.Recurso)
 
 	// 	CPURequest.PcbUpdated.State = "BLOCKED"
-	// case "SIGNAL":
-	// 	log.Printf("PID: %v desalojado por SIGNAL", CPURequest.PcbUpdated.Pid)
-	// 	go handleSignal(*procesoEXEC.PCB, CPURequest.Recurso)
+	case "SIGNAL":
+		log.Printf("PID: %v desalojado por SIGNAL", CPURequest.PcbUpdated.Pid)
+		go handleSignal(*procesoEXEC.PCB, CPURequest.Recurso)
 	// 	// aca manejar el handelSyscaSignal
 
 	default:
@@ -413,33 +413,36 @@ func handleSignal(pcb PCB, recurso string) {
 			recursoExistente = true
 			// Sumarle 1 a la cantidad de instancias del recurso
 			globals.ClientConfig.InstanciasRecursos[i]++
+			fmt.Println("Instancias recursos despues del signal: ", globals.ClientConfig.InstanciasRecursos, recurso)
 			break
 		}
 		//Si el recurso existe, desbloquear al primer proceso de la cola de bloqueados
-		if recursoExistente {
-			for i, p := range colaBlocked[recurso] {
-				if p == pcb {
-					// Desbloquear al proceso
-					colaBlocked[recurso] = append(colaBlocked[recurso][:i], colaBlocked[recurso][i+1:]...)
-					// Devolver la ejecución al proceso que peticiona el SIGNAL
-					readyChannel <- pcb
-					log.Printf("Proceso %+v desbloqueado por SIGNAL", pcb)
-					break
-				}
+	}
+	if recursoExistente {
+		for i, p := range colaBlocked[recurso] {
+			if p == pcb {
+				// Desbloquear al proceso
+				mutexBlocked.Lock()
+				colaBlocked[recurso] = append(colaBlocked[recurso][:i], colaBlocked[recurso][i+1:]...)
+				mutexBlocked.Unlock()
+				// Devolver la ejecución al proceso que peticiona el SIGNAL
+				readyChannel <- pcb
+				log.Printf("Proceso %+v desbloqueado por SIGNAL", pcb)
+				break
 			}
 		}
-		if !recursoExistente {
-			mutexExit.Lock()
-			colaExit = append(colaExit, pcb)
-			mutexExit.Unlock()
-			log.Printf("Proceso %+v enviado a EXIT por recurso inexistente: %s", pcb, recurso)
-			return
-		} else {
-			mutexExit.Lock()
-			colaReady = append(colaReady, pcb)
-			mutexExit.Unlock()
-			readyChannel <- pcb
-		}
+	}
+	if !recursoExistente {
+		mutexExit.Lock()
+		colaExit = append(colaExit, pcb)
+		mutexExit.Unlock()
+		log.Printf("Proceso %+v enviado a EXIT por recurso inexistente: %s", pcb, recurso)
+		return
+	} else {
+		mutexExit.Lock()
+		colaReady = append(colaReady, pcb)
+		mutexExit.Unlock()
+		readyChannel <- pcb
 	}
 }
 
