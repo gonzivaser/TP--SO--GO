@@ -80,7 +80,7 @@ antes de subir el tag.
     - [ ] Fin de Proceso
     - [x] Cambio de Estado
     - [ ] Motivo de Bloqueo
-    - [ ] Fin de Quantum
+    - [x] Fin de Quantum
     - [ ] Ingreso a Ready
 
 - Módulo CPU:
