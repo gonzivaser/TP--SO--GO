@@ -389,7 +389,7 @@ func HandleWait(w http.ResponseWriter, r *http.Request) {
 				// colaBlocked[request.Recurso] = append(colaBlocked[request.Recurso], getPCBByID(request.Pid))
 				// mutexBlocked.Unlock()
 				// log.Printf("Proceso %+v bloqueado por recurso %s", getPCBByID(request.Pid), request.Recurso)
-				w.Write([]byte(`{"success": false}`))
+				w.Write([]byte(`{"success": "false"}`))
 				return
 			}
 			break
@@ -397,11 +397,11 @@ func HandleWait(w http.ResponseWriter, r *http.Request) {
 	}
 	// Si el recurso no existe, enviar el proceso a EXIT
 	if !recursoExistente {
-		w.Write([]byte(`{"success": exit}`))
+		w.Write([]byte(`{"success": "exit"}`))
 	} else {
 		// Devolver la ejecución al proceso que peticiona el WAIT
 		log.Printf("Proceso devuelto con true")
-		w.Write([]byte(`{"success": true}`))
+		w.Write([]byte(`{"success": "true"}`))
 	}
 }
 

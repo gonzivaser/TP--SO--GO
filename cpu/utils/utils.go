@@ -477,6 +477,7 @@ func ManejoRecursos(registerCPU *RegisterCPU, motivo string, recurso string) err
 }
 
 func CheckWait(w http.ResponseWriter, r *http.Request, registerCPU *ExecutionContext, recurso string) error {
+
 	log.Printf("Enviando solicitud de Wait al Kernel")
 
 	waitRequest := ResponseWait{
@@ -526,8 +527,6 @@ func CheckWait(w http.ResponseWriter, r *http.Request, registerCPU *ExecutionCon
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(waitResponse)
 	return nil
 }
 
