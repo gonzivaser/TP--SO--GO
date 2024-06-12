@@ -476,8 +476,15 @@ func GetPageFromCPU(w http.ResponseWriter, r *http.Request) {
 func sendFrameToCPU(pid int, page int) error {
 	var bodyFrame BodyFrame
 	CPUurl := fmt.Sprintf("http://localhost:%d/recieveFrame", globals.ClientConfig.PuertoCPU)
-	frame := pageTable[pid][page]
-	bodyFrame.Frame = frame
+
+	var cnt int
+	for id, pages := range pageTable {
+		if id < pid {
+			cnt += len(pages)
+		}
+	}
+
+	bodyFrame.Frame = cnt + page
 	FrameResponseTest, err := json.Marshal(bodyFrame)
 	if err != nil {
 		log.Fatalf("Error al serializar el frame: %v", err)
