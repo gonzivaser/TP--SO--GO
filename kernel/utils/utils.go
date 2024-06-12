@@ -224,7 +224,7 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	case "CLOCK":
 
 		log.Printf("PID: %v desalojado por fin de Quantum", CPURequest.PcbUpdated.Pid)
-		go clockHandler(*procesoEXEC.PCB)
+		go enqueueProcess(*procesoEXEC.PCB)
 		CPURequest.PcbUpdated.State = "BLOCKED"
 		//actualizo el proceso
 		//volver a meter proceso en ready
@@ -320,11 +320,7 @@ func IniciarPlanificacionDeProcesos(request BodyRequest, pcb PCB) {
 	}
 
 	//meter en ready
-	mutexReady.Lock()
-	colaReady = append(colaReady, *proceso.PCB)
-	mutexReady.Unlock()
-
-	readyChannel <- *proceso.PCB
+	enqueueProcess(*proceso.PCB)
 	fmt.Println("Proceso en ready: ", *proceso.PCB)
 }
 
@@ -484,6 +480,11 @@ func enqueueProcess(pcb PCB) {
 		colaReadyVRR = append(colaReadyVRR, pcb)
 		mutexReadyVRR.Unlock()
 		readyChannel <- pcb
+		pidSlice := make([]int, 0, len(colaReadyVRR))
+		for _, pcb := range colaReady {
+			pidSlice = append(pidSlice, pcb.Pid)
+		}
+		log.Printf("Cola Ready VRR: %+v", pidSlice)
 	} else {
 		mutexReady.Lock()
 		log.Printf("Proceso %+v con. Quantum: %d", pcb.Pid, pcb.Quantum)
@@ -491,19 +492,24 @@ func enqueueProcess(pcb PCB) {
 		colaReady = append(colaReady, pcb)
 		mutexReady.Unlock()
 		readyChannel <- pcb
+		pidSlice := make([]int, 0, len(colaReady))
+		for _, pcb := range colaReady {
+			pidSlice = append(pidSlice, pcb.Pid)
+		}
+		log.Printf("Cola Ready: %+v", pidSlice)
 	}
 }
 
-func clockHandler(pcb PCB) {
-	//mutexExecutionCPU.Lock()
-	mutexReady.Lock()
-	colaReady = append(colaReady, pcb)
-	mutexReady.Unlock()
-	readyChannel <- pcb
-	//mutexExecutionCPU.Unlock()
+// func clockHandler(pcb PCB) {
+// 	//mutexExecutionCPU.Lock()
+// 	mutexReady.Lock()
+// 	colaReady = append(colaReady, pcb)
+// 	mutexReady.Unlock()
+// 	readyChannel <- pcb
+// 	//mutexExecutionCPU.Unlock()
 
-	//requeueProcess(proceso.PcbUpdated)
-}
+// 	//requeueProcess(proceso.PcbUpdated)
+// }
 
 func executeProcessFIFO() {
 	// infinitamente estar sacando el primero de taskque ---> readyqueue
