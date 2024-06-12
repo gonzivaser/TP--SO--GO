@@ -413,32 +413,38 @@ func HandleSignal(w http.ResponseWriter, r *http.Request) {
 		Recurso string `json:"recurso"`
 	}
 
-	var recurso = request.Recurso
-
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	var recurso = request.Recurso
+	log.Printf("Recibido signal de la CPU: %+v", request)
 	// Verificar si el recurso existe
-	//recursoExistente := false
+	recursoExistente := false
 	for i, r := range globals.ClientConfig.Recursos {
 		if r == recurso {
-			//recursoExistente = true
+			recursoExistente = true
 			// Sumarle 1 a la cantidad de instancias del recurso
 			globals.ClientConfig.InstanciasRecursos[i]++
 			if len(colaBlocked[recurso]) > 0 {
 				// Desbloquear al primer proceso de la cola de bloqueados
+				proceso := colaBlocked[recurso][0]
 				mutexBlocked.Lock()
-				// Send the first process in the queue to the readyChannel
-				readyChannel <- colaBlocked[recurso][0]
-				// Remove the first process from the queue
 				colaBlocked[recurso] = colaBlocked[recurso][1:]
 				mutexBlocked.Unlock()
+				enqueueProcess(proceso)
 			}
-			fmt.Println("Instancias recursos despues del signal: ", globals.ClientConfig.InstanciasRecursos, recurso)
 			break
 		}
+	}
+	if !recursoExistente {
+		w.Write([]byte(`{"success": "exit"}`))
+	} else {
+		// Devolver la ejecución al proceso que peticiona el WAIT
+		log.Printf("Proceso devuelto con true")
+		w.Write([]byte(`{"success": "true"}`))
 	}
 }
 
@@ -469,6 +475,10 @@ func handleSyscallIO(pcb PCB, timeIo int, ioInterface string) {
 	}
 	log.Printf("Proceso %+v con11. Quantum: %d", pcb.Pid, pcb.Quantum)
 
+	enqueueProcess(pcb)
+}
+
+func enqueueProcess(pcb PCB) {
 	if pcb.Quantum > 0 && globals.ClientConfig.AlgoritmoPlanificacion == "VRR" {
 		mutexReadyVRR.Lock()
 		colaReadyVRR = append(colaReadyVRR, pcb)
@@ -482,7 +492,6 @@ func handleSyscallIO(pcb PCB, timeIo int, ioInterface string) {
 		mutexReady.Unlock()
 		readyChannel <- pcb
 	}
-
 }
 
 func clockHandler(pcb PCB) {

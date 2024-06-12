@@ -112,8 +112,8 @@ func InstructionCycle(contextoDeEjecucion ExecutionContext) {
 
 		instruction, _ := Decode(line)
 		time.Sleep(1 * time.Second)
-		Execute(instruction, line, &contextoDeEjecucion)
 		log.Printf("PID: %d - Ejecutando: %s - %s”.", contextoDeEjecucion.Pid, instruction, line)
+		Execute(instruction, line, &contextoDeEjecucion)
 
 		if responseQuantum.Interrupt && responseQuantum.Pid == contextoDeEjecucion.Pid || interrupt {
 			responseQuantum.Interrupt = false
@@ -466,7 +466,7 @@ func IO(kind string, words []string) error {
 }
 
 func CheckSignal(w http.ResponseWriter, r *http.Request, pid int, motivo string, recurso string) error {
-	log.Printf("Enviando solicitud de Wait al Kernel")
+	log.Printf("Enviando solicitud de Signal al Kernel")
 
 	waitRequest := ResponseWait{
 		Recurso: recurso,
@@ -491,11 +491,27 @@ func CheckSignal(w http.ResponseWriter, r *http.Request, pid int, motivo string,
 		http.Error(w, "Error en la respuesta del kernel", http.StatusInternalServerError)
 		return err
 	}
+
+	var signalResponse struct {
+		Success string `json:"success"`
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&signalResponse)
+	if err != nil {
+		http.Error(w, "Error al decodificar los datos JSON de la respuesta del kernel", http.StatusInternalServerError)
+		return err
+	}
+	log.Printf("Respuesta del kernel: %v", signalResponse)
+	if signalResponse.Success == "exit" {
+		err := TerminarProceso(&contextoDeEjecucion.CpuReg)
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	}
 	return nil
 }
 
 func CheckWait(w http.ResponseWriter, r *http.Request, registerCPU *ExecutionContext, recurso string) error {
-
 	log.Printf("Enviando solicitud de Wait al Kernel")
 
 	waitRequest := ResponseWait{
