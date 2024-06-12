@@ -223,7 +223,7 @@ func Execute(instruction string, line []string, contextoDeEjecucion *ExecutionCo
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "SIGNAL":
-		err := ManejoRecursos(&contextoDeEjecucion.CpuReg, instruction, words[1])
+		err := CheckSignal(nil, nil, contextoDeEjecucion.Pid, instruction, words[1])
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 
@@ -465,14 +465,32 @@ func IO(kind string, words []string) error {
 	return nil
 }
 
-func ManejoRecursos(registerCPU *RegisterCPU, motivo string, recurso string) error {
-	log.Print("Manejo de recursos")
-	interrupt = true
-	requestCPU = KernelRequest{
-		MotivoDesalojo: motivo,
-		Recurso:        recurso,
+func CheckSignal(w http.ResponseWriter, r *http.Request, pid int, motivo string, recurso string) error {
+	log.Printf("Enviando solicitud de Wait al Kernel")
+
+	waitRequest := ResponseWait{
+		Recurso: recurso,
+		Pid:     pid,
 	}
 
+	waitRequestJSON, err := json.Marshal(waitRequest)
+	if err != nil {
+		http.Error(w, "Error al codificar los datos JSON", http.StatusInternalServerError)
+		return err
+	}
+
+	kernelURL := fmt.Sprintf("http://localhost:%d/signal", globals.ClientConfig.PortKernel)
+	resp, err := http.Post(kernelURL, "application/json", bytes.NewBuffer(waitRequestJSON))
+	if err != nil {
+		http.Error(w, "Error al enviar la solicitud al kernel", http.StatusInternalServerError)
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		http.Error(w, "Error en la respuesta del kernel", http.StatusInternalServerError)
+		return err
+	}
 	return nil
 }
 
