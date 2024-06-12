@@ -168,7 +168,7 @@ func InstructionCycle(contextoDeEjecucion PCB) {
 			interrupt = false
 			break
 		}
-
+		requestCPU.PcbUpdated = contextoDeEjecucion
 	}
 	log.Printf("PID: %d - Sale de CPU - PCB actualizado: %d\n", contextoDeEjecucion.Pid, contextoDeEjecucion.CpuReg) //LOG no officia
 	if requestCPU.MotivoDesalojo != "FINALIZADO" && requestCPU.MotivoDesalojo != "INTERRUPCION POR IO" {
@@ -486,16 +486,14 @@ func IO(kind string, words []string) error {
 			TimeIO:         timeIO,
 		}
 	case "IO_STDIN_READ":
-		adressREG, err := strconv.Atoi(words[2])
-		if err != nil {
-			return err
-		}
-		lengthREG, err := strconv.Atoi(words[3])
-		if err != nil {
-			return err
-		}
-		direcciones := TranslateAddress(contextoDeEjecucion.Pid, adressREG, 16, lengthREG)
-		sendREGtoKernel(direcciones, lengthREG)
+		adressREG := words[2]
+		valueAdress := verificarRegistro(adressREG)
+
+		lengthREG := words[3]
+		valueLength := verificarRegistro(lengthREG)
+
+		direcciones := TranslateAddress(contextoDeEjecucion.Pid, valueAdress, 16, valueLength)
+		sendREGtoKernel(direcciones, valueLength)
 		requestCPU = KernelRequest{
 			MotivoDesalojo: "INTERRUPCION POR IO",
 			IoType:         "IO_STDIN_READ",
@@ -503,16 +501,14 @@ func IO(kind string, words []string) error {
 			TimeIO:         0,
 		}
 	case "IO_STDOUT_WRITE":
-		adressREG, err := strconv.Atoi(words[2])
-		if err != nil {
-			return err
-		}
-		lengthREG, err := strconv.Atoi(words[3])
-		if err != nil {
-			return err
-		}
-		direcciones := TranslateAddress(contextoDeEjecucion.Pid, adressREG, 16, lengthREG) //el 16 está en el config de memoria, hay que ver eso
-		sendREGtoKernel(direcciones, lengthREG)
+		addresREG := words[2]
+		valueAdress := verificarRegistro(addresREG)
+
+		lengthREG := words[3]
+		valueLength := verificarRegistro(lengthREG) //hay que ver si convertirlo a bytes
+
+		direcciones := TranslateAddress(contextoDeEjecucion.Pid, valueAdress, 16, valueLength) //el 16 está en el config de memoria, hay que ver eso
+		sendREGtoKernel(direcciones, valueLength)
 		requestCPU = KernelRequest{
 			MotivoDesalojo: "INTERRUPCION POR IO",
 			IoType:         "IO_STDOUT_WRITE",
@@ -535,6 +531,42 @@ func IO(kind string, words []string) error {
 		return fmt.Errorf("tipo de instrucción no soportado")
 	}
 	return nil
+}
+
+/*
+type RegisterCPU struct {
+	PC, EAX, EBX, ECX, EDX, SI, DI uint32
+	AX, BX, CX, DX                 uint8
+}
+*/
+
+func verificarRegistro(registerName string) int {
+	var registerValue int
+	switch registerName {
+	case "AX":
+		registerValue = int(requestCPU.PcbUpdated.CpuReg.PC)
+	case "BX":
+		registerValue = int(requestCPU.PcbUpdated.CpuReg.BX)
+	case "CX":
+		registerValue = int(requestCPU.PcbUpdated.CpuReg.CX)
+	case "DX":
+		registerValue = int(requestCPU.PcbUpdated.CpuReg.DX)
+	case "SI":
+		registerValue = int(requestCPU.PcbUpdated.CpuReg.SI)
+	case "DI":
+		registerValue = int(requestCPU.PcbUpdated.CpuReg.DI)
+	case "EAX":
+		registerValue = int(requestCPU.PcbUpdated.CpuReg.EAX)
+	case "EBX":
+		registerValue = int(requestCPU.PcbUpdated.CpuReg.EBX)
+	case "ECX":
+		registerValue = int(requestCPU.PcbUpdated.CpuReg.ECX)
+	case "EDX":
+		registerValue = int(requestCPU.PcbUpdated.CpuReg.EDX)
+	default:
+		log.Fatalf("Register %s not found", registerName)
+	}
+	return registerValue
 }
 
 func Checkinterrupts(w http.ResponseWriter, r *http.Request) { // A chequear

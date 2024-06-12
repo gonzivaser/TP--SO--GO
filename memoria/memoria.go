@@ -21,7 +21,7 @@ func main() {
 
 	http.HandleFunc("POST /setInstructionFromFileToMap", utils.SetInstructionsFromFileToMap)
 
-	http.HandleFunc("GET  /getInstructionFromPid", utils.GetInstruction)
+	http.HandleFunc("GET /getInstructionFromPidASD", utils.GetInstruction)
 	http.HandleFunc("POST /createProcess", utils.CreateProcessHandler)
 	http.HandleFunc("POST /terminateProcess", utils.TerminateProcessHandler)
 	http.HandleFunc("POST /resizeProcess", utils.ResizeProcessHandler)
