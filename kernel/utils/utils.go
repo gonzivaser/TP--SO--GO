@@ -175,7 +175,6 @@ var mutexExit sync.Mutex
 // ----------DECLARACION MUTEX MÓDULO----------------
 var mutexExecutionCPU sync.Mutex // este mutex es para que no se envie dos procesos al mismo tiempo a la cpu
 var mutexExecutionMEMORIA sync.Mutex
-var mutexExecutionIO sync.Mutex
 
 var mutexes = make(map[string]*sync.Mutex)
 
@@ -342,6 +341,16 @@ func executeTask(proceso PCB) {
 	}
 }
 
+// Function to check if a resource exists
+func resourceExists(recurso string) (bool, int) {
+	for i, r := range globals.ClientConfig.Recursos {
+		if r == recurso {
+			return true, i
+		}
+	}
+	return false, -1
+}
+
 func RecieveWait(w http.ResponseWriter, r *http.Request) {
 	var request struct {
 		Pid     int    `json:"pid"`
@@ -354,38 +363,25 @@ func RecieveWait(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verificar si el recurso existe
-	recursoExistente := false
-	for i, r := range globals.ClientConfig.Recursos {
-		if r == request.Recurso {
-			recursoExistente = true
-			// Restar 1 a las instancias del recurso
-			globals.ClientConfig.InstanciasRecursos[i] -= 1
-			fmt.Println("Instancias recursos: ", globals.ClientConfig.InstanciasRecursos, request.Recurso)
-			// Verificar si el número de instancias es menor a 0
-			if globals.ClientConfig.InstanciasRecursos[i] < 0 {
-				// Bloquear el proceso en la cola de bloqueados correspondiente al recurso
-				// if _, ok := colaBlocked[request.Recurso]; !ok {
-				// 	colaBlocked[request.Recurso] = []PCB{}
-				// }
-				// mutexBlocked.Lock()
-				// colaBlocked[request.Recurso] = append(colaBlocked[request.Recurso], getPCBByID(request.Pid))
-				// mutexBlocked.Unlock()
-				// log.Printf("Proceso %+v bloqueado por recurso %s", getPCBByID(request.Pid), request.Recurso)
-				w.Write([]byte(`{"success": "false"}`))
-				return
-			}
-			break
+	// Check if the resource exists
+	recursoExistente, index := resourceExists(request.Recurso)
+	if recursoExistente {
+		// resto 1 si existe
+		globals.ClientConfig.InstanciasRecursos[index] -= 1
+		fmt.Println("Instancias recursos: ", globals.ClientConfig.InstanciasRecursos, request.Recurso)
+		// Check if the number of instances is less than 0
+		if globals.ClientConfig.InstanciasRecursos[index] < 0 {
+			w.Write([]byte(`{"success": "false"}`))
+			return
 		}
-	}
-	// Si el recurso no existe, enviar el proceso a EXIT
-	if !recursoExistente {
-		w.Write([]byte(`{"success": "exit"}`))
 	} else {
-		// Devolver la ejecución al proceso que peticiona el WAIT
-		//log.Printf("Proceso devuelto con true")
-		w.Write([]byte(`{"success": "true"}`))
+		// If the resource does not exist, send the process to EXIT
+		w.Write([]byte(`{"success": "exit"}`))
+		return
 	}
+
+	// Return execution to the process that requests the WAIT
+	w.Write([]byte(`{"success": "true"}`))
 }
 
 func waitHandler(pcb PCB, recurso string) {
@@ -408,35 +404,40 @@ func HandleSignal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var recurso = request.Recurso
-	//log.Printf("Recibido signal de la CPU: %+v", request)
-	// Verificar si el recurso existe
-	recursoExistente := false
-	for i, r := range globals.ClientConfig.Recursos {
-		if r == recurso {
-			recursoExistente = true
-			// Sumarle 1 a la cantidad de instancias del recurso
-			globals.ClientConfig.InstanciasRecursos[i]++
-			if len(colaBlocked[recurso]) > 0 {
-				// Desbloquear al primer proceso de la cola de bloqueados
-				proceso := colaBlocked[recurso][0]
-				mutexBlocked.Lock()
-				colaBlocked[recurso] = colaBlocked[recurso][1:]
-				mutexBlocked.Unlock()
-				enqueueProcess(proceso)
-			}
-			break
+	// Check if the resource exists
+	recursoExistente, index := resourceExists(recurso)
+	if recursoExistente {
+		// Add 1 to the number of resource instances
+		globals.ClientConfig.InstanciasRecursos[index]++
+		if len(colaBlocked[recurso]) > 0 {
+			// Unblock the first process in the blocked queue
+			proceso := colaBlocked[recurso][0]
+			mutexBlocked.Lock()
+			colaBlocked[recurso] = colaBlocked[recurso][1:]
+			mutexBlocked.Unlock()
+			enqueueProcess(proceso)
 		}
-	}
-	if !recursoExistente {
-		w.Write([]byte(`{"success": "exit"}`))
 	} else {
-		// Devolver la ejecución al proceso que peticiona el WAIT
-		//log.Printf("Proceso devuelto con true")
-		w.Write([]byte(`{"success": "true"}`))
+		// If the resource does not exist, send the process to EXIT
+		w.Write([]byte(`{"success": "exit"}`))
+		return
 	}
+
+	// Return execution to the process that requests the WAIT
+	w.Write([]byte(`{"success": "true"}`))
 }
 
 func handleSyscallIO(pcb PCB, timeIo int, ioInterface string) {
+	if !InterfazExiste(ioInterface) {
+		log.Printf("La interfaz %s no existe", ioInterface)
+		log.Printf("Finaliza el proceso %v - Motivo: SUCCESS", pcb.Pid)
+		//Llamar a funcion que finalioza el proceso aca se esta terminando y no se porque
+		mutexExit.Lock()
+		colaExit = append(colaExit, pcb)
+		mutexExit.Unlock()
+
+		return
+	}
 
 	//proceso := <-ioChannel MIRAR ESTO
 	// meter en bloqueado
@@ -444,17 +445,16 @@ func handleSyscallIO(pcb PCB, timeIo int, ioInterface string) {
 	mutexBlocked.Lock()
 	colaBlocked[ioInterface] = append(colaBlocked[ioInterface], pcb)
 	mutexBlocked.Unlock()
-	//log.Printf("Proceso %+v desalojado por IO p1. Quantum: %d", pcb, pcb.Quantum)
+
 	mutex, ok := mutexes[ioInterface]
 	if !ok {
 		mutex = &sync.Mutex{}
 		mutexes[ioInterface] = mutex
 	}
 
-	mutex.Lock()                               // el 2
-	SendIOToEntradaSalida(ioInterface, timeIo) //el 1
+	mutex.Lock()
+	SendIOToEntradaSalida(ioInterface, timeIo)
 	mutex.Unlock()
-	//log.Printf("Proceso %+v desalojado por IO p2. Quantum: %d", pcb, pcb.Quantum)
 
 	if len(colaBlocked) > 0 { // aca lo saco de la cola blocked y lo mando a ready
 		mutexBlocked.Lock()
@@ -465,6 +465,15 @@ func handleSyscallIO(pcb PCB, timeIo int, ioInterface string) {
 	log.Printf("Proceso %+v volvió de con. Quantum: %d", pcb.Pid, pcb.Quantum)
 
 	enqueueProcess(pcb)
+}
+
+func InterfazExiste(nombre string) bool {
+	for _, interfaz := range interfaces {
+		if interfaz.Name == nombre {
+			return true
+		}
+	}
+	return false
 }
 
 func enqueueProcess(pcb PCB) {
@@ -494,17 +503,6 @@ func enqueueProcess(pcb PCB) {
 	}
 }
 
-// func clockHandler(pcb PCB) {
-// 	//mutexExecutionCPU.Lock()
-// 	mutexReady.Lock()
-// 	colaReady = append(colaReady, pcb)
-// 	mutexReady.Unlock()
-// 	readyChannel <- pcb
-// 	//mutexExecutionCPU.Unlock()
-
-// 	//requeueProcess(proceso.PcbUpdated)
-// }
-
 func executeProcessFIFO() {
 	// infinitamente estar sacando el primero de taskque ---> readyqueue
 	for {
@@ -532,8 +530,6 @@ func executeProcessRR(quantum int) {
 	}
 
 }
-
-//var readyQueue = make(chan PCB)
 
 func executeProcessVRR() {
 	for {
@@ -763,18 +759,61 @@ func IOFinished(w http.ResponseWriter, r *http.Request) {
 
 /*---------------------------------------------FUNCIONES OBLIGATORIAS--------------------------------------------------*/
 
+// New function to check if a PID exists
+func findPCB(pid int) (PCB, error) {
+	queues := map[string][]PCB{
+		"New":       colaNew,
+		"Ready":     colaReady,
+		"Execution": colaExecution,
+		"Exit":      colaExit,
+	}
+
+	for state, queue := range colaBlocked {
+		queues["Blocked "+state] = queue
+	}
+
+	for _, queue := range queues {
+		for _, pcb := range queue {
+			if pcb.Pid == pid {
+				return pcb, nil
+			}
+		}
+	}
+
+	return PCB{}, fmt.Errorf("PID not found")
+}
+
 func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
-	pid := r.URL.Query().Get("pid")
-	if pid == "" {
+	pidStr := r.URL.Query().Get("pid")
+
+	if pidStr == "" {
 		http.Error(w, "PID no especificado", http.StatusBadRequest)
 		return
 	}
 
-	log.Printf("Finaliza el proceso %s - Motivo: <SUCCESS / INVALID_RESOURCE / INVALID_WRITE>", pid)
+	pid, err := strconv.Atoi(pidStr)
+	if err != nil {
+		http.Error(w, "PID debe ser un número", http.StatusBadRequest)
+		return
+	}
 
-	respuestaOK := fmt.Sprintf("Proceso finalizado: %s", pid)
+	// Use pidExists to check if the PID exists in any of the queues
+	pcb, err := findPCB(pid)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	log.Printf("Finalizing process %v - Reason: <SUCCESS / INVALID_RESOURCE / INVALID_WRITE> con estado %v", pcb.Pid, pcb.State)
+
+	//Llamar a funcion que finalioza el proceso
+
+	mutexExit.Lock()
+	colaExit = append(colaExit, pcb)
+	mutexExit.Unlock()
+
+	responseOK := fmt.Sprintf("Process finalized: %v", pcb.Pid)
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(respuestaOK))
+	w.Write([]byte(responseOK))
 }
 
 func EstadoProceso(w http.ResponseWriter, r *http.Request) {
