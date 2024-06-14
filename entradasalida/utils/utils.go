@@ -216,9 +216,9 @@ func IOFinished(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func SendAdressSTDOUTToMemory(adress BodyAdress, lengthREG int) error {
+func SendAdressSTDOUTToMemory(adress BodyAdress) error {
 	memoriaURL := "http://localhost:8085/SendAdressSTDOUTToMemory"
-	adress.Length = lengthREG
+
 	adressResponseTest, err := json.Marshal(adress)
 	if err != nil {
 		log.Fatalf("Error al serializar el adress: %v", err)
@@ -316,7 +316,7 @@ func (Interfaz *InterfazIO) IO_STDOUT_WRITE(adress []int, length int) {
 	Bodyadress.Adress = adress
 	Bodyadress.Length = length
 
-	err1 := SendAdressSTDOUTToMemory(Bodyadress, length)
+	err1 := SendAdressSTDOUTToMemory(Bodyadress)
 	if err1 != nil {
 		log.Fatalf("Error al leer desde la memoria: %v", err)
 	}
@@ -328,19 +328,15 @@ func (Interfaz *InterfazIO) IO_STDOUT_WRITE(adress []int, length int) {
 
 // INTERFAZ STDIN (IO_STDIN_READ)
 func (Interfaz *InterfazIO) IO_STDIN_READ(lengthREG int) {
-	/*
-		EAX: Registro que contiene la dirección física en memoria donde se almacenará el texto ingresado.
-		AX: Registro donde se almacena el valor resultante (puede usarse para alguna otra operación posterior).
-	*/
 	var BodyInput BodyRequestInput
 	var input string
 
 	fmt.Print("Ingrese por teclado: ")
-	/*_, err := fmt.Scanln(&input)
+	_, err := fmt.Scanln(&input)
 	if err != nil {
 		log.Fatalf("Error al leer desde stdin: %v", err)
-	}*/
-	input = "hola"
+	}
+	//input = "hola"
 	if len(input) > lengthREG {
 		input = input[:lengthREG]
 		log.Println("El texto ingresado es mayor al tamaño del registro, se truncará a: ", input)
@@ -350,8 +346,8 @@ func (Interfaz *InterfazIO) IO_STDIN_READ(lengthREG int) {
 	BodyInput.Address = direccionFisica
 	BodyInput.Pid = pid
 	// Guardar el texto en la memoria en la dirección especificada
-	err := SendInputSTDINToMemory(&BodyInput)
-	if err != nil {
+	err1 := SendInputSTDINToMemory(&BodyInput)
+	if err1 != nil {
 		log.Fatalf("Error al escribir en la memoria: %v", err)
 	}
 }

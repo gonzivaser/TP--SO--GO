@@ -81,6 +81,9 @@ type bodyPageTable struct {
 	Page int `json:"page"`
 }
 
+type BodyFrame struct {
+	Frame int `json:"frame"`
+}
 type bodyRegisters struct {
 	DirFisica []int `json:"dirFisica"`
 	LengthREG int   `json:"lengthREG"`
@@ -651,6 +654,7 @@ func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 			if err != nil {
 				fmt.Println("Error al obtener el marco desde la memoria")
 			}
+			frame = MemoryFrame
 			ReplaceTLBEntry(pid, pageNumber, MemoryFrame) //frame encontrado en memoria con la funcion FetchFrameFromMemory
 		} else {
 			fmt.Println("TLB Hit")
@@ -685,17 +689,17 @@ func FetchFrameFromMemory(pid, pageNumber int) error {
 }
 
 func RecieveFramefromMemory(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Recibiendo solicitud de marco desde la memoria")
+	//log.Printf("Recibiendo solicitud de marco desde la memoria")
 
-	var pageTable bodyPageTable
-	err := json.NewDecoder(r.Body).Decode(&pageTable)
+	var bodyFrame BodyFrame
+	err := json.NewDecoder(r.Body).Decode(&bodyFrame)
 	if err != nil {
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
 		return
 	}
-	log.Printf("Marco recibido desde la memoria: %+v", pageTable)
+	log.Printf("Marco recibido desde la memoria: %+v", bodyFrame)
 
-	MemoryFrame = pageTable.Page
+	MemoryFrame = bodyFrame.Frame
 
 	w.WriteHeader(http.StatusOK)
 }

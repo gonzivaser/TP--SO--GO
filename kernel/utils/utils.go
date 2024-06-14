@@ -127,6 +127,11 @@ type BodyRegisters struct {
 	IOpid     int   `json:"iopid"`
 }
 
+type Process struct {
+	PID   int `json:"pid"`
+	Pages int `json:"pages,omitempty"`
+}
+
 var interfaces []interfaz
 
 /*---------------------------------------------------VAR GLOBALES------------------------------------------------*/
@@ -222,6 +227,32 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func createStructuresMemory(pid int, pages int) error {
+	memoriaURL := fmt.Sprintf("http://localhost:%d/createProcess", globals.ClientConfig.PuertoMemoria)
+	var process Process
+	process.PID = pid
+	process.Pages = pages
+
+	processBytes, err := json.Marshal(process)
+	if err != nil {
+		return fmt.Errorf("error al serializar los datos JSON: %v", err)
+	}
+
+	log.Println("Enviando solicitud con contenido:", string(processBytes))
+
+	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(processBytes))
+	if err != nil {
+		return fmt.Errorf("error al enviar la solicitud al módulo de entradasalida: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("error en la respuesta del módulo de memoria: %v", resp.StatusCode)
+	}
+	log.Println("Respuesta del módulo de entradasalida recibida correctamente.")
+	return nil
+}
+
 func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	var request BodyRequest
 	err := json.NewDecoder(r.Body).Decode(&request)
@@ -235,7 +266,7 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	// Create PCB
 	pcb := createPCB()
 	log.Printf("Se crea el proceso %v en NEW", pcb.Pid) // log obligatorio
-
+	createStructuresMemory(pcb.Pid, 1)
 	IniciarPlanificacionDeProcesos(request, pcb)
 
 	// Response with the PID

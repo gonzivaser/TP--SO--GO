@@ -97,10 +97,9 @@ func init() {
 }
 
 type BodyRequestInput struct {
-	NombreInterfaz string `json:"nombreInterfaz"`
-	Input          string `json:"input"`
-	Address        []int  `json:"address"`
-	Pid            int    `json:"pid"`
+	Input   string `json:"input"`
+	Address []int  `json:"address"`
+	Pid     int    `json:"pid"`
 }
 
 type bodyCPUpage struct {
@@ -273,8 +272,10 @@ func ResizeProcessHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	Pid := process.PID
+	Pages := process.Pages
 
-	err := ResizeProcess(process.PID, process.Pages)
+	err := ResizeProcess(Pid, Pages)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
