@@ -7,7 +7,7 @@
     "planning_algorithm": "VRR",
     "quantum": 5000,
     "resources": ["RECURSO_1","RECURSO_2","RECURSO_3"],
-    "resource_instances": [2,2,1],
+    "resource_instances": [0,2,1],
     "multiprogramming": 10 
 }
 

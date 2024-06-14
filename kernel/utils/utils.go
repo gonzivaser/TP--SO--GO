@@ -215,7 +215,7 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	case "FINALIZADO":
 		log.Printf("Finaliza el proceso %v - Motivo: SUCCESS", CPURequest.PcbUpdated.Pid)
 
-		CPURequest.PcbUpdated.State = "EXIT"
+		procesoEXEC.PCB.State = "EXIT"
 		//meter en cola exit
 		mutexExit.Lock()
 		colaExit = append(colaExit, *procesoEXEC.PCB)
@@ -224,16 +224,17 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	case "INTERRUPCION POR IO":
 		// aca manejar el handelSyscallIo
 		//ioChannel <- CPURequest //meto erl proceso en IO para atender ESTO HAY QUE VERLO
-		CPURequest.PcbUpdated.State = "BLOCKED"
+		procesoEXEC.PCB.State = "BLOCKED"
 		go handleSyscallIO(*procesoEXEC.PCB, CPURequest.TimeIO, CPURequest.Interface, CPURequest.IoType)
 
 	case "CLOCK":
 		log.Printf("PID: %v desalojado por fin de Quantum", CPURequest.PcbUpdated.Pid)
 		go enqueueProcess(*procesoEXEC.PCB)
-		CPURequest.PcbUpdated.State = "BLOCKED"
+		//procesoEXEC.PCB.State = "BLOCKED"
 		//actualizo el proceso
 		//volver a meter proceso en ready
 	case "WAIT":
+		procesoEXEC.PCB.State = "BLOCKED"
 		go waitHandler(*procesoEXEC.PCB, CPURequest.Recurso)
 
 	default:
@@ -891,14 +892,28 @@ func findPID(pid int) string {
 	return "PID not found"
 }
 func eliminarProceso(pid int) error {
+	var findIt = false
 	colas := []*[]PCB{&colaNew, &colaReady, &colaReadyVRR}
 	for _, cola := range colas {
 		for i, proceso := range *cola {
 			if proceso.Pid == pid {
 				// Eliminar el proceso de la cola
+				findIt = true
 				*cola = append((*cola)[:i], (*cola)[i+1:]...)
 				log.Printf("Proceso %v eliminado de la cola: %v", pid, cola)
 				return nil
+			}
+		}
+	}
+	if !findIt {
+		for key, cola := range colaBlocked {
+			for i, proceso := range cola {
+				if proceso.Pid == pid {
+					// Eliminar el proceso de la cola
+					colaBlocked[key] = append(cola[:i], cola[i+1:]...)
+					log.Printf("Proceso %v eliminado de la cola: %v", pid, key)
+					return nil
+				}
 			}
 		}
 	}

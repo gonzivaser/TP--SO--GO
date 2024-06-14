@@ -237,13 +237,13 @@ func AssignAddressToProcess(pid int, address int) error {
 }
 
 func TerminateProcessHandler(w http.ResponseWriter, r *http.Request) {
-	var process Process
-	if err := json.NewDecoder(r.Body).Decode(&process); err != nil {
+	var PID int
+	if err := json.NewDecoder(r.Body).Decode(&PID); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if err := TerminateProcess(process.PID); err != nil {
+	if err := TerminateProcess(PID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
