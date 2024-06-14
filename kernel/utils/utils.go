@@ -186,8 +186,8 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 		//meter en cola exit
 	case "INTERRUPCION POR IO":
 		// aca manejar el handelSyscallIo
-		ioChannel <- CPURequest //meto erl proceso en IO para atender ESTO HAY QUE VERLO
-		go handleSyscallIO(CPURequest)
+		//ioChannel <- CPURequest //meto erl proceso en IO para atender ESTO HAY QUE VERLO
+		handleSyscallIO(CPURequest)
 		CPURequest.PcbUpdated.State = "BLOCKED"
 	case "CLOCK":
 		log.Printf("Proceso %v desalojado por fin de Quantum", CPURequest.PcbUpdated.Pid)

@@ -458,14 +458,14 @@ func SendContentToIO(content string) error {
 }
 
 func GetPageFromCPU(w http.ResponseWriter, r *http.Request) {
-	var bodyCPUpage bodyCPUpage
-	err := json.NewDecoder(r.Body).Decode(&bodyCPUpage)
+	var bodyCPUpage1 bodyCPUpage
+	err := json.NewDecoder(r.Body).Decode(&bodyCPUpage1)
 	if err != nil {
 		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
 		return
 	}
-	CPUpid = bodyCPUpage.Pid
-	CPUpage = bodyCPUpage.Page
+	CPUpid = bodyCPUpage1.Pid
+	CPUpage = bodyCPUpage1.Page
 
 	sendFrameToCPU(CPUpid, CPUpage)
 

@@ -533,14 +533,8 @@ func IO(kind string, words []string) error {
 	return nil
 }
 
-/*
-type RegisterCPU struct {
-	PC, EAX, EBX, ECX, EDX, SI, DI uint32
-	AX, BX, CX, DX                 uint8
-}
-*/
-
 func verificarRegistro(registerName string) int {
+	fmt.Println(&requestCPU)
 	var registerValue int
 	switch registerName {
 	case "AX":
@@ -682,7 +676,7 @@ func FetchFrameFromMemory(pid, pageNumber int) error {
 
 	log.Println("Enviando solicitud con contenido:", pageTableJSON)
 
-	resp, err := http.Post(memoryURL, "application/json", nil)
+	resp, err := http.Post(memoryURL, "application/json", bytes.NewBuffer(pageTableJSON))
 	if err != nil {
 		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
 	}
@@ -711,7 +705,14 @@ func sendResizeMemory(tam int) {
 	var process bodyProcess
 	process.Pid = contextoDeEjecucion.Pid
 	process.Pages = tam
-	resp, err := http.Post(memoriaURL, "application/json", nil)
+
+	bodyResizeJSON, err := json.Marshal(process)
+	if err != nil {
+		log.Fatalf("Error al serializar el Input: %v", err)
+	}
+
+	log.Println("Enviando solicitud con contenido:", bodyResizeJSON)
+	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(bodyResizeJSON))
 	if err != nil {
 		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
 	}
@@ -720,11 +721,17 @@ func sendResizeMemory(tam int) {
 }
 
 func sendREGtoKernel(addres []int, length int) {
-	kernelURL := fmt.Sprintf("http://localhost:%d/sendREGtoKernel", globals.ClientConfig.PortKernel)
+	kernelURL := fmt.Sprintf("http://localhost:%d/recieveREG", globals.ClientConfig.PortKernel)
 	var BodyRegisters bodyRegisters
 	BodyRegisters.DirFisica = addres
 	BodyRegisters.LengthREG = length
-	resp, err := http.Post(kernelURL, "application/json", nil)
+
+	BodyRegistersJSON, err := json.Marshal(BodyRegisters)
+	if err != nil {
+		log.Fatalf("Error al serializar el Input: %v", err)
+	}
+
+	resp, err := http.Post(kernelURL, "application/json", bytes.NewBuffer(BodyRegistersJSON))
 	if err != nil {
 		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
 	}
