@@ -820,9 +820,11 @@ func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
 
 	if pcb.State == "EXEC" {
 		SendInterrupt(pcb.Pid, "EXIT")
+		deletePagesmemory(pcb.Pid)
 	} else {
 
 		eliminarProceso(pcb.Pid)
+		deletePagesmemory(pcb.Pid)
 	}
 
 	mutexExit.Lock()
@@ -832,6 +834,20 @@ func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
 	responseOK := fmt.Sprintf("Process finalized: %v", pcb.Pid)
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(responseOK))
+}
+
+func deletePagesmemory(pid int) {
+	memoriaURL := fmt.Sprintf("http://localhost:8085/terminateProcess?pid=%d", pid)
+	resp, err := http.Post(memoriaURL, "application/json", nil)
+	if err != nil {
+		log.Printf("Error al enviar la solicitud al módulo de memoria: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("Error en la respuesta del módulo de memoria: %v", resp.StatusCode)
+	}
 }
 
 func EstadoProceso(w http.ResponseWriter, r *http.Request) {

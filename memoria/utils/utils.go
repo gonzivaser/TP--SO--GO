@@ -238,8 +238,16 @@ func AssignAddressToProcess(pid int, address int) error {
 
 func TerminateProcessHandler(w http.ResponseWriter, r *http.Request) {
 	var PID int
-	if err := json.NewDecoder(r.Body).Decode(&PID); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	pidStr := r.URL.Query().Get("pid")
+
+	if pidStr == "" {
+		http.Error(w, "PID no especificado", http.StatusBadRequest)
+		return
+	}
+
+	PID, err := strconv.Atoi(pidStr)
+	if err != nil {
+		http.Error(w, "PID debe ser un número", http.StatusBadRequest)
 		return
 	}
 
