@@ -124,6 +124,7 @@ type interfaz struct {
 type BodyRegisters struct {
 	DirFisica []int `json:"dirFisica"`
 	LengthREG int   `json:"lengthREG"`
+	IOpid     int   `json:"iopid"`
 }
 
 var interfaces []interfaz
@@ -136,6 +137,7 @@ var (
 	nextPid      = 1
 	DirFisica    []int
 	LengthREG    int
+	IOpid        int
 	//CPURequest   KernelRequest
 
 )
@@ -187,7 +189,8 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	case "INTERRUPCION POR IO":
 		// aca manejar el handelSyscallIo
 		//ioChannel <- CPURequest //meto erl proceso en IO para atender ESTO HAY QUE VERLO
-		handleSyscallIO(CPURequest)
+		go handleSyscallIO(CPURequest)
+		IOpid = CPURequest.PcbUpdated.Pid
 		CPURequest.PcbUpdated.State = "BLOCKED"
 	case "CLOCK":
 		log.Printf("Proceso %v desalojado por fin de Quantum", CPURequest.PcbUpdated.Pid)
@@ -518,12 +521,13 @@ func RecieveREGFromCPU(w http.ResponseWriter, r *http.Request) {
 }
 
 func SendREGtoIO(REGdireccion []int, lengthREG int, port int) error {
-	ioURL := fmt.Sprintf("http://localhost:%d/ReceiveREGFromCPU", port)
-	body := BodyRegisters{
-		DirFisica: REGdireccion,
-		LengthREG: lengthREG,
-	}
-	savedRegJSON, err := json.Marshal(body)
+	ioURL := fmt.Sprintf("http://localhost:%d/recieveREG", port)
+	var BodyRegister BodyRegisters
+	BodyRegister.DirFisica = REGdireccion
+	BodyRegister.LengthREG = lengthREG
+	BodyRegister.IOpid = IOpid
+
+	savedRegJSON, err := json.Marshal(BodyRegister)
 	if err != nil {
 		return fmt.Errorf("error al serializar los datos JSON: %v", err)
 	}

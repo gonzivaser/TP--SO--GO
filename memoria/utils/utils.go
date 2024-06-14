@@ -99,7 +99,7 @@ func init() {
 type BodyRequestInput struct {
 	NombreInterfaz string `json:"nombreInterfaz"`
 	Input          string `json:"input"`
-	Address        int    `json:"address"`
+	Address        []int  `json:"address"`
 	Pid            int    `json:"pid"`
 }
 
@@ -110,7 +110,7 @@ type bodyCPUpage struct {
 
 var adress []int
 var length int
-var IOaddress int
+var IOaddress []int
 var IOpid int
 var IOinput string
 var IOPort int
@@ -274,7 +274,8 @@ func ResizeProcessHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := ResizeProcess(process.PID, process.Pages); err != nil {
+	err := ResizeProcess(process.PID, process.Pages)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -379,9 +380,14 @@ func RecieveInputSTDINFromIO(w http.ResponseWriter, r *http.Request) {
 	IOaddress = inputRecieved.Address
 	IOpid = inputRecieved.Pid
 
-	_ = WriteMemory(IOaddress, []byte(IOinput)) //Copio en memoria lo recibido por IO
-	AssignAddressToProcess(IOpid, IOaddress)    //Asigno la direccion fisica al proceso
+	var IOinputMemoria []byte = []byte(IOinput)
 
+	for i := 0; i < len(IOaddress) && len(IOinputMemoria) < globals.ClientConfig.PageSize; i++ {
+		_ = WriteMemory(IOaddress[i], IOinputMemoria)
+		AssignAddressToProcess(IOpid, IOaddress[i])
+	}
+
+	//16*i + 16*(i+1)
 	fmt.Println(memory)
 
 	w.WriteHeader(http.StatusOK)
@@ -476,15 +482,8 @@ func GetPageFromCPU(w http.ResponseWriter, r *http.Request) {
 func sendFrameToCPU(pid int, page int) error {
 	var bodyFrame BodyFrame
 	CPUurl := fmt.Sprintf("http://localhost:%d/recieveFrame", globals.ClientConfig.PuertoCPU)
-
-	var cnt int
-	for id, pages := range pageTable {
-		if id < pid {
-			cnt += len(pages)
-		}
-	}
-
-	bodyFrame.Frame = cnt + page
+	frame := pageTable[pid][page]
+	bodyFrame.Frame = frame
 	FrameResponseTest, err := json.Marshal(bodyFrame)
 	if err != nil {
 		log.Fatalf("Error al serializar el frame: %v", err)

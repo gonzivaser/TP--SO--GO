@@ -701,7 +701,7 @@ func RecieveFramefromMemory(w http.ResponseWriter, r *http.Request) {
 }
 
 func sendResizeMemory(tam int) {
-	memoriaURL := fmt.Sprintf("http://localhost:%d//resizeProcess", globals.ClientConfig.PortMemory)
+	memoriaURL := fmt.Sprintf("http://localhost:%d/resizeProcess", globals.ClientConfig.PortMemory)
 	var process bodyProcess
 	process.Pid = contextoDeEjecucion.Pid
 	process.Pages = tam

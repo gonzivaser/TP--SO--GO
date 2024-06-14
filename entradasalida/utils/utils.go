@@ -53,9 +53,9 @@ type BodyRequestPort struct {
 }
 
 type BodyRequestRegister struct {
-	Length  int   `json:"length"`
-	Address []int `json:"address"`
-	Pid     int   `json:"pid"`
+	Length  int   `json:"lengthREG"`
+	Address []int `json:"dirFisica"`
+	Pid     int   `json:"iopid"`
 }
 
 type BodyRequestInput struct {
@@ -336,10 +336,11 @@ func (Interfaz *InterfazIO) IO_STDIN_READ(lengthREG int) {
 	var input string
 
 	fmt.Print("Ingrese por teclado: ")
-	_, err := fmt.Scanln(&input)
+	/*_, err := fmt.Scanln(&input)
 	if err != nil {
 		log.Fatalf("Error al leer desde stdin: %v", err)
-	}
+	}*/
+	input = "hola"
 	if len(input) > lengthREG {
 		input = input[:lengthREG]
 		log.Println("El texto ingresado es mayor al tamaño del registro, se truncará a: ", input)
@@ -349,7 +350,7 @@ func (Interfaz *InterfazIO) IO_STDIN_READ(lengthREG int) {
 	BodyInput.Address = direccionFisica
 	BodyInput.Pid = pid
 	// Guardar el texto en la memoria en la dirección especificada
-	err = SendInputSTDINToMemory(&BodyInput)
+	err := SendInputSTDINToMemory(&BodyInput)
 	if err != nil {
 		log.Fatalf("Error al escribir en la memoria: %v", err)
 	}
