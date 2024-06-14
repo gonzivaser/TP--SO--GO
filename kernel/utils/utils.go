@@ -18,6 +18,7 @@ Para las operaciones de WAIT y SIGNAL donde no se cumpla que el recurso exista, 
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -141,8 +142,9 @@ type KernelRequest struct {
 }
 
 type RequestInterrupt struct {
-	Interrupt bool `json:"interrupt"`
-	PID       int  `json:"pid"`
+	Interrupt bool   `json:"interrupt"`
+	PID       int    `json:"pid"`
+	Motivo    string `json:"motivo"`
 }
 
 /*---------------------------------------------------VAR GLOBALES------------------------------------------------*/
@@ -510,9 +512,13 @@ func executeProcessFIFO() {
 	for {
 
 		//mutex para no enviar dos procesos al mismo timepo a cpu
-		mutexExecutionCPU.Lock()
+
 		proceso := <-readyChannel
-		executeTask(proceso)
+		if len(colaReady) > 0 {
+			mutexExecutionCPU.Lock()
+			proceso = colaReady[0]
+			executeTask(proceso)
+		}
 
 	}
 
@@ -521,13 +527,13 @@ func executeProcessFIFO() {
 func executeProcessRR(quantum int) {
 
 	for {
-		mutexExecutionCPU.Lock()
 		proceso := <-readyChannel
-		proceso = colaReady[0]
-		//log.Printf("Proceso recibido de readyChannel: %d", proceso.Pid)
-		startQuantum(quantum, &proceso)
-		executeTask(proceso)
-		//mutexExecutionCPU.Unlock()
+		if len(colaReady) > 0 {
+			mutexExecutionCPU.Lock()
+			proceso = colaReady[0]
+			startQuantum(quantum, &proceso)
+			executeTask(proceso)
+		}
 
 	}
 
@@ -535,27 +541,27 @@ func executeProcessRR(quantum int) {
 
 func executeProcessVRR() {
 	for {
-		mutexExecutionCPU.Lock()
+
 		var proceso PCB
 		var quantum int
 
 		proceso = <-readyChannel
 		fmt.Printf("Process %d arrived in the ready queue\n", proceso.Pid)
 		if len(colaReadyVRR) > 0 {
+			mutexExecutionCPU.Lock()
 			proceso = colaReadyVRR[0]
-			//log.Printf("Proceso recibido de readyChannelVRR: %d", proceso.Pid)
-		} else {
-			proceso = colaReady[0]
-		}
-
-		if proceso.Quantum > 0 {
 			quantum = proceso.Quantum
-		} else {
+			startQuantum(quantum, &proceso)
+			executeTask(proceso)
+
+		} else if len(colaReady) > 0 {
+			mutexExecutionCPU.Lock()
+			proceso = colaReady[0]
 			quantum = globals.ClientConfig.Quantum
+			startQuantum(quantum, &proceso)
+			executeTask(proceso)
 		}
 
-		startQuantum(quantum, &proceso)
-		executeTask(proceso)
 	}
 }
 func startQuantum(quantum int, proceso *PCB) {
@@ -572,7 +578,7 @@ func startQuantum(quantum int, proceso *PCB) {
 				quantum -= 10
 				//log.Printf("PID %d - Quantum restante: %d", proceso.Pid, quantum)
 				if quantum == 0 {
-					if err := SendInterruptForClock(proceso.Pid); err != nil {
+					if err := SendInterrupt(proceso.Pid, "CLOCK"); err != nil {
 						log.Printf("Error sending interrupt to CPU: %v", err)
 					}
 					procesoEXEC.PCB.Quantum = quantum
@@ -716,12 +722,13 @@ func RecievePort(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf("Port received: %d", requestPort.Port)))
 }
 
-func SendInterruptForClock(pid int) error {
+func SendInterrupt(pid int, motivo string) error {
 	cpuURL := "http://localhost:8075/interrupt"
 
 	RequestInterrupt := RequestInterrupt{
 		Interrupt: true,
 		PID:       pid,
+		Motivo:    motivo,
 	}
 
 	hayQuantumBytes, err := json.Marshal(RequestInterrupt)
@@ -810,6 +817,13 @@ func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
 
 	//Llamar a funcion que finalioza el proceso
 
+	if pcb.State == "EXEC" {
+		SendInterrupt(pcb.Pid, "EXIT")
+	} else {
+
+		eliminarProceso(pcb.Pid)
+	}
+
 	mutexExit.Lock()
 	colaExit = append(colaExit, pcb)
 	mutexExit.Unlock()
@@ -875,6 +889,20 @@ func findPID(pid int) string {
 	}
 
 	return "PID not found"
+}
+func eliminarProceso(pid int) error {
+	colas := []*[]PCB{&colaNew, &colaReady, &colaReadyVRR}
+	for _, cola := range colas {
+		for i, proceso := range *cola {
+			if proceso.Pid == pid {
+				// Eliminar el proceso de la cola
+				*cola = append((*cola)[:i], (*cola)[i+1:]...)
+				log.Printf("Proceso %v eliminado de la cola: %v", pid, cola)
+				return nil
+			}
+		}
+	}
+	return errors.New("Proceso no encontrado")
 }
 
 type ProcessState struct {

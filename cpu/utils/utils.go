@@ -47,8 +47,9 @@ type BodyResponseInstruction struct {
 }
 
 type ResponseQuantum struct {
-	Interrupt bool `json:"interrupt"`
-	Pid       int  `json:"pid"`
+	Interrupt bool   `json:"interrupt"`
+	Pid       int    `json:"pid"`
+	Motivo    string `json:"motivo"`
 }
 
 type ResponseWait struct {
@@ -58,7 +59,7 @@ type ResponseWait struct {
 
 var interrupt bool = false
 var requestCPU KernelRequest
-var responseQuantum ResponseQuantum
+var responseInterrupt ResponseQuantum
 
 func init() {
 	globals.ClientConfig = IniciarConfiguracion("config.json") // tiene que prender la confi cuando arranca
@@ -114,9 +115,10 @@ func InstructionCycle(contextoDeEjecucion ExecutionContext) {
 		time.Sleep(1 * time.Second)
 		log.Printf("PID: %d - Ejecutando: %s - %s”.", contextoDeEjecucion.Pid, instruction, line)
 		Execute(instruction, line, &contextoDeEjecucion)
-
-		if responseQuantum.Interrupt && responseQuantum.Pid == contextoDeEjecucion.Pid || interrupt {
-			responseQuantum.Interrupt = false
+		// responseInterrupt.Interrupt ---> ese de clock y finalizacion
+		// interrupt ---> ese de io y wait
+		if responseInterrupt.Interrupt && responseInterrupt.Pid == contextoDeEjecucion.Pid || interrupt {
+			responseInterrupt.Interrupt = false
 			interrupt = false
 			break
 		}
@@ -124,9 +126,8 @@ func InstructionCycle(contextoDeEjecucion ExecutionContext) {
 	}
 	log.Printf("PID: %d - Sale de CPU - PCB actualizado: %d\n", contextoDeEjecucion.Pid, contextoDeEjecucion.CpuReg) //LOG no official
 
-	if requestCPU.MotivoDesalojo != "FINALIZADO" && requestCPU.MotivoDesalojo != "INTERRUPCION POR IO" && requestCPU.MotivoDesalojo != "WAIT" && requestCPU.MotivoDesalojo != "SIGNAL" {
-		requestCPU.MotivoDesalojo = "CLOCK"
-
+	if requestCPU.MotivoDesalojo == "" {
+		requestCPU.MotivoDesalojo = responseInterrupt.Motivo
 	}
 	requestCPU.PcbUpdated = contextoDeEjecucion
 	responsePCBtoKernel()
@@ -567,7 +568,7 @@ func CheckWait(w http.ResponseWriter, r *http.Request, registerCPU *ExecutionCon
 func Checkinterrupts(w http.ResponseWriter, r *http.Request) { // A chequear
 	log.Printf("Recibiendo solicitud de Interrupcion del Kernel")
 
-	err := json.NewDecoder(r.Body).Decode(&responseQuantum)
+	err := json.NewDecoder(r.Body).Decode(&responseInterrupt)
 	if err != nil {
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
 		return
