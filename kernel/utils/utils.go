@@ -111,11 +111,13 @@ type Payload struct {
 type BodyRequestPort struct {
 	Nombre string `json:"nombre"`
 	Port   int    `json:"port"`
+	Type   string `json:"type"`
 }
 
 type interfaz struct {
 	Name string
 	Port int
+	Type string
 }
 
 var interfaces []interfaz
@@ -221,7 +223,7 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 		// aca manejar el handelSyscallIo
 		//ioChannel <- CPURequest //meto erl proceso en IO para atender ESTO HAY QUE VERLO
 		CPURequest.PcbUpdated.State = "BLOCKED"
-		go handleSyscallIO(*procesoEXEC.PCB, CPURequest.TimeIO, CPURequest.Interface)
+		go handleSyscallIO(*procesoEXEC.PCB, CPURequest.TimeIO, CPURequest.Interface, CPURequest.IoType)
 
 	case "CLOCK":
 		log.Printf("PID: %v desalojado por fin de Quantum", CPURequest.PcbUpdated.Pid)
@@ -427,9 +429,9 @@ func HandleSignal(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"success": "true"}`))
 }
 
-func handleSyscallIO(pcb PCB, timeIo int, ioInterface string) {
-	if !InterfazExiste(ioInterface) {
-		log.Printf("La interfaz %s no existe", ioInterface)
+func handleSyscallIO(pcb PCB, timeIo int, ioInterface string, ioType string) {
+	if !InterfazExiste(ioInterface, ioType) {
+		log.Printf("Error de interfaces")
 		log.Printf("Finaliza el proceso %v - Motivo: SUCCESS", pcb.Pid)
 		//Llamar a funcion que finalioza el proceso aca se esta terminando y no se porque
 		mutexExit.Lock()
@@ -467,9 +469,9 @@ func handleSyscallIO(pcb PCB, timeIo int, ioInterface string) {
 	enqueueProcess(pcb)
 }
 
-func InterfazExiste(nombre string) bool {
+func InterfazExiste(nombre string, ioType string) bool {
 	for _, interfaz := range interfaces {
-		if interfaz.Name == nombre {
+		if interfaz.Name == nombre && interfaz.Type == ioType {
 			return true
 		}
 	}
@@ -705,6 +707,7 @@ func RecievePort(w http.ResponseWriter, r *http.Request) {
 	}
 	interfaz.Name = requestPort.Nombre
 	interfaz.Port = requestPort.Port
+	interfaz.Type = requestPort.Type
 
 	interfaces = append(interfaces, interfaz)
 	log.Printf("Puerto de Io recibido: %+v", requestPort)

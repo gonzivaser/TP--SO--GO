@@ -50,6 +50,7 @@ func IniciarConfiguracion(filePath string) *globals.Config {
 type BodyRequestPort struct {
 	Nombre string `json:"nombre"`
 	Port   int    `json:"port"`
+	Type   string `json:"type"`
 }
 
 type BodyRequestRegister struct {
@@ -167,18 +168,21 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func SendPort(nombreInterfaz string, pathToConfig string) error {
+func SendPort(nombreInterfaz string, pathToConfig string, ioType string) error {
 	config, err := LoadConfig(pathToConfig)
 	if err != nil {
 		log.Fatalf("Error al cargar la configuración desde '%s': %v", pathToConfig, err)
 	}
 	Puerto = config.Puerto
 	PuertoKernel := config.PuertoKernel
+	IoTyoe := config.Tipo
+
 	kernelURL := fmt.Sprintf("http://localhost:%d/recievePort", PuertoKernel)
 
 	port := BodyRequestPort{
 		Nombre: nombreInterfaz,
 		Port:   Puerto,
+		Type:   IoTyoe,
 	}
 	portJSON, err := json.Marshal(port)
 	if err != nil {

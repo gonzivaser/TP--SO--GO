@@ -441,7 +441,7 @@ func IO(kind string, words []string) error {
 		log.Printf("PID IO: %d - %v", contextoDeEjecucion.Pid, contextoDeEjecucion)
 		requestCPU = KernelRequest{
 			MotivoDesalojo: "INTERRUPCION POR IO",
-			IoType:         "IO_GEN_SLEEP",
+			IoType:         "GENERICA",
 			Interface:      words[1],
 			TimeIO:         timeIO,
 		}
