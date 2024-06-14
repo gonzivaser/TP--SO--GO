@@ -48,7 +48,8 @@ func IniciarConfiguracion(filePath string) *globals.Config {
 
 /*---------------------------------------------------- STRUCTS ------------------------------------------------------*/
 type BodyRequestPort struct {
-	Port int `json:"port"`
+	Nombre string `json:"nombre"`
+	Port   int    `json:"port"`
 }
 
 type BodyRequestRegister struct {
@@ -165,11 +166,12 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func SendPortOfInterfaceToKernel(Puerto1 int) error {
-	kernelURL := fmt.Sprintf("http://localhost:%d/recievePort", config.PuertoKernel)
+func SendPortOfInterfaceToKernel(nombreInterfaz string, config *globals.Config) error {
+	kernelURL := fmt.Sprintf("http://localhost:%d/SendPortOfInterfaceToKernel", config.PuertoKernel)
 
 	port := BodyRequestPort{
-		Port: Puerto1,
+		Nombre: nombreInterfaz,
+		Port:   config.Puerto,
 	}
 	portJSON, err := json.Marshal(port)
 	if err != nil {
@@ -313,7 +315,7 @@ func (Interfaz *InterfazIO) IO_STDOUT_WRITE(adress []int, length int) {
 
 	Bodyadress.Adress = adress
 	Bodyadress.Length = length
-	SendPortOfInterfaceToKernel(config.PuertoKernel)
+
 	err1 := SendAdressSTDOUTToMemory(Bodyadress, length)
 	if err1 != nil {
 		log.Fatalf("Error al leer desde la memoria: %v", err)

@@ -22,6 +22,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error al cargar la configuración desde '%s': %v", pathToConfig, err)
 	}
+	utils.SendPortOfInterfaceToKernel(interfaceName, config)
 	Puerto := config.Puerto
 	//http.HandleFunc("GET /input", utils.Prueba)
 	http.HandleFunc("POST /recieveREG", utils.RecieveREG)
