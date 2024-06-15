@@ -20,8 +20,9 @@ type BodyRequest struct {
 }
 
 type BodyAdress struct {
-	Adress []int `json:"adress"`
-	Length int   `json:"length"`
+	Address []int  `json:"address"`
+	Length  int    `json:"length"`
+	Name    string `json:"name"`
 }
 
 type BodyContent struct {
@@ -42,10 +43,13 @@ type RegisterCPU struct {
 	AX, BX, CX, DX                 uint8
 }
 
+/////////////////////////////////////////////////// VARS GLOBALES DE MEMORIA //////////////////////////////////////////////////////////////
+
 var mapInstructions = make(map[int][][]string)
 
 // Tamaño de página y memoria
 var pageSize int
+
 var memorySize int
 
 // Espacio de memoria
@@ -53,6 +57,8 @@ var memory []byte
 
 // Tabla de páginas
 var pageTable = make(map[int][]int) // Map de pids con pagina asociada, cuya pagina tiene un marco asociado
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Mutex para manejar la concurrencia
 var mu sync.Mutex
@@ -84,18 +90,6 @@ type interfaz struct {
 	Port int
 }
 
-func init() {
-	globals.ClientConfig = IniciarConfiguracion("config.json") // tiene que prender la confi cuando arranca
-
-	if globals.ClientConfig != nil {
-		pageSize = globals.ClientConfig.PageSize
-		memorySize = globals.ClientConfig.MemorySize
-		memory = make([]byte, memorySize)
-	} else {
-		log.Fatal("ClientConfig is not initialized")
-	}
-}
-
 type BodyRequestInput struct {
 	Input   string `json:"input"`
 	Address []int  `json:"address"`
@@ -107,14 +101,33 @@ type bodyCPUpage struct {
 	Page int `json:"page"`
 }
 
-var adress []int
-var length int
+/////////////////////////////////////////////////// VARS GLOBALES ///////////////////////////////////////////////////////////////////////
+
+var addressGLOBAL []int
+var lengthGLOBAL int
 var IOaddress []int
 var IOpid int
 var IOinput string
 var IOPort int
 var CPUpid int
 var CPUpage int
+
+var GLOBALnameSTDOUT string
+var interfacesGLOBAL []interfaz
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func init() {
+	globals.ClientConfig = IniciarConfiguracion("config.json") // tiene que prender la confi cuando arranca
+
+	if globals.ClientConfig != nil {
+		pageSize = globals.ClientConfig.PageSize
+		memorySize = globals.ClientConfig.MemorySize
+		memory = make([]byte, memorySize)
+	} else {
+		log.Fatal("ClientConfig is not initialized")
+	}
+}
 
 func IniciarConfiguracion(filePath string) *globals.Config {
 	var config *globals.Config
@@ -417,23 +430,24 @@ func RecieveAdressSTDOUTFromIO(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	adress = BodyRequestAdress.Adress
-	length = BodyRequestAdress.Length
+	addressGLOBAL = BodyRequestAdress.Address
+	lengthGLOBAL = BodyRequestAdress.Length
+	GLOBALnameSTDOUT = BodyRequestAdress.Name
 
 	var data []byte
-	for i := 0; i < len(adress); i++ {
-		data, err = ReadMemory(IOpid, adress[i], length)
+	for i := 0; i < len(addressGLOBAL); i++ {
+		data, err = ReadMemory(IOpid, addressGLOBAL[i], lengthGLOBAL)
 		data = append(data, []byte("\n")...)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
-	// data := memory[adress : adress+length]
+	// data := memory[address : address+lengthGLOBAL]
 	SendContentToIO(string(data))
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Adress recibido correctamente"))
+	w.Write([]byte("address recibido correctamente"))
 }
 
 func RecievePortOfInterfaceFromKernel(w http.ResponseWriter, r *http.Request) {
@@ -445,18 +459,28 @@ func RecievePortOfInterfaceFromKernel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	interfaz.Name = requestPort.Nombre
-	IOPort = requestPort.Port
+	interfaz.Port = requestPort.Port
 
-	log.Printf("Received data: %+v", requestPort)
+	interfacesGLOBAL = append(interfacesGLOBAL, interfaz)
+	log.Printf("Received data: %+v", interfacesGLOBAL)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("Port received: %d", requestPort.Port)))
 }
 
 func SendContentToIO(content string) error {
-	var BodyContent BodyContent
+	var interfazEncontrada interfaz // Asume que Interfaz es el tipo de tus interfaces
+	interfazEncontrada.Name = GLOBALnameSTDOUT
 
-	IOurl := fmt.Sprintf("http://localhost:%d/receiveContentFromMemory", IOPort)
+	for _, interfaz := range interfacesGLOBAL {
+		if interfaz.Name == GLOBALnameSTDOUT {
+			interfazEncontrada = interfaz
+			break
+		}
+	}
+	var BodyContent BodyContent
+	BodyContent.Content = content
+	IOurl := fmt.Sprintf("http://localhost:%d/receiveContentFromMemory", interfazEncontrada.Port)
 	ContentResponseTest, err := json.Marshal(BodyContent)
 	if err != nil {
 		log.Fatalf("Error al serializar el Input: %v", err)
