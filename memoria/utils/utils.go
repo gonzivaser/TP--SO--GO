@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 
 	"github.com/sisoputnfrba/tp-golang/memoria/globals"
 )
@@ -17,6 +19,14 @@ type BodyRequest struct {
 	Path string `json:"path"`
 }
 
+type BodyAdress struct {
+	Adress []int `json:"adress"`
+	Length int   `json:"length"`
+}
+
+type BodyContent struct {
+	Content string `json:"content"`
+}
 type InstructionResposne struct {
 	Instruction string `json:"instruction"`
 }
@@ -32,7 +42,80 @@ type RegisterCPU struct {
 	AX, BX, CX, DX                 uint8
 }
 
-var m = make(map[int][][]string)
+var mapInstructions = make(map[int][][]string)
+
+// Tamaño de página y memoria
+var pageSize int
+var memorySize int
+
+// Espacio de memoria
+var memory []byte
+
+// Tabla de páginas
+var pageTable = make(map[int][]int) // Map de pids con pagina asociada, cuya pagina tiene un marco asociado
+
+// Mutex para manejar la concurrencia
+var mu sync.Mutex
+
+// Estructura del proceso
+type Process struct {
+	PID   int `json:"pid"`
+	Pages int `json:"pages,omitempty"`
+}
+
+// Estructura de la solicitud de lectura/escritura
+type MemoryRequest struct {
+	PID     int    `json:"pid"`
+	Address int    `json:"address"`
+	Size    int    `json:"size,omitempty"` //Si es 0, se omite (Util para creacion y terminacion de procesos)
+	Data    []byte `json:"data,omitempty"` //Si es 0, se omite Util para creacion y terminacion de procesos)
+}
+
+type BodyFrame struct {
+	Frame int `json:"frame"`
+}
+
+type BodyRequestPort struct {
+	Nombre string `json:"nombre"`
+	Port   int    `json:"port"`
+}
+type interfaz struct {
+	Name string
+	Port int
+}
+
+func init() {
+	globals.ClientConfig = IniciarConfiguracion("config.json") // tiene que prender la confi cuando arranca
+
+	if globals.ClientConfig != nil {
+		pageSize = globals.ClientConfig.PageSize
+		memorySize = globals.ClientConfig.MemorySize
+		memory = make([]byte, memorySize)
+	} else {
+		log.Fatal("ClientConfig is not initialized")
+	}
+}
+
+type BodyRequestInput struct {
+	NombreInterfaz string `json:"nombreInterfaz"`
+	Input          string `json:"input"`
+	Address        int    `json:"address"`
+	Pid            int    `json:"pid"`
+}
+
+type bodyCPUpage struct {
+	Pid  int `json:"pid"`
+	Page int `json:"page"`
+}
+
+var adress []int
+var length int
+var IOaddress int
+var IOpid int
+var IOinput string
+var IOPort int
+var CPUpid int
+var CPUpage int
 
 func IniciarConfiguracion(filePath string) *globals.Config {
 	var config *globals.Config
@@ -76,10 +159,10 @@ func SetInstructionsFromFileToMap(w http.ResponseWriter, r *http.Request) {
 		//Esta linea lee los codigos
 		arrInstructions = append(arrInstructions, []string{fileScanner.Text()})
 	}
-	m[pid] = arrInstructions
+	mapInstructions[pid] = arrInstructions
 
-	fmt.Printf("%v\n", m[pid])
-	fmt.Println(m)
+	fmt.Fprintln(os.Stdout, []any{"%v\n", mapInstructions[pid]}...)
+	fmt.Println(mapInstructions)
 	defer readFile.Close()
 
 	w.WriteHeader(http.StatusOK)
@@ -90,7 +173,7 @@ func GetInstruction(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
 	pid, _ := strconv.Atoi(queryParams.Get("pid"))
 	programCounter, _ := strconv.Atoi(queryParams.Get("programCounter"))
-	instruction := m[pid][programCounter][0]
+	instruction := mapInstructions[pid][programCounter][0]
 
 	instructionResponse := InstructionResposne{
 		Instruction: instruction,
@@ -100,4 +183,326 @@ func GetInstruction(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(instructionResponse)
 
 	w.Write([]byte(instruction))
+}
+
+// COMUNICACION
+// Creacion de procesos
+func CreateProcessHandler(w http.ResponseWriter, r *http.Request) {
+	var process Process
+	if err := json.NewDecoder(r.Body).Decode(&process); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := CreateProcess(process.PID, process.Pages); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+}
+
+func CreateProcess(pid int, pages int) error {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if len(memory)/pageSize < pages { // Verifico si hay suficiente espacio en memoria en base a las paginas solicitadas
+		log.Printf("No hay suficiente espacio en memoria")
+	}
+
+	if _, exists := pageTable[pid]; exists { //Verifico si ya existe un proceso con ese pid
+		log.Printf("Error: PID %d already has pages assigned", pid)
+	} else {
+		pageTable[pid] = make([]int, pages) // Creo un slice de paginas para el proceso
+		println("Proceso creado")
+	}
+
+	fmt.Println(pageTable)
+
+	return nil
+}
+
+// Pasado un dato de IO a memoria, le asigno la direccion fisica del dato a la pagina del proceso
+func AssignAddressToProcess(pid int, address int) error {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if _, exists := pageTable[pid]; !exists { // Verifico si el proceso existe
+		log.Printf("Process not found")
+	}
+
+	pageTable[pid] = append(pageTable[pid], address) // Asigno la direccion fisica al proceso\
+	fmt.Println(pageTable)
+	return nil
+}
+
+func TerminateProcessHandler(w http.ResponseWriter, r *http.Request) {
+	var PID int
+	pidStr := r.URL.Query().Get("pid")
+
+	if pidStr == "" {
+		http.Error(w, "PID no especificado", http.StatusBadRequest)
+		return
+	}
+
+	PID, err := strconv.Atoi(pidStr)
+	if err != nil {
+		http.Error(w, "PID debe ser un número", http.StatusBadRequest)
+		return
+	}
+
+	if err := TerminateProcess(PID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func TerminateProcess(pid int) error {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if _, exists := pageTable[pid]; !exists {
+		log.Printf("Proceso no encontrado")
+	} else {
+		delete(pageTable, pid) //Funcion que viene con map, libera los marcos asignados a un pid
+		log.Println("Proceso terminado")
+	}
+
+	fmt.Println(pageTable)
+
+	return nil
+}
+
+func ResizeProcessHandler(w http.ResponseWriter, r *http.Request) {
+	var process Process
+	if err := json.NewDecoder(r.Body).Decode(&process); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := ResizeProcess(process.PID, process.Pages); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func ResizeProcess(pid int, newSize int) error {
+	mu.Lock()
+	defer mu.Unlock()
+
+	pages, exists := pageTable[pid]
+	if !exists { // Verifico si el proceso existe
+		log.Printf("Proceso no encontrado")
+	}
+
+	currentSize := len(pages)
+	if newSize > currentSize { //Comparo el tamaño actual con el nuevo tamaño
+		if len(memory)/pageSize < newSize-currentSize { //Verifico si hay suficiente espacio en memoria despues de la ampliacion
+			log.Printf("Memoria insuficiente para la ampliación")
+		} //A REVISAR ESTE IF
+		for i := currentSize; i < newSize; i++ { //Asigno nuevos marcos a la ampliacion
+			pageTable[pid] = append(pageTable[pid], i) // Convert i to a slice of int
+			fmt.Println("Proceso ampliado")
+		}
+	} else {
+		pageTable[pid] = pageTable[pid][:newSize] //Reduce el tamaño del proceso. :newSize es un slice de 0 a newSize (reduce el tope)
+		fmt.Println("Proceso reducido")
+	}
+	fmt.Println(pageTable)
+	return nil
+}
+
+func ReadMemoryHandler(w http.ResponseWriter, r *http.Request) {
+	var memReq MemoryRequest
+	if err := json.NewDecoder(r.Body).Decode(&memReq); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	data, err := ReadMemory(memReq.PID, memReq.Address, memReq.Size)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Write(data)
+}
+
+func ReadMemory(pid int, address int, size int) ([]byte, error) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if _, exists := pageTable[pid]; !exists { // Verifico si el proceso existe
+		log.Printf("Process not found")
+	}
+
+	if address+size > len(memory) { // Verifico si el acceso a memoria esta dentro de los limites del proceso
+		log.Printf("Memory access out of bounds")
+	}
+
+	return memory[address : address+size], nil //Devuelvo todos los datos (desde la base hasta la base mas el desplazamiento)
+}
+
+func WriteMemoryHandler(w http.ResponseWriter, r *http.Request) {
+	var memReq MemoryRequest
+	if err := json.NewDecoder(r.Body).Decode(&memReq); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := WriteMemory(memReq.Address, memReq.Data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func WriteMemory(address int, data []byte) error {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if address+len(data) > len(memory) { //Verifico si la direccion de memoria donde quiero escribir esta dentro de los limites de la memoria
+		log.Printf("Memory access out of bounds")
+	}
+
+	copy(memory[address:], data) // Funcion que viene con map, copia los datos en la direccion de memoria (data)
+	return nil
+}
+
+func RecieveInputSTDINFromIO(w http.ResponseWriter, r *http.Request) {
+	var inputRecieved BodyRequestInput
+	err := json.NewDecoder(r.Body).Decode(&inputRecieved)
+
+	if err != nil {
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
+		return
+	}
+
+	IOinput = inputRecieved.Input
+	IOaddress = inputRecieved.Address
+	IOpid = inputRecieved.Pid
+
+	_ = WriteMemory(IOaddress, []byte(IOinput)) //Copio en memoria lo recibido por IO
+	AssignAddressToProcess(IOpid, IOaddress)    //Asigno la direccion fisica al proceso
+
+	fmt.Println(memory)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Input recibido correctamente"))
+}
+
+func RecieveAdressSTDOUTFromIO(w http.ResponseWriter, r *http.Request) {
+	var BodyRequestAdress BodyAdress
+	err := json.NewDecoder(r.Body).Decode(&BodyRequestAdress)
+
+	if err != nil {
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
+		return
+	}
+
+	adress = BodyRequestAdress.Adress
+	length = BodyRequestAdress.Length
+
+	var data []byte
+	for i := 0; i < len(adress); i++ {
+		data, err = ReadMemory(IOpid, adress[i], length)
+		data = append(data, []byte("\n")...)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	// data := memory[adress : adress+length]
+	SendContentToIO(string(data))
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Adress recibido correctamente"))
+}
+
+func RecievePortOfInterfaceFromKernel(w http.ResponseWriter, r *http.Request) {
+	var requestPort BodyRequestPort
+	var interfaz interfaz
+	err := json.NewDecoder(r.Body).Decode(&requestPort)
+	if err != nil {
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
+		return
+	}
+	interfaz.Name = requestPort.Nombre
+	IOPort = requestPort.Port
+
+	log.Printf("Received data: %+v", requestPort)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("Port received: %d", requestPort.Port)))
+}
+
+func SendContentToIO(content string) error {
+	var BodyContent BodyContent
+
+	IOurl := fmt.Sprintf("http://localhost:%d/receiveContentFromMemory", IOPort)
+	ContentResponseTest, err := json.Marshal(BodyContent)
+	if err != nil {
+		log.Fatalf("Error al serializar el Input: %v", err)
+	}
+
+	log.Println("Enviando solicitud con contenido:", ContentResponseTest)
+
+	resp, err := http.Post(IOurl, "application/json", bytes.NewBuffer(ContentResponseTest))
+	if err != nil {
+		log.Fatalf("Error al enviar la solicitud al módulo de memoria: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Fatalf("Error en la respuesta del módulo de memoria: %v", resp.StatusCode)
+	}
+
+	return nil
+}
+
+func GetPageFromCPU(w http.ResponseWriter, r *http.Request) {
+	var bodyCPUpage bodyCPUpage
+	err := json.NewDecoder(r.Body).Decode(&bodyCPUpage)
+	if err != nil {
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
+		return
+	}
+	CPUpid = bodyCPUpage.Pid
+	CPUpage = bodyCPUpage.Page
+
+	sendFrameToCPU(CPUpid, CPUpage)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Page recibido correctamente"))
+}
+
+func sendFrameToCPU(pid int, page int) error {
+	var bodyFrame BodyFrame
+	CPUurl := fmt.Sprintf("http://localhost:%d/recieveFrame", globals.ClientConfig.PuertoCPU)
+
+	var cnt int
+	for id, pages := range pageTable {
+		if id < pid {
+			cnt += len(pages)
+		}
+	}
+
+	bodyFrame.Frame = cnt + page
+	FrameResponseTest, err := json.Marshal(bodyFrame)
+	if err != nil {
+		log.Fatalf("Error al serializar el frame: %v", err)
+	}
+	log.Println("Enviando solicitud con contenido:", FrameResponseTest)
+
+	resp, err := http.Post(CPUurl, "application/json", nil)
+	if err != nil {
+		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
+	}
+	defer resp.Body.Close()
+	return nil
 }

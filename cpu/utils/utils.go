@@ -46,14 +46,24 @@ type BodyResponseInstruction struct {
 	Instruction string `json:"instruction"`
 }
 
-type ResponseQuantum struct {
-	Interrupt bool `json:"interrupt"`
-	Pid       int  `json:"pid"`
+type ResponseInterrupt struct {
+	Interrupt bool   `json:"interrupt"`
+	Pid       int    `json:"pid"`
+	Motivo    string `json:"motivo"`
+}
+
+type ResponseWait struct {
+	Recurso string `json:"recurso"`
+	Pid     int    `json:"pid"`
 }
 
 var interrupt bool = false
 var requestCPU KernelRequest
-var responseQuantum ResponseQuantum
+var responseInterrupt ResponseInterrupt
+
+func init() {
+	globals.ClientConfig = IniciarConfiguracion("config.json") // tiene que prender la confi cuando arranca
+}
 
 func ConfigurarLogger() {
 
@@ -103,21 +113,21 @@ func InstructionCycle(contextoDeEjecucion ExecutionContext) {
 
 		instruction, _ := Decode(line)
 		time.Sleep(1 * time.Second)
-		Execute(instruction, line, &contextoDeEjecucion)
 		log.Printf("PID: %d - Ejecutando: %s - %s”.", contextoDeEjecucion.Pid, instruction, line)
-
-		if responseQuantum.Interrupt && responseQuantum.Pid == contextoDeEjecucion.Pid || interrupt {
-			responseQuantum.Interrupt = false
+		Execute(instruction, line, &contextoDeEjecucion)
+		// responseInterrupt.Interrupt ---> ese de clock y finalizacion
+		// interrupt ---> ese de io y wait
+		if responseInterrupt.Interrupt && responseInterrupt.Pid == contextoDeEjecucion.Pid || interrupt {
+			responseInterrupt.Interrupt = false
 			interrupt = false
 			break
 		}
 
 	}
-	log.Printf("PID: %d - Sale de CPU - PCB actualizado: %d\n", contextoDeEjecucion.Pid, contextoDeEjecucion.CpuReg) //LOG no officia
+	log.Printf("PID: %d - Sale de CPU - PCB actualizado: %d\n", contextoDeEjecucion.Pid, contextoDeEjecucion.CpuReg) //LOG no official
 
-	if requestCPU.MotivoDesalojo != "FINALIZADO" && requestCPU.MotivoDesalojo != "INTERRUPCION POR IO" && requestCPU.MotivoDesalojo != "WAIT" && requestCPU.MotivoDesalojo != "SIGNAL" {
-		requestCPU.MotivoDesalojo = "CLOCK"
-
+	if requestCPU.MotivoDesalojo == "" {
+		requestCPU.MotivoDesalojo = responseInterrupt.Motivo
 	}
 	requestCPU.PcbUpdated = contextoDeEjecucion
 	responsePCBtoKernel()
@@ -125,7 +135,7 @@ func InstructionCycle(contextoDeEjecucion ExecutionContext) {
 }
 
 func responsePCBtoKernel() {
-	kernelURL := "http://localhost:8080/syscall"
+	kernelURL := fmt.Sprintf("http://localhost:%d/syscall", globals.ClientConfig.PortKernel)
 
 	requestJSON, err := json.Marshal(requestCPU)
 	if err != nil {
@@ -143,7 +153,7 @@ func responsePCBtoKernel() {
 }
 
 func Fetch(pc int, pid int) ([]string, error) {
-	memoriaURL := fmt.Sprintf("http://localhost:8085/getInstructionFromPid?pid=%d&programCounter=%d", pid, pc)
+	memoriaURL := fmt.Sprintf("http://localhost:%d/getInstructionFromPid?pid=%d&programCounter=%d", globals.ClientConfig.PortMemory, pid, pc)
 	resp, err := http.Get(memoriaURL)
 	if err != nil {
 		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
@@ -209,27 +219,34 @@ func Execute(instruction string, line []string, contextoDeEjecucion *ExecutionCo
 
 		}
 	case "WAIT":
-		err := ManejoRecursos(&contextoDeEjecucion.CpuReg, instruction, words[1])
+		err := CheckWait(nil, nil, contextoDeEjecucion, words[1])
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "SIGNAL":
-		err := ManejoRecursos(&contextoDeEjecucion.CpuReg, instruction, words[1])
+		err := CheckSignal(nil, nil, contextoDeEjecucion.Pid, instruction, words[1])
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 
 		}
 	case "EXIT":
-		requestCPU = KernelRequest{
-			MotivoDesalojo: "FINALIZADO",
+		err := TerminarProceso(&contextoDeEjecucion.CpuReg, "FINALIZADO")
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
 		}
-
-		interrupt = true // Aquí va el valor booleano que quieres enviar}
-		contextoDeEjecucion.CpuReg.PC--
-
 	default:
 		return nil
 	}
+	return nil
+}
+
+func TerminarProceso(registerCPU *RegisterCPU, motivo string) error {
+	requestCPU = KernelRequest{
+		MotivoDesalojo: motivo,
+	}
+
+	interrupt = true // Aquí va el valor booleano que quieres enviar al kernel
+	registerCPU.PC--
 	return nil
 }
 
@@ -425,7 +442,7 @@ func IO(kind string, words []string) error {
 		log.Printf("PID IO: %d - %v", contextoDeEjecucion.Pid, contextoDeEjecucion)
 		requestCPU = KernelRequest{
 			MotivoDesalojo: "INTERRUPCION POR IO",
-			IoType:         "IO_GEN_SLEEP",
+			IoType:         "GENERICA",
 			Interface:      words[1],
 			TimeIO:         timeIO,
 		}
@@ -449,21 +466,109 @@ func IO(kind string, words []string) error {
 	return nil
 }
 
-func ManejoRecursos(registerCPU *RegisterCPU, motivo string, recurso string) error {
-	log.Print("Manejo de recursos")
-	interrupt = true
-	requestCPU = KernelRequest{
-		MotivoDesalojo: motivo,
-		Recurso:        recurso,
+func CheckSignal(w http.ResponseWriter, r *http.Request, pid int, motivo string, recurso string) error {
+	log.Printf("Enviando solicitud de Signal al Kernel")
+
+	waitRequest := ResponseWait{
+		Recurso: recurso,
+		Pid:     pid,
+	}
+
+	waitRequestJSON, err := json.Marshal(waitRequest)
+	if err != nil {
+		http.Error(w, "Error al codificar los datos JSON", http.StatusInternalServerError)
+		return err
+	}
+
+	kernelURL := fmt.Sprintf("http://localhost:%d/signal", globals.ClientConfig.PortKernel)
+	resp, err := http.Post(kernelURL, "application/json", bytes.NewBuffer(waitRequestJSON))
+	if err != nil {
+		http.Error(w, "Error al enviar la solicitud al kernel", http.StatusInternalServerError)
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		http.Error(w, "Error en la respuesta del kernel", http.StatusInternalServerError)
+		return err
+	}
+
+	var signalResponse struct {
+		Success string `json:"success"`
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&signalResponse)
+	if err != nil {
+		http.Error(w, "Error al decodificar los datos JSON de la respuesta del kernel", http.StatusInternalServerError)
+		return err
+	}
+	log.Printf("Respuesta del kernel: %v", signalResponse)
+	if signalResponse.Success == "exit" {
+		err := TerminarProceso(&contextoDeEjecucion.CpuReg, "INVALID_RESOURCE")
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	}
+	return nil
+}
+
+func CheckWait(w http.ResponseWriter, r *http.Request, registerCPU *ExecutionContext, recurso string) error {
+	log.Printf("Enviando solicitud de Wait al Kernel")
+
+	waitRequest := ResponseWait{
+		Recurso: recurso,
+		Pid:     registerCPU.Pid,
+	}
+
+	waitRequestJSON, err := json.Marshal(waitRequest)
+	if err != nil {
+		http.Error(w, "Error al codificar los datos JSON", http.StatusInternalServerError)
+		return err
+	}
+
+	kernelURL := fmt.Sprintf("http://localhost:%d/wait", globals.ClientConfig.PortKernel)
+	resp, err := http.Post(kernelURL, "application/json", bytes.NewBuffer(waitRequestJSON))
+	if err != nil {
+		http.Error(w, "Error al enviar la solicitud al kernel", http.StatusInternalServerError)
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		http.Error(w, "Error en la respuesta del kernel", http.StatusInternalServerError)
+		return err
+	}
+
+	var waitResponse struct {
+		Success string `json:"success"`
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&waitResponse)
+	if err != nil {
+		http.Error(w, "Error al decodificar los datos JSON de la respuesta del kernel", http.StatusInternalServerError)
+		return err
+	}
+	log.Printf("Respuesta del kernel: %v", waitResponse)
+	if waitResponse.Success == "false" {
+		interrupt = true
+		requestCPU = KernelRequest{
+			MotivoDesalojo: "WAIT",
+			Recurso:        recurso,
+		}
+	} else if waitResponse.Success == "exit" {
+		err := TerminarProceso(&contextoDeEjecucion.CpuReg, "INVALID_RESOURCE")
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
 	}
 
 	return nil
 }
 
 func Checkinterrupts(w http.ResponseWriter, r *http.Request) { // A chequear
-	log.Printf("Recibiendo solicitud de Interrupcionde quantum")
+	log.Printf("Recibiendo solicitud de Interrupcion del Kernel")
 
-	err := json.NewDecoder(r.Body).Decode(&responseQuantum)
+	err := json.NewDecoder(r.Body).Decode(&responseInterrupt)
 	if err != nil {
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
 		return
