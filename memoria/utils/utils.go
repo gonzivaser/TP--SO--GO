@@ -103,6 +103,10 @@ type bodyCPUpage struct {
 	Page int `json:"page"`
 }
 
+type BodyPageTam struct {
+	PageTam int `json:"pageTam"`
+}
+
 /////////////////////////////////////////////////// VARS GLOBALES ///////////////////////////////////////////////////////////////////////
 
 var addressGLOBAL []int
@@ -127,6 +131,7 @@ func init() {
 		memorySize = globals.ClientConfig.MemorySize
 		memory = make([]byte, memorySize)
 		memoryMap = make([]bool, memorySize)
+		SendPageTamToCPU(globals.ClientConfig.PageSize)
 		//cantidadFrames := globals.ClientConfig.MemorySize / globals.ClientConfig.PageSize
 	} else {
 		log.Fatal("ClientConfig is not initialized")
@@ -332,13 +337,15 @@ func ResizeProcess(pid int, newSize int) error {
 
 	if newSize%pageSize != 0 { //Verifico si el nuevo tamaño es multiplo del tamaño de pagina
 		newSize = newSize + pageSize - (newSize % pageSize) //Si no es multiplo, lo redondeo al proximo multiplo
+	} else {
+
 	}
 	currentSize := len(pages)
 	if newSize > currentSize { //Comparo el tamaño actual con el nuevo tamaño
 		if len(memory)/pageSize < newSize-currentSize { //Verifico si hay suficiente espacio en memoria despues de la ampliacion
 			log.Printf("Memoria insuficiente para la ampliación")
 		}
-		for i := currentSize; i < newSize; i++ { //Asigno nuevos marcos a la ampliacion
+		for i := currentSize; i < newSize/pageSize; i++ { //Asigno nuevos marcos a la ampliacion
 			proxLugarLibre := proximosXLugaresLibres(globals.ClientConfig.PageSize)
 			if proxLugarLibre != -1 {
 				pageTable[pid] = append(pageTable[pid], proxLugarLibre)
@@ -410,6 +417,8 @@ func WriteMemoryHandler(w http.ResponseWriter, r *http.Request) {
 func WriteMemory(address int, data []byte) error {
 	mu.Lock()
 	defer mu.Unlock()
+
+	verificarTopeDeMemoria(IOpid, address)
 
 	if address+len(data) > len(memory) { //Verifico si la direccion de memoria donde quiero escribir esta dentro de los limites de la memoria
 		log.Printf("Memory access out of bounds")
@@ -545,7 +554,7 @@ func GetPageFromCPU(w http.ResponseWriter, r *http.Request) {
 func sendFrameToCPU(pid int, page int) error {
 	var bodyFrame BodyFrame
 	CPUurl := fmt.Sprintf("http://localhost:%d/recieveFrame", globals.ClientConfig.PuertoCPU)
-	frame := pageTable[pid][page]
+	frame := pageTable[pid][page-1]
 	bodyFrame.Frame = frame
 	FrameResponseTest, err := json.Marshal(bodyFrame)
 	if err != nil {
@@ -576,6 +585,32 @@ func proximosXLugaresLibres(x int) int {
 	return -1 // Si no hay espacios libres, devuelvo -1
 }
 
-/*
+func verificarTopeDeMemoria(pid int, address int) {
+	contador := 0
+	for i := 0; i < len(pageTable[pid]); i++ {
+		if pageTable[pid][i]*globals.ClientConfig.PageSize <= address && address <= ((i+1)*pageSize)-1 {
+			log.Printf("Proceso dentro de espacio memoria")
+			contador++
+		}
+	}
+	if contador == 0 {
+		log.Printf("Proceso fuera de espacio memoria")
+	}
+}
 
- */
+func SendPageTamToCPU(tamPage int) {
+	CPUurl := fmt.Sprintf("http://localhost:%d/recievePageTam", globals.ClientConfig.PuertoCPU)
+	var body BodyPageTam
+	body.PageTam = tamPage
+	PageTamResponseTest, err := json.Marshal(body)
+	if err != nil {
+		log.Fatalf("Error al serializar el tamPage: %v", err)
+	}
+	log.Println("Enviando solicitud con contenido:", PageTamResponseTest)
+
+	resp, err := http.Post(CPUurl, "application/json", bytes.NewBuffer(PageTamResponseTest))
+	if err != nil {
+		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
+	}
+	defer resp.Body.Close()
+}

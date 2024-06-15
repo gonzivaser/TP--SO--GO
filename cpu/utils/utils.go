@@ -89,6 +89,10 @@ type bodyRegisters struct {
 	LengthREG int   `json:"lengthREG"`
 }
 
+type BodyPageTam struct {
+	PageTam int `json:"pageTam"`
+}
+
 /*------------------------------------------------- VAR GLOBALES --------------------------------------------------------*/
 
 var globalTLB []TLBEntry
@@ -100,6 +104,7 @@ var GLOBALrequestCPU KernelRequest
 var responseQuantum ResponseQuantum
 var GLOBALcontextoDeEjecucion PCB //PCB recibido desde kernel
 var MemoryFrame int
+var GLOBALpageTam int
 
 func ConfigurarLogger() {
 
@@ -498,7 +503,7 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 		lengthREG := words[3]
 		valueLength1 := verificarRegistro(lengthREG, contextoEjecucion)
 
-		direcciones := TranslateAddress(contextoEjecucion.Pid, valueAdress1, 16, valueLength1)
+		direcciones := TranslateAddress(contextoEjecucion.Pid, valueAdress1, GLOBALpageTam, valueLength1)
 		sendREGtoKernel(direcciones, valueLength1)
 		GLOBALrequestCPU = KernelRequest{
 			PcbUpdated:     *contextoEjecucion,
@@ -514,7 +519,7 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 		lengthREG := words[3]
 		valueLength := verificarRegistro(lengthREG, contextoEjecucion)
 
-		direcciones := TranslateAddress(contextoEjecucion.Pid, valueAdress, 16, valueLength)
+		direcciones := TranslateAddress(contextoEjecucion.Pid, valueAdress, GLOBALpageTam, valueLength)
 		sendREGtoKernel(direcciones, valueLength)
 		GLOBALrequestCPU = KernelRequest{
 			PcbUpdated:     *contextoEjecucion,
@@ -671,6 +676,17 @@ func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 	return DireccionesFisicas
 }
 
+/*
+22/7 = 3 = numero de pagina
+offset = 1
+pageTable[pid][3-1] = frame 2
+
+dir fisica = (frame*TamPag + pageOffset) = 15
+
+imprimir
+a partir de memoria[15]
+*/
+
 // simulacion de la obtención de un marco desde la memoria
 func FetchFrameFromMemory(pid, pageNumber int) error {
 	memoryURL := fmt.Sprintf("http://localhost:%d/getFramefromCPU", globals.ClientConfig.PortMemory)
@@ -745,4 +761,15 @@ func sendREGtoKernel(adress []int, length int) {
 		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
 	}
 	defer resp.Body.Close()
+}
+
+func ReceiveTamPage(w http.ResponseWriter, r *http.Request) {
+	var req BodyPageTam
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	log.Printf("Recibiendo solicitud de cambio de tamaño de página")
+	GLOBALpageTam = req.PageTam
+	w.WriteHeader(http.StatusOK)
 }
