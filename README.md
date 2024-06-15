@@ -60,17 +60,18 @@ antes de subir el tag.
     - [x] Es capaz de realizar manejo de recursos.
     - [x] Es capaz de manejar el planificador de largo plazo
 
+
 - Módulo CPU:
 
     - [ ] Es capaz de resolver las operaciones: MOV_IN, MOV_OUT, RESIZE, COPY_STRING, IO_STDIN_READ, IO_STDOUT_WRITE.
 
 - Módulo Memoria:
 
-    - [ ] Se encuentra completamente desarrollada.
+    - [x] Se encuentra completamente desarrollada.
 
 - Módulo Interfaz I/O:
 
-    - [ ] Se encuentran desarrolladas las interfaces STDIN y STDOUT.
+    - [x] Se encuentran desarrolladas las interfaces STDIN y STDOUT.
 
 ### Logs mínimos y obligatorios
 
@@ -82,6 +83,7 @@ antes de subir el tag.
     - [x] Motivo de Bloqueo
     - [x] Fin de Quantum
     - [x] Ingreso a Ready
+
 
 - Módulo CPU:
 
