@@ -64,11 +64,11 @@ type TranslationResponse struct {
 }
 
 type TLBEntry struct {
-	PID          int
-	Pagina       int
-	Frame        int
-	UltimoAcceso time.Time // Para LRU
-	PosicionFila int       // Para FIFO
+	PID                int
+	Pagina             int
+	Frame              int
+	UltimoAcceso       time.Time // Para LRU
+	globalPosicionFila int       // Para FIFO
 }
 
 type bodyProcess struct {
@@ -91,14 +91,14 @@ type bodyRegisters struct {
 
 /*------------------------------------------------- VAR GLOBALES --------------------------------------------------------*/
 
-var tlb []TLBEntry
-var tlbSize int
+var globalTLB []TLBEntry
+var globalTLBsize int
 var replacementAlgorithm string
-var posicionFila int
+var globalPosicionFila int
 var interrupt bool = false
-var requestCPU KernelRequest
+var GLOBALrequestCPU KernelRequest
 var responseQuantum ResponseQuantum
-var contextoDeEjecucion PCB //PCB recibido desde kernel
+var GLOBALcontextoDeEjecucion PCB //PCB recibido desde kernel
 var MemoryFrame int
 
 func ConfigurarLogger() {
@@ -115,7 +115,7 @@ func init() {
 	globals.ClientConfig = IniciarConfiguracion("config.json") // tiene que prender la confi cuando arranca
 
 	if globals.ClientConfig != nil {
-		tlbSize = globals.ClientConfig.NumberFellingTLB
+		globalTLBsize = globals.ClientConfig.NumberFellingTLB
 		replacementAlgorithm = globals.ClientConfig.AlgorithmTLB
 	} else {
 		log.Fatal("ClientConfig is not initialized")
@@ -143,49 +143,51 @@ func ReceivePCB(w http.ResponseWriter, r *http.Request) {
 
 	// GUARDO PCB RECIBIDO EN sendPCB
 
-	err := json.NewDecoder(r.Body).Decode(&contextoDeEjecucion)
+	err := json.NewDecoder(r.Body).Decode(&GLOBALcontextoDeEjecucion)
 	if err != nil {
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
 		return
 	}
-	log.Printf("PCB recibido desde el kernel: %+v", contextoDeEjecucion)
-	InstructionCycle(contextoDeEjecucion)
+
+	log.Printf("PCB recibido desde el kernel: %+v", GLOBALcontextoDeEjecucion)
+	InstructionCycle(GLOBALcontextoDeEjecucion)
 	w.WriteHeader(http.StatusOK)
 }
 
-func InstructionCycle(contextoDeEjecucion PCB) {
-	requestCPU = KernelRequest{}
+func InstructionCycle(GLOBALcontextoDeEjecucion PCB) {
+	GLOBALrequestCPU = KernelRequest{}
 
 	for {
-		log.Printf("PID: %d - FETCH - Program Counter: %d\n", contextoDeEjecucion.Pid, contextoDeEjecucion.CpuReg.PC)
-		line, _ := Fetch(int(contextoDeEjecucion.CpuReg.PC), contextoDeEjecucion.Pid)
+		log.Printf("PID: %d - FETCH - Program Counter: %d\n", GLOBALcontextoDeEjecucion.Pid, GLOBALcontextoDeEjecucion.CpuReg.PC)
+		line, _ := Fetch(int(GLOBALcontextoDeEjecucion.CpuReg.PC), GLOBALcontextoDeEjecucion.Pid)
 
-		contextoDeEjecucion.CpuReg.PC++
-
+		GLOBALcontextoDeEjecucion.CpuReg.PC++
+		GLOBALrequestCPU.PcbUpdated = GLOBALcontextoDeEjecucion
 		instruction, _ := Decode(line)
-		Execute(instruction, line, &contextoDeEjecucion)
-		log.Printf("PID: %d - Ejecutando: %s - %s”.", contextoDeEjecucion.Pid, instruction, line)
 
-		if responseQuantum.Interrupt && responseQuantum.Pid == contextoDeEjecucion.Pid || interrupt {
+		Execute(instruction, line, &GLOBALcontextoDeEjecucion)
+		log.Printf("PID: %d - Ejecutando: %s - %s”.", GLOBALcontextoDeEjecucion.Pid, instruction, line)
+
+		if responseQuantum.Interrupt && responseQuantum.Pid == GLOBALcontextoDeEjecucion.Pid || interrupt {
 			responseQuantum.Interrupt = false
 			interrupt = false
 			break
 		}
-		//requestCPU.PcbUpdated = contextoDeEjecucion
+
 	}
-	log.Printf("PID: %d - Sale de CPU - PCB actualizado: %d\n", contextoDeEjecucion.Pid, contextoDeEjecucion.CpuReg) //LOG no officia
-	if requestCPU.MotivoDesalojo != "FINALIZADO" && requestCPU.MotivoDesalojo != "INTERRUPCION POR IO" {
-		requestCPU.MotivoDesalojo = "CLOCK"
+	log.Printf("PID: %d - Sale de CPU - PCB actualizado: %d\n", GLOBALcontextoDeEjecucion.Pid, GLOBALcontextoDeEjecucion.CpuReg) //LOG no officia
+	if GLOBALrequestCPU.MotivoDesalojo != "FINALIZADO" && GLOBALrequestCPU.MotivoDesalojo != "INTERRUPCION POR IO" {
+		GLOBALrequestCPU.MotivoDesalojo = "CLOCK"
 	}
-	requestCPU.PcbUpdated = contextoDeEjecucion
-	responsePCBtoKernel()
+	GLOBALrequestCPU.PcbUpdated = GLOBALcontextoDeEjecucion
+	responsePCBtoKernel(GLOBALrequestCPU)
 
 }
 
-func responsePCBtoKernel() {
+func responsePCBtoKernel(GLOBALrequestCPU KernelRequest) {
 	kernelURL := fmt.Sprintf("http://localhost:%d/syscall", globals.ClientConfig.PortKernel)
 
-	requestJSON, err := json.Marshal(requestCPU)
+	requestJSON, err := json.Marshal(GLOBALrequestCPU)
 	if err != nil {
 		return
 	}
@@ -235,43 +237,43 @@ func Decode(instruction []string) (string, error) {
 	return words[0], nil
 }
 
-func Execute(instruction string, line []string, contextoDeEjecucion *PCB) error {
+func Execute(instruction string, line []string, GLOBALcontextoDeEjecucion *PCB) error {
 
 	words := strings.Fields(line[0])
 
 	switch instruction {
 	case "SET": // Change the type of the switch case expression from byte to string
-		err := SetCampo(&contextoDeEjecucion.CpuReg, words[1], words[2])
+		err := SetCampo(&GLOBALcontextoDeEjecucion.CpuReg, words[1], words[2])
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "SUM":
-		err := Suma(&contextoDeEjecucion.CpuReg, words[1], words[2])
+		err := Suma(&GLOBALcontextoDeEjecucion.CpuReg, words[1], words[2])
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "SUB":
-		err := Resta(&contextoDeEjecucion.CpuReg, words[1], words[2])
+		err := Resta(&GLOBALcontextoDeEjecucion.CpuReg, words[1], words[2])
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "JNZ":
-		err := JNZ(&contextoDeEjecucion.CpuReg, words[1], words[2])
+		err := JNZ(&GLOBALcontextoDeEjecucion.CpuReg, words[1], words[2])
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "IO_GEN_SLEEP":
-		err := IO(instruction, words)
+		err := IO(instruction, words, GLOBALcontextoDeEjecucion)
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "IO_STDIN_READ":
-		err := IO(instruction, words)
+		err := IO(instruction, words, GLOBALcontextoDeEjecucion)
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "IO_STDOUT_WRITE":
-		err := IO(instruction, words)
+		err := IO(instruction, words, GLOBALcontextoDeEjecucion)
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
@@ -282,7 +284,7 @@ func Execute(instruction string, line []string, contextoDeEjecucion *PCB) error 
 		}
 		sendResizeMemory(tam)
 	case "EXIT":
-		requestCPU = KernelRequest{
+		GLOBALrequestCPU = KernelRequest{
 			MotivoDesalojo: "FINALIZADO",
 		}
 		interrupt = true // Aquí va el valor booleano que quieres enviar
@@ -472,7 +474,7 @@ func JNZ(registerCPU *RegisterCPU, reg, valor string) error {
 	return nil
 }
 
-func IO(kind string, words []string) error {
+func IO(kind string, words []string, contextoEjecucion *PCB) error {
 	interrupt = true
 
 	switch kind {
@@ -481,8 +483,9 @@ func IO(kind string, words []string) error {
 		if err != nil {
 			return err
 		}
-		log.Printf("PID IO: %d - %v", contextoDeEjecucion.Pid, contextoDeEjecucion)
-		requestCPU = KernelRequest{
+		log.Printf("PID IO: %d - %v", contextoEjecucion.Pid, contextoEjecucion)
+		GLOBALrequestCPU = KernelRequest{
+			PcbUpdated:     *contextoEjecucion,
 			MotivoDesalojo: "INTERRUPCION POR IO",
 			IoType:         "IO_GEN_SLEEP",
 			Interface:      words[1],
@@ -490,14 +493,15 @@ func IO(kind string, words []string) error {
 		}
 	case "IO_STDIN_READ":
 		adressREG := words[2]
-		valueAdress1 := verificarRegistro(adressREG)
+		valueAdress1 := verificarRegistro(adressREG, contextoEjecucion)
 
 		lengthREG := words[3]
-		valueLength1 := verificarRegistro(lengthREG)
+		valueLength1 := verificarRegistro(lengthREG, contextoEjecucion)
 
-		direcciones := TranslateAddress(contextoDeEjecucion.Pid, valueAdress1, 16, valueLength1)
+		direcciones := TranslateAddress(contextoEjecucion.Pid, valueAdress1, 16, valueLength1)
 		sendREGtoKernel(direcciones, valueLength1)
-		requestCPU = KernelRequest{
+		GLOBALrequestCPU = KernelRequest{
+			PcbUpdated:     *contextoEjecucion,
 			MotivoDesalojo: "INTERRUPCION POR IO",
 			IoType:         "IO_STDIN_READ",
 			Interface:      words[1],
@@ -505,14 +509,15 @@ func IO(kind string, words []string) error {
 		}
 	case "IO_STDOUT_WRITE":
 		adressREG := words[2]
-		valueAdress := verificarRegistro(adressREG)
+		valueAdress := verificarRegistro(adressREG, contextoEjecucion)
 
 		lengthREG := words[3]
-		valueLength := verificarRegistro(lengthREG)
+		valueLength := verificarRegistro(lengthREG, contextoEjecucion)
 
-		direcciones := TranslateAddress(contextoDeEjecucion.Pid, valueAdress, 16, valueLength)
+		direcciones := TranslateAddress(contextoEjecucion.Pid, valueAdress, 16, valueLength)
 		sendREGtoKernel(direcciones, valueLength)
-		requestCPU = KernelRequest{
+		GLOBALrequestCPU = KernelRequest{
+			PcbUpdated:     *contextoEjecucion,
 			MotivoDesalojo: "INTERRUPCION POR IO",
 			IoType:         "IO_STDOUT_WRITE",
 			Interface:      words[1],
@@ -536,30 +541,30 @@ func IO(kind string, words []string) error {
 	return nil
 }
 
-func verificarRegistro(registerName string) int {
-	fmt.Println(&contextoDeEjecucion)
+func verificarRegistro(registerName string, contextoEjecucion *PCB) int {
+	fmt.Println(&contextoEjecucion)
 	var registerValue int
 	switch registerName {
 	case "AX":
-		registerValue = int(contextoDeEjecucion.CpuReg.AX)
+		registerValue = int(contextoEjecucion.CpuReg.AX)
 	case "BX":
-		registerValue = int(contextoDeEjecucion.CpuReg.BX)
+		registerValue = int(contextoEjecucion.CpuReg.BX)
 	case "CX":
-		registerValue = int(contextoDeEjecucion.CpuReg.CX)
+		registerValue = int(contextoEjecucion.CpuReg.CX)
 	case "DX":
-		registerValue = int(contextoDeEjecucion.CpuReg.DX)
+		registerValue = int(contextoEjecucion.CpuReg.DX)
 	case "SI":
-		registerValue = int(contextoDeEjecucion.CpuReg.SI)
+		registerValue = int(contextoEjecucion.CpuReg.SI)
 	case "DI":
-		registerValue = int(contextoDeEjecucion.CpuReg.DI)
+		registerValue = int(contextoEjecucion.CpuReg.DI)
 	case "EAX":
-		registerValue = int(contextoDeEjecucion.CpuReg.EAX)
+		registerValue = int(contextoEjecucion.CpuReg.EAX)
 	case "EBX":
-		registerValue = int(contextoDeEjecucion.CpuReg.EBX)
+		registerValue = int(contextoEjecucion.CpuReg.EBX)
 	case "ECX":
-		registerValue = int(contextoDeEjecucion.CpuReg.ECX)
+		registerValue = int(contextoEjecucion.CpuReg.ECX)
 	case "EDX":
-		registerValue = int(contextoDeEjecucion.CpuReg.EDX)
+		registerValue = int(contextoEjecucion.CpuReg.EDX)
 	default:
 		log.Fatalf("Register %s not found", registerName)
 	}
@@ -578,11 +583,11 @@ func Checkinterrupts(w http.ResponseWriter, r *http.Request) { // A chequear
 	json.NewEncoder(w).Encode(interrupt)
 }
 
-func CheckTLB(pid, page int) (int, bool) { //Verifica si la etrada ya estaba en la TLB. Si se usa LRU, actualiza el tiempo de acceso
-	for i, entry := range tlb {
+func CheckTLB(pid, page int) (int, bool) { //Verifica si la etrada ya estaba en la globalTLB. Si se usa LRU, actualiza el tiempo de acceso
+	for i, entry := range globalTLB {
 		if entry.PID == pid && entry.Pagina == page {
 			if replacementAlgorithm == "LRU" {
-				tlb[i].UltimoAcceso = time.Now()
+				globalTLB[i].UltimoAcceso = time.Now()
 			}
 			return entry.Frame, true
 		}
@@ -590,37 +595,37 @@ func CheckTLB(pid, page int) (int, bool) { //Verifica si la etrada ya estaba en 
 	return -1, false
 }
 
-func ReplaceTLBEntry(pid, page, frame int) { //Reemplazo una entrada de TLB según el algoritmo de reemplazo
+func ReplaceTLBEntry(pid, page, frame int) { //Reemplazo una entrada de globalTLB según el algoritmo de reemplazo
 	newEntry := TLBEntry{
-		PID:          pid,
-		Pagina:       page,
-		Frame:        frame,
-		UltimoAcceso: time.Now(),
-		PosicionFila: posicionFila,
+		PID:                pid,
+		Pagina:             page,
+		Frame:              frame,
+		UltimoAcceso:       time.Now(),
+		globalPosicionFila: globalPosicionFila,
 	}
 
-	if len(tlb) < tlbSize {
-		tlb = append(tlb, newEntry) //Si la TLB no está llena, agrego la entrada
+	if len(globalTLB) < globalTLBsize {
+		globalTLB = append(globalTLB, newEntry) //Si la globalTLB no está llena, agrego la entrada
 	} else {
 		if replacementAlgorithm == "FIFO" {
 			oldestPos := 0
-			for i, entry := range tlb {
-				if entry.PosicionFila < tlb[oldestPos].PosicionFila {
+			for i, entry := range globalTLB {
+				if entry.globalPosicionFila < globalTLB[oldestPos].globalPosicionFila {
 					oldestPos = i
 				}
 			}
-			tlb[oldestPos] = newEntry
+			globalTLB[oldestPos] = newEntry
 		} else if replacementAlgorithm == "LRU" {
 			oldestPos := 0
-			for i, entry := range tlb {
-				if entry.UltimoAcceso.Before(tlb[oldestPos].UltimoAcceso) {
+			for i, entry := range globalTLB {
+				if entry.UltimoAcceso.Before(globalTLB[oldestPos].UltimoAcceso) {
 					oldestPos = i
 				}
 			}
-			tlb[oldestPos] = newEntry
+			globalTLB[oldestPos] = newEntry
 		}
 	}
-	posicionFila++
+	globalPosicionFila++
 }
 
 func TranslateHandler(w http.ResponseWriter, r *http.Request) {
@@ -649,7 +654,7 @@ func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 
 		frame, found := CheckTLB(pid, pageNumber)
 		if !found {
-			fmt.Println("TLB Miss")
+			fmt.Println("globalTLB Miss")
 			err := FetchFrameFromMemory(pid, pageNumber)
 			if err != nil {
 				fmt.Println("Error al obtener el marco desde la memoria")
@@ -657,7 +662,7 @@ func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 			frame = MemoryFrame
 			ReplaceTLBEntry(pid, pageNumber, MemoryFrame) //frame encontrado en memoria con la funcion FetchFrameFromMemory
 		} else {
-			fmt.Println("TLB Hit")
+			fmt.Println("globalTLB Hit")
 		}
 
 		physicalAddress := frame*TamPag + pageOffset
@@ -707,7 +712,7 @@ func RecieveFramefromMemory(w http.ResponseWriter, r *http.Request) {
 func sendResizeMemory(tam int) {
 	memoriaURL := fmt.Sprintf("http://localhost:%d/resizeProcess", globals.ClientConfig.PortMemory)
 	var process bodyProcess
-	process.Pid = contextoDeEjecucion.Pid
+	process.Pid = GLOBALcontextoDeEjecucion.Pid
 	process.Pages = tam
 
 	bodyResizeJSON, err := json.Marshal(process)
