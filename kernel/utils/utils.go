@@ -266,7 +266,7 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	// Create PCB
 	pcb := createPCB()
 	log.Printf("Se crea el proceso %v en NEW", pcb.Pid) // log obligatorio
-	createStructuresMemory(pcb.Pid, 1)
+	createStructuresMemory(pcb.Pid, 0)
 	IniciarPlanificacionDeProcesos(request, pcb)
 
 	// Response with the PID

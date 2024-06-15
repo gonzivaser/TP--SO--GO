@@ -127,6 +127,7 @@ func init() {
 		memorySize = globals.ClientConfig.MemorySize
 		memory = make([]byte, memorySize)
 		memoryMap = make([]bool, memorySize)
+		//cantidadFrames := globals.ClientConfig.MemorySize / globals.ClientConfig.PageSize
 	} else {
 		log.Fatal("ClientConfig is not initialized")
 	}
@@ -247,15 +248,23 @@ func AssignAddressToProcess(pid int, address int) error {
 		log.Printf("Process not found")
 	}
 
-	if memoryMap[address] { // Verifico si la direccion ya fue asignada
+	if contains(pageTable[pid], address) { // Verifico si la direccion ya fue asignada
 		log.Printf("Address already assigned")
 	} else {
 		memoryMap[address] = true
-		pageTable[pid] = append(pageTable[pid], address) // Asigno la direccion fisica al proceso
 	}
 	fmt.Println(pageTable)
 	fmt.Println(memoryMap)
 	return nil
+}
+
+func contains(slice []int, element int) bool {
+	for _, a := range slice {
+		if a == element {
+			return true
+		}
+	}
+	return false
 }
 
 func TerminateProcessHandler(w http.ResponseWriter, r *http.Request) {
@@ -321,13 +330,16 @@ func ResizeProcess(pid int, newSize int) error {
 		log.Printf("Proceso no encontrado")
 	}
 
+	if newSize%pageSize != 0 { //Verifico si el nuevo tamaño es multiplo del tamaño de pagina
+		newSize = newSize + pageSize - (newSize % pageSize) //Si no es multiplo, lo redondeo al proximo multiplo
+	}
 	currentSize := len(pages)
 	if newSize > currentSize { //Comparo el tamaño actual con el nuevo tamaño
 		if len(memory)/pageSize < newSize-currentSize { //Verifico si hay suficiente espacio en memoria despues de la ampliacion
 			log.Printf("Memoria insuficiente para la ampliación")
 		}
 		for i := currentSize; i < newSize; i++ { //Asigno nuevos marcos a la ampliacion
-			proxLugarLibre := proximoLugarLibre()
+			proxLugarLibre := proximosXLugaresLibres(globals.ClientConfig.PageSize)
 			if proxLugarLibre != -1 {
 				pageTable[pid] = append(pageTable[pid], proxLugarLibre)
 				memoryMap[proxLugarLibre] = true
@@ -345,6 +357,7 @@ func ResizeProcess(pid int, newSize int) error {
 		fmt.Println("Proceso reducido")
 	}
 	fmt.Println(pageTable)
+	fmt.Println(memoryMap)
 	return nil
 }
 
@@ -548,11 +561,21 @@ func sendFrameToCPU(pid int, page int) error {
 	return nil
 }
 
-func proximoLugarLibre() int {
+func proximosXLugaresLibres(x int) int {
+	contadorLugares := 0
 	for i, libre := range memoryMap {
 		if !libre {
-			return i
+			contadorLugares++
+			if contadorLugares == x {
+				return i - x + 1 // Devuelvo el indicie del primer lugar libre
+			}
+		} else {
+			contadorLugares = 0 // Reinicio el contador si encuentro un lugar ocupado
 		}
 	}
-	return -1
+	return -1 // Si no hay espacios libres, devuelvo -1
 }
+
+/*
+
+ */
