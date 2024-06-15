@@ -171,7 +171,7 @@ func InstructionCycle(contextoDeEjecucion PCB) {
 			interrupt = false
 			break
 		}
-		requestCPU.PcbUpdated = contextoDeEjecucion
+		//requestCPU.PcbUpdated = contextoDeEjecucion
 	}
 	log.Printf("PID: %d - Sale de CPU - PCB actualizado: %d\n", contextoDeEjecucion.Pid, contextoDeEjecucion.CpuReg) //LOG no officia
 	if requestCPU.MotivoDesalojo != "FINALIZADO" && requestCPU.MotivoDesalojo != "INTERRUPCION POR IO" {
@@ -490,13 +490,13 @@ func IO(kind string, words []string) error {
 		}
 	case "IO_STDIN_READ":
 		adressREG := words[2]
-		valueAdress := verificarRegistro(adressREG)
+		valueAdress1 := verificarRegistro(adressREG)
 
 		lengthREG := words[3]
-		valueLength := verificarRegistro(lengthREG)
+		valueLength1 := verificarRegistro(lengthREG)
 
-		direcciones := TranslateAddress(contextoDeEjecucion.Pid, valueAdress, 16, valueLength)
-		sendREGtoKernel(direcciones, valueLength)
+		direcciones := TranslateAddress(contextoDeEjecucion.Pid, valueAdress1, 16, valueLength1)
+		sendREGtoKernel(direcciones, valueLength1)
 		requestCPU = KernelRequest{
 			MotivoDesalojo: "INTERRUPCION POR IO",
 			IoType:         "IO_STDIN_READ",
@@ -504,13 +504,13 @@ func IO(kind string, words []string) error {
 			TimeIO:         0,
 		}
 	case "IO_STDOUT_WRITE":
-		addresREG := words[2]
-		valueAdress := verificarRegistro(addresREG)
+		adressREG := words[2]
+		valueAdress := verificarRegistro(adressREG)
 
 		lengthREG := words[3]
-		valueLength := verificarRegistro(lengthREG) //hay que ver si convertirlo a bytes
+		valueLength := verificarRegistro(lengthREG)
 
-		direcciones := TranslateAddress(contextoDeEjecucion.Pid, valueAdress, 16, valueLength) //el 16 está en el config de memoria, hay que ver eso
+		direcciones := TranslateAddress(contextoDeEjecucion.Pid, valueAdress, 16, valueLength)
 		sendREGtoKernel(direcciones, valueLength)
 		requestCPU = KernelRequest{
 			MotivoDesalojo: "INTERRUPCION POR IO",
@@ -537,29 +537,29 @@ func IO(kind string, words []string) error {
 }
 
 func verificarRegistro(registerName string) int {
-	fmt.Println(&requestCPU)
+	fmt.Println(&contextoDeEjecucion)
 	var registerValue int
 	switch registerName {
 	case "AX":
-		registerValue = int(requestCPU.PcbUpdated.CpuReg.PC)
+		registerValue = int(contextoDeEjecucion.CpuReg.AX)
 	case "BX":
-		registerValue = int(requestCPU.PcbUpdated.CpuReg.BX)
+		registerValue = int(contextoDeEjecucion.CpuReg.BX)
 	case "CX":
-		registerValue = int(requestCPU.PcbUpdated.CpuReg.CX)
+		registerValue = int(contextoDeEjecucion.CpuReg.CX)
 	case "DX":
-		registerValue = int(requestCPU.PcbUpdated.CpuReg.DX)
+		registerValue = int(contextoDeEjecucion.CpuReg.DX)
 	case "SI":
-		registerValue = int(requestCPU.PcbUpdated.CpuReg.SI)
+		registerValue = int(contextoDeEjecucion.CpuReg.SI)
 	case "DI":
-		registerValue = int(requestCPU.PcbUpdated.CpuReg.DI)
+		registerValue = int(contextoDeEjecucion.CpuReg.DI)
 	case "EAX":
-		registerValue = int(requestCPU.PcbUpdated.CpuReg.EAX)
+		registerValue = int(contextoDeEjecucion.CpuReg.EAX)
 	case "EBX":
-		registerValue = int(requestCPU.PcbUpdated.CpuReg.EBX)
+		registerValue = int(contextoDeEjecucion.CpuReg.EBX)
 	case "ECX":
-		registerValue = int(requestCPU.PcbUpdated.CpuReg.ECX)
+		registerValue = int(contextoDeEjecucion.CpuReg.ECX)
 	case "EDX":
-		registerValue = int(requestCPU.PcbUpdated.CpuReg.EDX)
+		registerValue = int(contextoDeEjecucion.CpuReg.EDX)
 	default:
 		log.Fatalf("Register %s not found", registerName)
 	}
@@ -724,10 +724,10 @@ func sendResizeMemory(tam int) {
 
 }
 
-func sendREGtoKernel(addres []int, length int) {
+func sendREGtoKernel(adress []int, length int) {
 	kernelURL := fmt.Sprintf("http://localhost:%d/recieveREG", globals.ClientConfig.PortKernel)
 	var BodyRegisters bodyRegisters
-	BodyRegisters.DirFisica = addres
+	BodyRegisters.DirFisica = adress
 	BodyRegisters.LengthREG = length
 
 	BodyRegistersJSON, err := json.Marshal(BodyRegisters)

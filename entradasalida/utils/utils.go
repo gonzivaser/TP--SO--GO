@@ -275,6 +275,7 @@ func RecieveREG(w http.ResponseWriter, r *http.Request) {
 	direccionFisica = requestRegister.Address
 	pid = requestRegister.Pid
 
+	log.Printf("Recieved Register:%v", direccionFisica)
 	log.Printf("Received data: %d", lengthREG)
 
 	w.WriteHeader(http.StatusOK)
@@ -336,7 +337,7 @@ func (Interfaz *InterfazIO) IO_STDIN_READ(lengthREG int) {
 	if err != nil {
 		log.Fatalf("Error al leer desde stdin: %v", err)
 	}
-	//input = "hola"
+
 	if len(input) > lengthREG {
 		input = input[:lengthREG]
 		log.Println("El texto ingresado es mayor al tamaño del registro, se truncará a: ", input)

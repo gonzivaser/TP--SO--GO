@@ -230,9 +230,22 @@ func AssignAddressToProcess(pid int, address int) error {
 		log.Printf("Process not found")
 	}
 
-	pageTable[pid] = append(pageTable[pid], address) // Asigno la direccion fisica al proceso\
+	if contains(pageTable[pid], address) { // Verifico si la direccion ya fue asignada
+		log.Printf("Address already assigned")
+	} else {
+		pageTable[pid] = append(pageTable[pid], address) // Asigno la direccion fisica al proceso\
+	}
 	fmt.Println(pageTable)
 	return nil
+}
+
+func contains(slice []int, element int) bool {
+	for _, a := range slice {
+		if a == element {
+			return true
+		}
+	}
+	return false
 }
 
 func TerminateProcessHandler(w http.ResponseWriter, r *http.Request) {
