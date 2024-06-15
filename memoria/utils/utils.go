@@ -49,8 +49,10 @@ var mapInstructions = make(map[int][][]string)
 
 // Tamaño de página y memoria
 var pageSize int
-
 var memorySize int
+
+// Mapa de memoria ocupada/libre
+var memoryMap []bool // True si la direccion de memoria esta ocupada, False si esta libre
 
 // Espacio de memoria
 var memory []byte
@@ -124,6 +126,7 @@ func init() {
 		pageSize = globals.ClientConfig.PageSize
 		memorySize = globals.ClientConfig.MemorySize
 		memory = make([]byte, memorySize)
+		memoryMap = make([]bool, memorySize)
 	} else {
 		log.Fatal("ClientConfig is not initialized")
 	}
@@ -243,22 +246,13 @@ func AssignAddressToProcess(pid int, address int) error {
 		log.Printf("Process not found")
 	}
 
-	if contains(pageTable[pid], address) { // Verifico si la direccion ya fue asignada
+	if memoryMap[address] { // Verifico si la direccion ya fue asignada
 		log.Printf("Address already assigned")
 	} else {
-		pageTable[pid] = append(pageTable[pid], address) // Asigno la direccion fisica al proceso\
+		pageTable[pid] = append(pageTable[pid], address) // Asigno la direccion fisica al proceso
 	}
 	fmt.Println(pageTable)
 	return nil
-}
-
-func contains(slice []int, element int) bool {
-	for _, a := range slice {
-		if a == element {
-			return true
-		}
-	}
-	return false
 }
 
 func TerminateProcessHandler(w http.ResponseWriter, r *http.Request) {
@@ -323,7 +317,7 @@ func ResizeProcess(pid int, newSize int) error {
 	if newSize > currentSize { //Comparo el tamaño actual con el nuevo tamaño
 		if len(memory)/pageSize < newSize-currentSize { //Verifico si hay suficiente espacio en memoria despues de la ampliacion
 			log.Printf("Memoria insuficiente para la ampliación")
-		} //A REVISAR ESTE IF
+		}
 		for i := currentSize; i < newSize; i++ { //Asigno nuevos marcos a la ampliacion
 			pageTable[pid] = append(pageTable[pid], i) // Convert i to a slice of int
 			fmt.Println("Proceso ampliado")
