@@ -233,6 +233,7 @@ func CreateProcess(pid int, pages int) error {
 	}
 
 	fmt.Println(pageTable)
+	fmt.Println(memoryMap)
 
 	return nil
 }
@@ -249,9 +250,11 @@ func AssignAddressToProcess(pid int, address int) error {
 	if memoryMap[address] { // Verifico si la direccion ya fue asignada
 		log.Printf("Address already assigned")
 	} else {
+		memoryMap[address] = true
 		pageTable[pid] = append(pageTable[pid], address) // Asigno la direccion fisica al proceso
 	}
 	fmt.Println(pageTable)
+	fmt.Println(memoryMap)
 	return nil
 }
 
@@ -277,11 +280,16 @@ func TerminateProcess(pid int) error {
 	if _, exists := pageTable[pid]; !exists {
 		log.Printf("Proceso no encontrado")
 	} else {
+		if addresses, exists := pageTable[pid]; exists {
+			for _, address := range addresses {
+				memoryMap[address] = false //Marca las addresses del pid como libres
+			}
+		}
 		delete(pageTable, pid) //Funcion que viene con map, libera los marcos asignados a un pid
 		log.Println("Proceso terminado")
 	}
-
 	fmt.Println(pageTable)
+	fmt.Println(memoryMap)
 
 	return nil
 }
@@ -319,10 +327,20 @@ func ResizeProcess(pid int, newSize int) error {
 			log.Printf("Memoria insuficiente para la ampliación")
 		}
 		for i := currentSize; i < newSize; i++ { //Asigno nuevos marcos a la ampliacion
-			pageTable[pid] = append(pageTable[pid], i) // Convert i to a slice of int
-			fmt.Println("Proceso ampliado")
+			proxLugarLibre := proximoLugarLibre()
+			if proxLugarLibre != -1 {
+				pageTable[pid] = append(pageTable[pid], proxLugarLibre)
+				memoryMap[proxLugarLibre] = true
+				fmt.Println("Proceso ampliado")
+			} else {
+				log.Printf("No more free spots in memory")
+				break
+			}
 		}
 	} else {
+		for i := newSize; i < len(pageTable[pid]); i++ {
+			memoryMap[pageTable[pid][i]] = false
+		}
 		pageTable[pid] = pageTable[pid][:newSize] //Reduce el tamaño del proceso. :newSize es un slice de 0 a newSize (reduce el tope)
 		fmt.Println("Proceso reducido")
 	}
@@ -528,4 +546,13 @@ func sendFrameToCPU(pid int, page int) error {
 	}
 	defer resp.Body.Close()
 	return nil
+}
+
+func proximoLugarLibre() int {
+	for i, libre := range memoryMap {
+		if !libre {
+			return i
+		}
+	}
+	return -1
 }
