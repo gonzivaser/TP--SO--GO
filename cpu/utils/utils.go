@@ -46,7 +46,7 @@ type BodyResponseInstruction struct {
 	Instruction string `json:"instruction"`
 }
 
-type ResponseQuantum struct {
+type ResponseInterrupt struct {
 	Interrupt bool   `json:"interrupt"`
 	Pid       int    `json:"pid"`
 	Motivo    string `json:"motivo"`
@@ -59,7 +59,7 @@ type ResponseWait struct {
 
 var interrupt bool = false
 var requestCPU KernelRequest
-var responseInterrupt ResponseQuantum
+var responseInterrupt ResponseInterrupt
 
 func init() {
 	globals.ClientConfig = IniciarConfiguracion("config.json") // tiene que prender la confi cuando arranca
@@ -230,7 +230,7 @@ func Execute(instruction string, line []string, contextoDeEjecucion *ExecutionCo
 
 		}
 	case "EXIT":
-		err := TerminarProceso(&contextoDeEjecucion.CpuReg)
+		err := TerminarProceso(&contextoDeEjecucion.CpuReg, "FINALIZADO")
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
@@ -240,9 +240,9 @@ func Execute(instruction string, line []string, contextoDeEjecucion *ExecutionCo
 	return nil
 }
 
-func TerminarProceso(registerCPU *RegisterCPU) error {
+func TerminarProceso(registerCPU *RegisterCPU, motivo string) error {
 	requestCPU = KernelRequest{
-		MotivoDesalojo: "FINALIZADO",
+		MotivoDesalojo: motivo,
 	}
 
 	interrupt = true // Aquí va el valor booleano que quieres enviar al kernel
@@ -504,7 +504,7 @@ func CheckSignal(w http.ResponseWriter, r *http.Request, pid int, motivo string,
 	}
 	log.Printf("Respuesta del kernel: %v", signalResponse)
 	if signalResponse.Success == "exit" {
-		err := TerminarProceso(&contextoDeEjecucion.CpuReg)
+		err := TerminarProceso(&contextoDeEjecucion.CpuReg, "INVALID_RESOURCE")
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
@@ -556,7 +556,7 @@ func CheckWait(w http.ResponseWriter, r *http.Request, registerCPU *ExecutionCon
 			Recurso:        recurso,
 		}
 	} else if waitResponse.Success == "exit" {
-		err := TerminarProceso(&contextoDeEjecucion.CpuReg)
+		err := TerminarProceso(&contextoDeEjecucion.CpuReg, "INVALID_RESOURCE")
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}

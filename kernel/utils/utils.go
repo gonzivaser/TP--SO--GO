@@ -237,6 +237,22 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 		procesoEXEC.PCB.State = "BLOCKED"
 		go waitHandler(*procesoEXEC.PCB, CPURequest.Recurso)
 
+	case "INTERRUPTED_BY_USER":
+		log.Printf("Finaliza el proceso %v - Motivo: INTERRUPTED_BY_USER", CPURequest.PcbUpdated.Pid)
+		procesoEXEC.PCB.State = "EXIT"
+		//meter en cola exit
+		mutexExit.Lock()
+		colaExit = append(colaExit, *procesoEXEC.PCB)
+		mutexExit.Unlock()
+
+	case "INVALID_RESOURCE":
+		log.Printf("Finaliza el proceso %v - Motivo: INVALID_RESOURCE", CPURequest.PcbUpdated.Pid)
+		procesoEXEC.PCB.State = "EXIT"
+		//meter en cola exit
+		mutexExit.Lock()
+		colaExit = append(colaExit, *procesoEXEC.PCB)
+		mutexExit.Unlock()
+
 	default:
 		log.Printf("PID: %v desalojado desconocido por %v", CPURequest.PcbUpdated.Pid, CPURequest.MotivoDesalojo)
 	}
@@ -435,8 +451,9 @@ func HandleSignal(w http.ResponseWriter, r *http.Request) {
 func handleSyscallIO(pcb PCB, timeIo int, ioInterface string, ioType string) {
 	if !InterfazExiste(ioInterface, ioType) {
 		log.Printf("Error de interfaces")
-		log.Printf("Finaliza el proceso %v - Motivo: SUCCESS", pcb.Pid)
+		log.Printf("Finaliza el proceso %v - Motivo: INVALID_INTERFACE", pcb.Pid)
 		//Llamar a funcion que finalioza el proceso aca se esta terminando y no se porque
+		pcb.State = "EXIT"
 		mutexExit.Lock()
 		colaExit = append(colaExit, pcb)
 		mutexExit.Unlock()
@@ -512,8 +529,6 @@ func executeProcessFIFO() {
 	// infinitamente estar sacando el primero de taskque ---> readyqueue
 	for {
 
-		//mutex para no enviar dos procesos al mismo timepo a cpu
-
 		proceso := <-readyChannel
 		if len(colaReady) > 0 {
 			mutexExecutionCPU.Lock()
@@ -542,12 +557,10 @@ func executeProcessRR(quantum int) {
 
 func executeProcessVRR() {
 	for {
-
 		var proceso PCB
 		var quantum int
 
 		proceso = <-readyChannel
-		fmt.Printf("Process %d arrived in the ready queue\n", proceso.Pid)
 		if len(colaReadyVRR) > 0 {
 			mutexExecutionCPU.Lock()
 			proceso = colaReadyVRR[0]
@@ -814,26 +827,25 @@ func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	log.Printf("Finalizing process %v - Reason: <SUCCESS / INVALID_RESOURCE / INVALID_WRITE> con estado %v", pcb.Pid, pcb.State)
+	//log.Printf("Finalizing process %v - Reason: <SUCCESS / INVALID_RESOURCE / INVALID_WRITE> con estado %v", pcb.Pid, pcb.State)
 
 	//Llamar a funcion que finalioza el proceso
 
 	if pcb.State == "EXEC" {
-		SendInterrupt(pcb.Pid, "EXIT")
+		SendInterrupt(pcb.Pid, "INTERRUPTED_BY_USER")
 		deletePagesmemory(pcb.Pid)
 	} else {
-
 		eliminarProceso(pcb.Pid)
 		deletePagesmemory(pcb.Pid)
+		pcb.State = "EXIT"
+		mutexExit.Lock()
+		colaExit = append(colaExit, pcb)
+		mutexExit.Unlock()
+		log.Printf("Finaliza el proceso %v - Motivo: INTERRUPTED_BY_USER", pcb.Pid)
+
 	}
 
-	mutexExit.Lock()
-	colaExit = append(colaExit, pcb)
-	mutexExit.Unlock()
-
-	responseOK := fmt.Sprintf("Process finalized: %v", pcb.Pid)
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(responseOK))
 }
 
 func deletePagesmemory(pid int) {
@@ -851,7 +863,7 @@ func deletePagesmemory(pid int) {
 }
 
 func EstadoProceso(w http.ResponseWriter, r *http.Request) {
-	pidStr := r.URL.Query().Get("pid")
+	pidStr := r.PathValue("pid")
 	if pidStr == "" {
 		http.Error(w, "PID no especificado", http.StatusBadRequest)
 		return
