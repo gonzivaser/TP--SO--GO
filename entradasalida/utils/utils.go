@@ -50,6 +50,7 @@ func IniciarConfiguracion(filePath string) *globals.Config {
 type BodyRequestPort struct {
 	Nombre string `json:"nombre"`
 	Port   int    `json:"port"`
+	Type   string `json:"type"`
 }
 
 type BodyRequestRegister struct {
@@ -173,6 +174,7 @@ func SendPortOfInterfaceToKernel(nombreInterfaz string, config *globals.Config) 
 	port := BodyRequestPort{
 		Nombre: nombreInterfaz,
 		Port:   config.Puerto,
+		Type:   config.Tipo,
 	}
 	portJSON, err := json.Marshal(port)
 	if err != nil {
