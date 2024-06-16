@@ -93,6 +93,13 @@ type BodyPageTam struct {
 	PageTam int `json:"pageTam"`
 }
 
+type MemoryReadRequest struct {
+	PID     int    `json:"pid"`
+	Address int    `json:"address"`
+	Size    int    `json:"size,omitempty"` //Si es 0, se omite (Util para creacion y terminacion de procesos)
+	Data    []byte `json:"data,omitempty"` //Si es 0, se omite Util para creacion y terminacion de procesos)
+}
+
 /*------------------------------------------------- VAR GLOBALES --------------------------------------------------------*/
 
 var globalTLB []TLBEntry
@@ -288,6 +295,22 @@ func Execute(instruction string, line []string, GLOBALcontextoDeEjecucion *PCB) 
 			return fmt.Errorf("error en execute: %s", err)
 		}
 		sendResizeMemory(tam)
+
+	case "MOV_IN":
+		err := MOV_IN(words, GLOBALcontextoDeEjecucion)
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	case "MOV_OUT":
+		err := MOV_OUT(words, GLOBALcontextoDeEjecucion)
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	case "COPY_STRING":
+		err := COPY_STRING(words, GLOBALcontextoDeEjecucion)
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
 	case "EXIT":
 		GLOBALrequestCPU = KernelRequest{
 			MotivoDesalojo: "FINALIZADO",
@@ -474,6 +497,118 @@ func JNZ(registerCPU *RegisterCPU, reg, valor string) error {
 			return err
 		}
 		registerCPU.PC = uint32(valorUint32)
+	}
+
+	return nil
+}
+
+// TranslateAddress(pid, DireccionLogica, TamPag, TamData int)
+func MOV_IN(words []string, contextoEjecucion *PCB) error {
+	REGdireccion := words[2]
+	valueDireccion := verificarRegistro(REGdireccion, contextoEjecucion)
+	direcciones := TranslateAddress(contextoEjecucion.Pid, valueDireccion, GLOBALpageTam, valueDireccion)
+
+	valorLeido, err := LeerMemoria(contextoEjecucion.Pid, direcciones[0], valueDireccion)
+	if err != nil {
+		return err
+	}
+	REGdatos := words[1]
+	err1 := SetCampo(&contextoEjecucion.CpuReg, REGdatos, valorLeido)
+	if err1 != nil {
+		return fmt.Errorf("error en execute: %s", err1)
+	}
+
+	return nil
+}
+
+func MOV_OUT(words []string, contextoEjecucion *PCB) error {
+	REGdireccion := words[1]
+	valueDireccion := verificarRegistro(REGdireccion, contextoEjecucion)
+	direcciones := TranslateAddress(contextoEjecucion.Pid, valueDireccion, GLOBALpageTam, valueDireccion)
+
+	REGdatos := words[2]
+	valueDatos := verificarRegistro(REGdatos, contextoEjecucion)
+
+	err := EscribirMemoria(contextoEjecucion.Pid, direcciones[0], valueDatos)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func COPY_STRING(words []string, contextoEjecucion *PCB) error {
+	REGdireccion := words[1]
+	valueDireccion := verificarRegistro(REGdireccion, contextoEjecucion)
+	direcciones := TranslateAddress(contextoEjecucion.Pid, valueDireccion, GLOBALpageTam, valueDireccion)
+
+	REGdatos := words[2]
+	valueDatos := verificarRegistro(REGdatos, contextoEjecucion)
+
+	err := EscribirMemoria(contextoEjecucion.Pid, direcciones[0], valueDatos)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func LeerMemoria(pid, direccion, size int) ([]byte, error) {
+	memoriaURL := fmt.Sprintf("http://localhost:%d/readMemory", globals.ClientConfig.PortMemory)
+	req := MemoryReadRequest{
+		PID:     pid,
+		Address: direccion,
+		Size:    size,
+	}
+	reqJSON, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(reqJSON))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("error en la respuesta del módulo de memoria: %v", resp.StatusCode)
+	}
+
+	var data []byte
+	err = json.NewDecoder(resp.Body).Decode(&data)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func EscribirMemoria(pid, direccion int, data interface{}) error {
+	memoriaURL := fmt.Sprintf("http://localhost:%d/writeMemory", globals.ClientConfig.PortMemory)
+	var req MemoryReadRequest
+	req.PID = pid
+	req.Address = direccion
+
+	switch data.(type) {
+	case []byte:
+		req.Data = data.([]byte)
+	default:
+		return fmt.Errorf("tipo de dato no soportado")
+	}
+
+	reqJSON, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(reqJSON))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("error en la respuesta del módulo de memoria: %v", resp.StatusCode)
 	}
 
 	return nil
