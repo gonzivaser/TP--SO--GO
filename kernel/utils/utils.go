@@ -80,11 +80,6 @@ type RegisterCPU struct {
 }
 
 // Estructura para la interfaz genérica
-type InterfazIO struct {
-	Name string // Nombre interfaz Int1
-	Time int    // Configuración 10
-}
-
 type Payload struct {
 	Nombre string `json:"nombre"`
 	IO     int    `json:"io"`
@@ -706,6 +701,7 @@ func RecievePortOfInterfaceFromIO(w http.ResponseWriter, r *http.Request) {
 	}
 	interfaz.Name = requestPort.Nombre
 	interfaz.Port = requestPort.Port
+	interfaz.Type = requestPort.Type
 
 	interfaces = append(interfaces, interfaz)
 	log.Printf("Received data: %+v", requestPort)
@@ -797,25 +793,6 @@ func SendREGtoIO(REGdireccion []int, lengthREG int, port int) error {
 
 	log.Println("Respuesta del módulo de entradasalida recibida correctamente.")
 	return nil
-}
-
-func RecievePort(w http.ResponseWriter, r *http.Request) {
-	var requestPort BodyRequestPort
-	var interfaz interfaz
-	err := json.NewDecoder(r.Body).Decode(&requestPort)
-	if err != nil {
-		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
-		return
-	}
-	interfaz.Name = requestPort.Nombre
-	interfaz.Port = requestPort.Port
-	interfaz.Type = requestPort.Type
-
-	interfaces = append(interfaces, interfaz)
-	log.Printf("Puerto de Io recibido: %+v", requestPort)
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("Port received: %d", requestPort.Port)))
 }
 
 func SendPortOfInterfaceToMemory(nombreInterfaz string, puerto int) error {

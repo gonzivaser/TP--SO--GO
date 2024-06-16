@@ -118,7 +118,8 @@ var GLOBALrequestCPU KernelRequest
 var GLOBALcontextoDeEjecucion PCB //PCB recibido desde kernel
 var MemoryFrame int
 var GLOBALpageTam int
-var requestCPU KernelRequest
+
+// var requestCPU KernelRequest
 var responseInterrupt ResponseInterrupt
 
 func init() {
@@ -161,7 +162,6 @@ func IniciarConfiguracion(filePath string) *globals.Config {
 }
 
 func ReceivePCB(w http.ResponseWriter, r *http.Request) {
-
 	// HAGO UN LOG PARA CHEQUEAR RECEPCION
 	log.Printf("Recibiendo solicitud de contexto de ejecucuion desde el kernel")
 
@@ -178,44 +178,44 @@ func ReceivePCB(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func InstructionCycle(GLOBALcontextoDeEjecucion PCB) {
+func InstructionCycle(contextoDeEjecucion PCB) {
 	GLOBALrequestCPU = KernelRequest{}
 
 	for {
-		log.Printf("PID: %d - FETCH - Program Counter: %d\n", GLOBALcontextoDeEjecucion.Pid, GLOBALcontextoDeEjecucion.CpuReg.PC)
-		line, _ := Fetch(int(GLOBALcontextoDeEjecucion.CpuReg.PC), GLOBALcontextoDeEjecucion.Pid)
+		log.Printf("PID: %d - FETCH - Program Counter: %d\n", contextoDeEjecucion.Pid, contextoDeEjecucion.CpuReg.PC)
+		line, _ := Fetch(int(contextoDeEjecucion.CpuReg.PC), contextoDeEjecucion.Pid)
 
-		GLOBALcontextoDeEjecucion.CpuReg.PC++
-		GLOBALrequestCPU.PcbUpdated = GLOBALcontextoDeEjecucion
+		contextoDeEjecucion.CpuReg.PC++
+		GLOBALrequestCPU.PcbUpdated = contextoDeEjecucion
 		instruction, _ := Decode(line)
 
-		Execute(instruction, line, &GLOBALcontextoDeEjecucion)
-		log.Printf("PID: %d - Ejecutando: %s - %s”.", GLOBALcontextoDeEjecucion.Pid, instruction, line)
+		Execute(instruction, line, &contextoDeEjecucion)
+		log.Printf("PID: %d - Ejecutando: %s - %s”.", contextoDeEjecucion.Pid, instruction, line)
 
 		time.Sleep(1 * time.Second)
 
 		// responseInterrupt.Interrupt ---> ese de clock y finalizacion
 		// interrupt ---> ese de io y wait
-		if responseInterrupt.Interrupt && responseInterrupt.Pid == GLOBALcontextoDeEjecucion.Pid || interrupt {
+		if responseInterrupt.Interrupt && responseInterrupt.Pid == contextoDeEjecucion.Pid || interrupt {
 			responseInterrupt.Interrupt = false
 			interrupt = false
 			break
 		}
 
 	}
-	log.Printf("PID: %d - Sale de CPU - PCB actualizado: %d\n", GLOBALcontextoDeEjecucion.Pid, GLOBALcontextoDeEjecucion.CpuReg) //LOG no officia
+	log.Printf("PID: %d - Sale de CPU - PCB actualizado: %d\n", contextoDeEjecucion.Pid, contextoDeEjecucion.CpuReg) //LOG no officia
 	if GLOBALrequestCPU.MotivoDesalojo == "" {
 		GLOBALrequestCPU.MotivoDesalojo = responseInterrupt.Motivo
 	}
-	GLOBALrequestCPU.PcbUpdated = GLOBALcontextoDeEjecucion
+	GLOBALrequestCPU.PcbUpdated = contextoDeEjecucion
 	responsePCBtoKernel(GLOBALrequestCPU)
 
 }
 
-func responsePCBtoKernel(GLOBALrequestCPU KernelRequest) {
+func responsePCBtoKernel(requestCPU KernelRequest) {
 	kernelURL := fmt.Sprintf("http://localhost:%d/syscall", globals.ClientConfig.PortKernel)
 
-	requestJSON, err := json.Marshal(GLOBALrequestCPU)
+	requestJSON, err := json.Marshal(requestCPU)
 	if err != nil {
 		return
 	}
@@ -265,43 +265,43 @@ func Decode(instruction []string) (string, error) {
 	return words[0], nil
 }
 
-func Execute(instruction string, line []string, GLOBALcontextoDeEjecucion *PCB) error {
+func Execute(instruction string, line []string, contextoDeEjecucion *PCB) error {
 
 	words := strings.Fields(line[0])
 
 	switch instruction {
 	case "SET": // Change the type of the switch case expression from byte to string
-		err := SetCampo(&GLOBALcontextoDeEjecucion.CpuReg, words[1], words[2])
+		err := SetCampo(&contextoDeEjecucion.CpuReg, words[1], words[2])
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "SUM":
-		err := Suma(&GLOBALcontextoDeEjecucion.CpuReg, words[1], words[2])
+		err := Suma(&contextoDeEjecucion.CpuReg, words[1], words[2])
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "SUB":
-		err := Resta(&GLOBALcontextoDeEjecucion.CpuReg, words[1], words[2])
+		err := Resta(&contextoDeEjecucion.CpuReg, words[1], words[2])
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "JNZ":
-		err := JNZ(&GLOBALcontextoDeEjecucion.CpuReg, words[1], words[2])
+		err := JNZ(&contextoDeEjecucion.CpuReg, words[1], words[2])
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "IO_GEN_SLEEP":
-		err := IO(instruction, words, GLOBALcontextoDeEjecucion)
+		err := IO(instruction, words, contextoDeEjecucion)
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "IO_STDIN_READ":
-		err := IO(instruction, words, GLOBALcontextoDeEjecucion)
+		err := IO(instruction, words, contextoDeEjecucion)
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "IO_STDOUT_WRITE":
-		err := IO(instruction, words, GLOBALcontextoDeEjecucion)
+		err := IO(instruction, words, contextoDeEjecucion)
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
@@ -313,34 +313,34 @@ func Execute(instruction string, line []string, GLOBALcontextoDeEjecucion *PCB) 
 		sendResizeMemory(tam)
 
 	case "MOV_IN":
-		err := MOV_IN(words, GLOBALcontextoDeEjecucion)
+		err := MOV_IN(words, contextoDeEjecucion)
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "MOV_OUT":
-		err := MOV_OUT(words, GLOBALcontextoDeEjecucion)
+		err := MOV_OUT(words, contextoDeEjecucion)
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "COPY_STRING":
-		err := COPY_STRING(words, GLOBALcontextoDeEjecucion)
+		err := COPY_STRING(words, contextoDeEjecucion)
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 
 		}
 	case "WAIT":
-		err := CheckWait(nil, nil, GLOBALcontextoDeEjecucion, words[1])
+		err := CheckWait(nil, nil, contextoDeEjecucion, words[1])
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "SIGNAL":
-		err := CheckSignal(nil, nil, GLOBALcontextoDeEjecucion.Pid, instruction, words[1])
+		err := CheckSignal(nil, nil, contextoDeEjecucion.Pid, instruction, words[1])
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 
 		}
 	case "EXIT":
-		err := TerminarProceso(&GLOBALcontextoDeEjecucion.CpuReg, "FINALIZADO")
+		err := TerminarProceso(&contextoDeEjecucion.CpuReg, "FINALIZADO")
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
@@ -351,7 +351,7 @@ func Execute(instruction string, line []string, GLOBALcontextoDeEjecucion *PCB) 
 }
 
 func TerminarProceso(registerCPU *RegisterCPU, motivo string) error {
-	requestCPU = KernelRequest{
+	GLOBALrequestCPU = KernelRequest{
 		MotivoDesalojo: motivo,
 	}
 
@@ -682,7 +682,7 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 		GLOBALrequestCPU = KernelRequest{
 			PcbUpdated:     *contextoEjecucion,
 			MotivoDesalojo: "INTERRUPCION POR IO",
-			IoType:         "IO_STDIN_READ",
+			IoType:         "STDIN",
 			Interface:      words[1],
 			TimeIO:         0,
 		}
@@ -698,7 +698,7 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 		GLOBALrequestCPU = KernelRequest{
 			PcbUpdated:     *contextoEjecucion,
 			MotivoDesalojo: "INTERRUPCION POR IO",
-			IoType:         "IO_STDOUT_WRITE",
+			IoType:         "STDOUT",
 			Interface:      words[1],
 			TimeIO:         0,
 		}
@@ -835,7 +835,7 @@ func CheckWait(w http.ResponseWriter, r *http.Request, registerCPU *PCB, recurso
 	log.Printf("Respuesta del kernel: %v", waitResponse)
 	if waitResponse.Success == "false" {
 		interrupt = true
-		requestCPU = KernelRequest{
+		GLOBALrequestCPU = KernelRequest{
 			MotivoDesalojo: "WAIT",
 			Recurso:        recurso,
 		}
