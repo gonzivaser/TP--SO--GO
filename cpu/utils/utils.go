@@ -575,6 +575,7 @@ func MOV_OUT(words []string, contextoEjecucion *PCB) error {
 	return nil
 }
 
+// Pendiente---------------------------------------------------
 func COPY_STRING(words []string, contextoEjecucion *PCB) error {
 	REGdireccion := words[1]
 	valueDireccion := verificarRegistro(REGdireccion, contextoEjecucion)

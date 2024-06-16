@@ -1,20 +1,5 @@
 package utils
 
-// PONGO ACA ALGUNAS COSAS QUE FALTAN HACER
-// fALTA APLICAR CANALES PARA ATENDER LAS io
-// fALTA APLICAR EL ALGORITMO DE VRR
-// MANEJO DE RECURSOS:
-/* A la hora de recibir de la CPU un Contexto de Ejecución desalojado por WAIT, el Kernel deberá verificar primero que exista el recurso
-solicitado ("resources") y en caso de que exista restarle 1 a la cantidad de instancias del mismo (""resource_instances").
-En caso de que el número sea estrictamente menor a 0, el proceso que realizó WAIT se bloqueará en la cola de
-bloqueados correspondiente al recurso.
-A la hora de recibir de la CPU un Contexto de Ejecución desalojado por SIGNAL,
-el Kernel deberá verificar primero que exista el recurso solicitado, luego sumarle 1 a la cantidad de instancias del mismo.
-En caso de que corresponda, desbloquea al primer proceso de la cola de bloqueados de ese recurso. Una vez hecho esto, se devuelve la
-ejecución al proceso que peticiona el SIGNAL.
-Para las operaciones de WAIT y SIGNAL donde no se cumpla que el recurso exista, se deberá enviar el proceso a EXIT.*/
-//MANEJO DE I/O:
-/**/
 import (
 	"bytes"
 	"encoding/json"
@@ -769,6 +754,8 @@ func SendIOToEntradaSalida(nombre string, io int) error {
 	}
 	return nil
 }
+
+// esto es solamente para stdin y stdout
 
 func RecieveREGFromCPU(w http.ResponseWriter, r *http.Request) {
 	var bodyRegisters BodyRegisters
