@@ -55,10 +55,6 @@ type BodyResponsePid struct {
 	Pid int `json:"pid"`
 }
 
-type Finalizado struct {
-	Finalizado bool `json:"finalizado"`
-}
-
 type BodyResponseState struct {
 	State string `json:"state"`
 }
@@ -109,19 +105,9 @@ type Payload struct {
 	IO     int    `json:"io"`
 }
 
-type BodyRequestPort struct {
-	Nombre string `json:"nombre"`
-	Port   int    `json:"port"`
-	Type   string `json:"type"`
+type Finalizado struct {
+	Finalizado bool `json:"finalizado"`
 }
-
-type interfaz struct {
-	Name string
-	Port int
-	Type string
-}
-
-var interfaces []interfaz
 
 type Proceso struct {
 	Request BodyRequest
@@ -147,12 +133,39 @@ type RequestInterrupt struct {
 	Motivo    string `json:"motivo"`
 }
 
+type BodyRequestPort struct {
+	Nombre string `json:"nombre"`
+	Port   int    `json:"port"`
+	Type   string `json:"type"`
+}
+type interfaz struct {
+	Name string
+	Port int
+	Type string
+}
+
+type BodyRegisters struct {
+	DirFisica []int `json:"dirFisica"`
+	LengthREG int   `json:"lengthREG"`
+	IOpid     int   `json:"iopid"`
+}
+
+type Process struct {
+	PID   int `json:"pid"`
+	Pages int `json:"pages,omitempty"`
+}
+
+var interfaces []interfaz
+
 /*---------------------------------------------------VAR GLOBALES------------------------------------------------*/
 
 var (
 	ioChannel    chan KernelRequest
 	readyChannel chan PCB
 	nextPid      = 1
+	DirFisica    []int
+	LengthREG    int
+	IOpid        int
 	done         chan struct{}
 	//CPURequest   KernelRequest
 
@@ -201,8 +214,7 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
 		return
 	}
-	//log.Printf("Recibido syscall de la CPU: %+v", CPURequest.)
-
+	log.Printf("Recibido syscall: %+v", CPURequest)
 	if len(colaExecution) > 0 { // aca lo saco de la cola exec
 		mutexExecution.Lock()
 		colaExecution = append(colaExecution[:0], colaExecution[1:]...)
@@ -264,6 +276,32 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func createStructuresMemory(pid int, pages int) error {
+	memoriaURL := fmt.Sprintf("http://localhost:%d/createProcess", globals.ClientConfig.PuertoMemoria)
+	var process Process
+	process.PID = pid
+	process.Pages = pages
+
+	processBytes, err := json.Marshal(process)
+	if err != nil {
+		return fmt.Errorf("error al serializar los datos JSON: %v", err)
+	}
+
+	log.Println("Enviando solicitud con contenido:", string(processBytes))
+
+	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(processBytes))
+	if err != nil {
+		return fmt.Errorf("error al enviar la solicitud al módulo de entradasalida: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("error en la respuesta del módulo de memoria: %v", resp.StatusCode)
+	}
+	log.Println("Respuesta del módulo de entradasalida recibida correctamente.")
+	return nil
+}
+
 func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	var request BodyRequest
 	err := json.NewDecoder(r.Body).Decode(&request)
@@ -277,17 +315,13 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	// Create PCB
 	pcb := createPCB()
 	log.Printf("Se crea el proceso %v en NEW", pcb.Pid) // log obligatorio
-	response := BodyResponsePid{
-		Pid: pcb.Pid,
-	}
-
+	createStructuresMemory(pcb.Pid, 0)
 	IniciarPlanificacionDeProcesos(request, pcb)
 
 	// Response with the PID
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-
-	w.Write([]byte(fmt.Sprintf(`{"pid":%d}`, response.Pid)))
+	w.Write([]byte(fmt.Sprintf(`{"pid":%d}`, pcb.Pid)))
 }
 
 func init() {
@@ -306,7 +340,6 @@ func init() {
 	} else {
 		log.Fatal("ClientConfig is not initialized")
 	}
-
 }
 
 func IniciarPlanificacionDeProcesos(request BodyRequest, pcb PCB) {
@@ -350,7 +383,6 @@ func executeTask(proceso PCB) {
 		log.Printf("Cola VRR desalojada  %+v", colaReadyVRR)
 		mutexReadyVRR.Unlock()
 	}
-
 	//meter en execution
 	mutexExecution.Lock()
 	colaExecution = append(colaExecution, *procesoEXEC.PCB)
@@ -528,7 +560,6 @@ func enqueueProcess(pcb PCB) {
 func executeProcessFIFO() {
 	// infinitamente estar sacando el primero de taskque ---> readyqueue
 	for {
-
 		proceso := <-readyChannel
 		if len(colaReady) > 0 {
 			mutexExecutionCPU.Lock()
@@ -680,6 +711,26 @@ func SendContextToCPU(pcb PCB) error {
 	return nil
 }
 
+func RecievePortOfInterfaceFromIO(w http.ResponseWriter, r *http.Request) {
+	var requestPort BodyRequestPort
+	var interfaz interfaz
+	err := json.NewDecoder(r.Body).Decode(&requestPort)
+	if err != nil {
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
+		return
+	}
+	interfaz.Name = requestPort.Nombre
+	interfaz.Port = requestPort.Port
+
+	interfaces = append(interfaces, interfaz)
+	log.Printf("Received data: %+v", requestPort)
+
+	SendPortOfInterfaceToMemory(interfaz.Name, interfaz.Port)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("Port received: %d", requestPort.Port)))
+}
+
 func SendIOToEntradaSalida(nombre string, io int) error {
 	payload := Payload{
 		Nombre: nombre,
@@ -694,6 +745,8 @@ func SendIOToEntradaSalida(nombre string, io int) error {
 		}
 	}
 	if interfazEncontrada != (interfaz{}) {
+		SendREGtoIO(DirFisica, LengthREG, interfazEncontrada.Port) //envia los registros a IO
+		//envia el payload a IO
 		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
 
 		ioResponseTest, err := json.Marshal(payload)
@@ -717,6 +770,48 @@ func SendIOToEntradaSalida(nombre string, io int) error {
 	return nil
 }
 
+func RecieveREGFromCPU(w http.ResponseWriter, r *http.Request) {
+	var bodyRegisters BodyRegisters
+	err := json.NewDecoder(r.Body).Decode(&bodyRegisters)
+	if err != nil {
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
+		return
+	}
+	DirFisica = bodyRegisters.DirFisica
+	LengthREG = bodyRegisters.LengthREG
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("Registers received: %v", bodyRegisters)))
+}
+
+func SendREGtoIO(REGdireccion []int, lengthREG int, port int) error {
+	ioURL := fmt.Sprintf("http://localhost:%d/recieveREG", port)
+	var BodyRegister BodyRegisters
+	BodyRegister.DirFisica = REGdireccion
+	BodyRegister.LengthREG = lengthREG
+	BodyRegister.IOpid = IOpid
+
+	savedRegJSON, err := json.Marshal(BodyRegister)
+	if err != nil {
+		return fmt.Errorf("error al serializar los datos JSON: %v", err)
+	}
+
+	log.Println("Enviando solicitud con contenido:", string(savedRegJSON))
+
+	resp, err := http.Post(ioURL, "application/json", bytes.NewBuffer(savedRegJSON))
+	if err != nil {
+		return fmt.Errorf("error al enviar la solicitud al módulo de entradasalida: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("error en la respuesta del módulo de entradasalida: %v", resp.StatusCode)
+	}
+
+	log.Println("Respuesta del módulo de entradasalida recibida correctamente.")
+	return nil
+}
+
 func RecievePort(w http.ResponseWriter, r *http.Request) {
 	var requestPort BodyRequestPort
 	var interfaz interfaz
@@ -734,6 +829,32 @@ func RecievePort(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("Port received: %d", requestPort.Port)))
+}
+
+func SendPortOfInterfaceToMemory(nombreInterfaz string, puerto int) error {
+	memoriaURL := fmt.Sprintf("http://localhost:%d/SendPortOfInterfaceToMemory", globals.ClientConfig.PuertoMemoria)
+	body := BodyRequestPort{
+		Nombre: nombreInterfaz,
+		Port:   puerto,
+	}
+
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("error al serializar el body: %v", err)
+	}
+
+	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(bodyBytes))
+	if err != nil {
+		return fmt.Errorf("error al enviar la solicitud al módulo de memoria: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("error en la respuesta del módulo de memoria: %v", resp.StatusCode)
+	}
+
+	log.Println("Respuesta del módulo de memoria recibida correctamente.")
+	return nil
 }
 
 func SendInterrupt(pid int, motivo string) error {

@@ -50,24 +50,24 @@ func IniciarConfiguracion(filePath string) *globals.Config {
 type BodyRequestPort struct {
 	Nombre string `json:"nombre"`
 	Port   int    `json:"port"`
-	Type   string `json:"type"`
 }
 
 type BodyRequestRegister struct {
-	Length  int `json:"length"`
-	Address int `json:"address"`
-	Pid     int `json:"pid"`
+	Length  int   `json:"lengthREG"`
+	Address []int `json:"dirFisica"`
+	Pid     int   `json:"iopid"`
 }
 
 type BodyRequestInput struct {
 	Pid     int    `json:"pid"`
 	Input   string `json:"input"`
-	Address int    `json:"address"` //Esto viene desde kernel
+	Address []int  `json:"address"` //Esto viene desde kernel
 }
 
 type BodyAdress struct {
-	Adress int `json:"adress"`
-	Length int `json:"length"`
+	Address []int  `json:"address"`
+	Length  int    `json:"length"`
+	Name    string `json:"name"`
 }
 
 type Finalizado struct {
@@ -94,11 +94,10 @@ type Payload struct {
 
 /*--------------------------------------------------- VAR GLOBALES ------------------------------------------------------*/
 
-var Puerto int
-var lengthREG int
-var memoryContent string
-var direccionFisica int
-var pid int
+var GLOBALlengthREG int
+var GLOBALmemoryContent string
+var GLOBALdireccionFisica []int
+var GLOBALpid int
 var config *globals.Config
 
 /*---------------------------------------------------- FUNCIONES ------------------------------------------------------*/
@@ -153,36 +152,27 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(duracion)
 		log.Printf("Termino de esperar por la interfaz genérica '%s' es de %v\n", Interfaz.Nombre, duracion)
 
-	// case "STDIN":
-	// 	Interfaz.IO_STDIN_READ(lengthREG)
-	// 	log.Printf("Termino de leer desde la interfaz '%s'\n", Interfaz.Nombre)
+	case "STDIN":
+		Interfaz.IO_STDIN_READ(GLOBALlengthREG)
+		log.Printf("Termino de leer desde la interfaz '%s'\n", Interfaz.Nombre)
 
-	// case "STDOUT":
-	// 	Interfaz.IO_STDOUT_WRITE(direccionFisica, lengthREG) //esto está re hardcodeado loco, no me juzguen
-	// 	log.Printf("Termino de escribir en la interfaz '%s'\n", Interfaz.Nombre)
+	case "STDOUT":
+		Interfaz.IO_STDOUT_WRITE(GLOBALdireccionFisica, GLOBALlengthREG) //esto está re hardcodeado loco, no me juzguen
+		log.Printf("Termino de escribir en la interfaz '%s'\n", Interfaz.Nombre)
 
-	// case "DialFS":
+	case "DialFS":
 
 	default:
 		log.Fatalf("Tipo de interfaz desconocido: %s", Interfaz.Config.Tipo)
 	}
 }
 
-func SendPort(nombreInterfaz string, pathToConfig string, ioType string) error {
-	config, err := LoadConfig(pathToConfig)
-	if err != nil {
-		log.Fatalf("Error al cargar la configuración desde '%s': %v", pathToConfig, err)
-	}
-	Puerto = config.Puerto
-	PuertoKernel := config.PuertoKernel
-	IoTyoe := config.Tipo
-
-	kernelURL := fmt.Sprintf("http://localhost:%d/recievePort", PuertoKernel)
+func SendPortOfInterfaceToKernel(nombreInterfaz string, config *globals.Config) error {
+	kernelURL := fmt.Sprintf("http://localhost:%d/SendPortOfInterfaceToKernel", config.PuertoKernel)
 
 	port := BodyRequestPort{
 		Nombre: nombreInterfaz,
-		Port:   Puerto,
-		Type:   IoTyoe,
+		Port:   config.Puerto,
 	}
 	portJSON, err := json.Marshal(port)
 	if err != nil {
@@ -204,8 +194,7 @@ func SendPort(nombreInterfaz string, pathToConfig string, ioType string) error {
 }
 
 func IOFinished(w http.ResponseWriter, r *http.Request) {
-	kernelURL := "http://localhost:8080/IOFinished"
-
+	kernelURL := fmt.Sprintf("http://localhost:%d/IOFinished", config.PuertoKernel)
 	finished := Finalizado{
 		Finalizado: true,
 	}
@@ -228,12 +217,12 @@ func IOFinished(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func SendAdressSTDOUTToMemory(adress BodyAdress, lengthREG int) error {
+func SendAdressSTDOUTToMemory(address BodyAdress) error {
 	memoriaURL := "http://localhost:8085/SendAdressSTDOUTToMemory"
-	adress.Length = lengthREG
-	adressResponseTest, err := json.Marshal(adress)
+
+	adressResponseTest, err := json.Marshal(address)
 	if err != nil {
-		log.Fatalf("Error al serializar el adress: %v", err)
+		log.Fatalf("Error al serializar el address: %v", err)
 	}
 
 	log.Println("Enviando solicitud con contenido:", adressResponseTest)
@@ -283,11 +272,12 @@ func RecieveREG(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	lengthREG = requestRegister.Length
-	direccionFisica = requestRegister.Address
-	pid = requestRegister.Pid
+	GLOBALlengthREG = requestRegister.Length
+	GLOBALdireccionFisica = requestRegister.Address
+	GLOBALpid = requestRegister.Pid
 
-	log.Printf("Received data: %d", lengthREG)
+	log.Printf("Recieved Register:%v", GLOBALdireccionFisica)
+	log.Printf("Received data: %d", GLOBALlengthREG)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("length received: %d", requestRegister.Length)))
@@ -302,8 +292,8 @@ func ReceiveContentFromMemory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	memoryContent = content.Content
-	log.Printf("Received data: %s", memoryContent)
+	GLOBALmemoryContent = content.Content
+	log.Printf("Received data: %s", GLOBALmemoryContent)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Content received correctly"))
@@ -311,31 +301,33 @@ func ReceiveContentFromMemory(w http.ResponseWriter, r *http.Request) {
 
 /*---------------------------------------------- INTERFACES -------------------------------------------------------*/
 // INTERFAZ STDOUT (IO_STDOUT_WRITE)
-func (Interfaz *InterfazIO) IO_STDOUT_WRITE(adress int, length int) {
-	// IO_STDOUT_WRITE Int3 BX EAX
-	// BX: REGISTRO QUE CONTIENE DIRECCION FISICA EN MEMORIA DONDE SE LEERA EL VALOR
-	// EAX: REGISTRO QUE VA A CONTENER EL VALOR QUE SE LEA
+func (Interfaz *InterfazIO) IO_STDOUT_WRITE(address []int, length int) {
+	pathToConfig := os.Args[2]
+	log.Printf("Path al archivo de configuración: %s", pathToConfig)
+
+	config, err := LoadConfig(pathToConfig)
+	if err != nil {
+		log.Fatalf("Error al cargar la configuración desde '%s': %v", pathToConfig, err)
+	}
 
 	var Bodyadress BodyAdress
-	Bodyadress.Adress = adress
+
+	Bodyadress.Address = address
 	Bodyadress.Length = length
-	err := SendAdressSTDOUTToMemory(Bodyadress, length)
-	if err != nil {
+	Bodyadress.Name = os.Args[1]
+
+	err1 := SendAdressSTDOUTToMemory(Bodyadress)
+	if err1 != nil {
 		log.Fatalf("Error al leer desde la memoria: %v", err)
 	}
 
 	time.Sleep(time.Duration(config.UnidadDeTiempo) * time.Millisecond)
 	// Imprimir el texto en la consola
-	fmt.Println(memoryContent)
+	fmt.Println(GLOBALmemoryContent)
 }
 
 // INTERFAZ STDIN (IO_STDIN_READ)
-
 func (Interfaz *InterfazIO) IO_STDIN_READ(lengthREG int) {
-	/*
-		EAX: Registro que contiene la dirección física en memoria donde se almacenará el texto ingresado.
-		AX: Registro donde se almacena el valor resultante (puede usarse para alguna otra operación posterior).
-	*/
 	var BodyInput BodyRequestInput
 	var input string
 
@@ -344,17 +336,19 @@ func (Interfaz *InterfazIO) IO_STDIN_READ(lengthREG int) {
 	if err != nil {
 		log.Fatalf("Error al leer desde stdin: %v", err)
 	}
+
 	if len(input) > lengthREG {
 		input = input[:lengthREG]
 		log.Println("El texto ingresado es mayor al tamaño del registro, se truncará a: ", input)
 	}
 
 	BodyInput.Input = input
-	BodyInput.Address = direccionFisica
-	BodyInput.Pid = pid
+	BodyInput.Address = GLOBALdireccionFisica
+	BodyInput.Pid = GLOBALpid
+
 	// Guardar el texto en la memoria en la dirección especificada
-	err = SendInputSTDINToMemory(&BodyInput)
-	if err != nil {
+	err1 := SendInputSTDINToMemory(&BodyInput)
+	if err1 != nil {
 		log.Fatalf("Error al escribir en la memoria: %v", err)
 	}
 }

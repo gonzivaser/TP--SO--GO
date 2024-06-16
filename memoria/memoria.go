@@ -20,6 +20,7 @@ func main() {
 	puerto := globals.ClientConfig.Puerto
 
 	http.HandleFunc("POST /setInstructionFromFileToMap", utils.SetInstructionsFromFileToMap)
+
 	http.HandleFunc("GET /getInstructionFromPid", utils.GetInstruction)
 	http.HandleFunc("POST /createProcess", utils.CreateProcessHandler)
 	http.HandleFunc("POST /terminateProcess", utils.TerminateProcessHandler)

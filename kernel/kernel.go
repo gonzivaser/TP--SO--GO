@@ -24,6 +24,10 @@ func main() {
 	http.HandleFunc("POST /IOFinished", utils.IOFinished)
 
 	http.HandleFunc("POST /syscall", utils.ProcessSyscall)
+	http.HandleFunc("POST /SendPortOfInterfaceToKernel", utils.RecievePortOfInterfaceFromIO)
+	http.HandleFunc("POST /IOFinished", utils.IOFinished)
+	http.HandleFunc("POST /recieveREG", utils.RecieveREGFromCPU)
+	http.HandleFunc("DELETE /process/{pid}", utils.FinalizarProceso)
 	http.HandleFunc("POST /wait", utils.RecieveWait)
 	http.HandleFunc("POST /signal", utils.HandleSignal)
 
