@@ -24,6 +24,7 @@ type KernelRequest struct {
 	TimeIO         int    `json:"timeIO"`
 	Interface      string `json:"interface"`
 	IoType         string `json:"ioType"`
+	Recurso        string `json:"recurso"`
 }
 
 type PCB struct { //ESTO NO VA ACA
@@ -47,9 +48,15 @@ type BodyResponseInstruction struct {
 	Instruction string `json:"instruction"`
 }
 
-type ResponseQuantum struct {
-	Interrupt bool `json:"interrupt"`
-	Pid       int  `json:"pid"`
+type ResponseInterrupt struct {
+	Interrupt bool   `json:"interrupt"`
+	Pid       int    `json:"pid"`
+	Motivo    string `json:"motivo"`
+}
+
+type ResponseWait struct {
+	Recurso string `json:"recurso"`
+	Pid     int    `json:"pid"`
 }
 
 type TranslationRequest struct {
@@ -108,10 +115,15 @@ var replacementAlgorithm string
 var globalPosicionFila int
 var interrupt bool = false
 var GLOBALrequestCPU KernelRequest
-var responseQuantum ResponseQuantum
 var GLOBALcontextoDeEjecucion PCB //PCB recibido desde kernel
 var MemoryFrame int
 var GLOBALpageTam int
+var requestCPU KernelRequest
+var responseInterrupt ResponseInterrupt
+
+func init() {
+	globals.ClientConfig = IniciarConfiguracion("config.json") // tiene que prender la confi cuando arranca
+}
 
 func ConfigurarLogger() {
 
@@ -180,16 +192,20 @@ func InstructionCycle(GLOBALcontextoDeEjecucion PCB) {
 		Execute(instruction, line, &GLOBALcontextoDeEjecucion)
 		log.Printf("PID: %d - Ejecutando: %s - %s”.", GLOBALcontextoDeEjecucion.Pid, instruction, line)
 
-		if responseQuantum.Interrupt && responseQuantum.Pid == GLOBALcontextoDeEjecucion.Pid || interrupt {
-			responseQuantum.Interrupt = false
+		time.Sleep(1 * time.Second)
+
+		// responseInterrupt.Interrupt ---> ese de clock y finalizacion
+		// interrupt ---> ese de io y wait
+		if responseInterrupt.Interrupt && responseInterrupt.Pid == GLOBALcontextoDeEjecucion.Pid || interrupt {
+			responseInterrupt.Interrupt = false
 			interrupt = false
 			break
 		}
 
 	}
 	log.Printf("PID: %d - Sale de CPU - PCB actualizado: %d\n", GLOBALcontextoDeEjecucion.Pid, GLOBALcontextoDeEjecucion.CpuReg) //LOG no officia
-	if GLOBALrequestCPU.MotivoDesalojo != "FINALIZADO" && GLOBALrequestCPU.MotivoDesalojo != "INTERRUPCION POR IO" {
-		GLOBALrequestCPU.MotivoDesalojo = "CLOCK"
+	if GLOBALrequestCPU.MotivoDesalojo == "" {
+		GLOBALrequestCPU.MotivoDesalojo = responseInterrupt.Motivo
 	}
 	GLOBALrequestCPU.PcbUpdated = GLOBALcontextoDeEjecucion
 	responsePCBtoKernel(GLOBALrequestCPU)
@@ -215,7 +231,7 @@ func responsePCBtoKernel(GLOBALrequestCPU KernelRequest) {
 }
 
 func Fetch(pc int, pid int) ([]string, error) {
-	memoriaURL := fmt.Sprintf("http://localhost:8085/getInstructionFromPid?pid=%d&programCounter=%d", pid, pc)
+	memoriaURL := fmt.Sprintf("http://localhost:%d/getInstructionFromPid?pid=%d&programCounter=%d", globals.ClientConfig.PortMemory, pid, pc)
 	resp, err := http.Get(memoriaURL)
 	if err != nil {
 		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
@@ -310,15 +326,37 @@ func Execute(instruction string, line []string, GLOBALcontextoDeEjecucion *PCB) 
 		err := COPY_STRING(words, GLOBALcontextoDeEjecucion)
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
+
+		}
+	case "WAIT":
+		err := CheckWait(nil, nil, GLOBALcontextoDeEjecucion, words[1])
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	case "SIGNAL":
+		err := CheckSignal(nil, nil, GLOBALcontextoDeEjecucion.Pid, instruction, words[1])
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+
 		}
 	case "EXIT":
-		GLOBALrequestCPU = KernelRequest{
-			MotivoDesalojo: "FINALIZADO",
+		err := TerminarProceso(&GLOBALcontextoDeEjecucion.CpuReg, "FINALIZADO")
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
 		}
-		interrupt = true // Aquí va el valor booleano que quieres enviar
 	default:
-		fmt.Println("Instruction no implementada")
+		return nil
 	}
+	return nil
+}
+
+func TerminarProceso(registerCPU *RegisterCPU, motivo string) error {
+	requestCPU = KernelRequest{
+		MotivoDesalojo: motivo,
+	}
+
+	interrupt = true // Aquí va el valor booleano que quieres enviar al kernel
+	registerCPU.PC--
 	return nil
 }
 
@@ -627,7 +665,7 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 		GLOBALrequestCPU = KernelRequest{
 			PcbUpdated:     *contextoEjecucion,
 			MotivoDesalojo: "INTERRUPCION POR IO",
-			IoType:         "IO_GEN_SLEEP",
+			IoType:         "GENERICA",
 			Interface:      words[1],
 			TimeIO:         timeIO,
 		}
@@ -711,10 +749,109 @@ func verificarRegistro(registerName string, contextoEjecucion *PCB) int {
 	return registerValue
 }
 
-func Checkinterrupts(w http.ResponseWriter, r *http.Request) { // A chequear
-	log.Printf("Recibiendo solicitud de Interrupcionde quantum")
+func CheckSignal(w http.ResponseWriter, r *http.Request, pid int, motivo string, recurso string) error {
+	log.Printf("Enviando solicitud de Signal al Kernel")
 
-	err := json.NewDecoder(r.Body).Decode(&responseQuantum)
+	waitRequest := ResponseWait{
+		Recurso: recurso,
+		Pid:     pid,
+	}
+
+	waitRequestJSON, err := json.Marshal(waitRequest)
+	if err != nil {
+		http.Error(w, "Error al codificar los datos JSON", http.StatusInternalServerError)
+		return err
+	}
+
+	kernelURL := fmt.Sprintf("http://localhost:%d/signal", globals.ClientConfig.PortKernel)
+	resp, err := http.Post(kernelURL, "application/json", bytes.NewBuffer(waitRequestJSON))
+	if err != nil {
+		http.Error(w, "Error al enviar la solicitud al kernel", http.StatusInternalServerError)
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		http.Error(w, "Error en la respuesta del kernel", http.StatusInternalServerError)
+		return err
+	}
+
+	var signalResponse struct {
+		Success string `json:"success"`
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&signalResponse)
+	if err != nil {
+		http.Error(w, "Error al decodificar los datos JSON de la respuesta del kernel", http.StatusInternalServerError)
+		return err
+	}
+	log.Printf("Respuesta del kernel: %v", signalResponse)
+	if signalResponse.Success == "exit" {
+		err := TerminarProceso(&GLOBALcontextoDeEjecucion.CpuReg, "INVALID_RESOURCE")
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	}
+	return nil
+}
+
+func CheckWait(w http.ResponseWriter, r *http.Request, registerCPU *PCB, recurso string) error {
+	log.Printf("Enviando solicitud de Wait al Kernel")
+
+	waitRequest := ResponseWait{
+		Recurso: recurso,
+		Pid:     registerCPU.Pid,
+	}
+
+	waitRequestJSON, err := json.Marshal(waitRequest)
+	if err != nil {
+		http.Error(w, "Error al codificar los datos JSON", http.StatusInternalServerError)
+		return err
+	}
+
+	kernelURL := fmt.Sprintf("http://localhost:%d/wait", globals.ClientConfig.PortKernel)
+	resp, err := http.Post(kernelURL, "application/json", bytes.NewBuffer(waitRequestJSON))
+	if err != nil {
+		http.Error(w, "Error al enviar la solicitud al kernel", http.StatusInternalServerError)
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		http.Error(w, "Error en la respuesta del kernel", http.StatusInternalServerError)
+		return err
+	}
+
+	var waitResponse struct {
+		Success string `json:"success"`
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&waitResponse)
+	if err != nil {
+		http.Error(w, "Error al decodificar los datos JSON de la respuesta del kernel", http.StatusInternalServerError)
+		return err
+	}
+	log.Printf("Respuesta del kernel: %v", waitResponse)
+	if waitResponse.Success == "false" {
+		interrupt = true
+		requestCPU = KernelRequest{
+			MotivoDesalojo: "WAIT",
+			Recurso:        recurso,
+		}
+	} else if waitResponse.Success == "exit" {
+		err := TerminarProceso(&GLOBALcontextoDeEjecucion.CpuReg, "INVALID_RESOURCE")
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	}
+
+	return nil
+}
+
+func Checkinterrupts(w http.ResponseWriter, r *http.Request) { // A chequear
+	log.Printf("Recibiendo solicitud de Interrupcion del Kernel")
+
+	err := json.NewDecoder(r.Body).Decode(&responseInterrupt)
 	if err != nil {
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
 		return

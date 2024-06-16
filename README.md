@@ -56,9 +56,10 @@ antes de subir el tag.
 
 - Módulo Kernel:
 
-    - [ ] Es capaz de planificar por VRR.
-    - [ ] Es capaz de realizar manejo de recursos.
-    - [ ] Es capaz de manejar el planificador de largo plazo
+    - [x] Es capaz de planificar por VRR.
+    - [x] Es capaz de realizar manejo de recursos.
+    - [x] Es capaz de manejar el planificador de largo plazo
+
 
 - Módulo CPU:
 
@@ -66,22 +67,23 @@ antes de subir el tag.
 
 - Módulo Memoria:
 
-    - [ ] Se encuentra completamente desarrollada.
+    - [x] Se encuentra completamente desarrollada.
 
 - Módulo Interfaz I/O:
 
-    - [ ] Se encuentran desarrolladas las interfaces STDIN y STDOUT.
+    - [x] Se encuentran desarrolladas las interfaces STDIN y STDOUT.
 
 ### Logs mínimos y obligatorios
 
 - Módulo Kernel:
 
     - [x] Creación de Proceso
-    - [ ] Fin de Proceso
+    - [x] Fin de Proceso
     - [x] Cambio de Estado
-    - [ ] Motivo de Bloqueo
-    - [ ] Fin de Quantum
-    - [ ] Ingreso a Ready
+    - [x] Motivo de Bloqueo
+    - [x] Fin de Quantum
+    - [x] Ingreso a Ready
+
 
 - Módulo CPU:
 

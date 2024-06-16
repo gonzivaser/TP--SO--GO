@@ -1,11 +1,24 @@
 package utils
 
-// PONGO ACA ALGUNAS COSAS QUE NO SE DONDE PONERLAS
-// fALTA APLICAR CANALES PARA ATENDER LAS io PODEMOS DEJARLO COMO ESTA, PERO BUENO
-// FALTA PONER LAS COLAS DE BLOCKED, READY Y EXIT (CREO) ya ni me acuerdo cuales puse
+// PONGO ACA ALGUNAS COSAS QUE FALTAN HACER
+// fALTA APLICAR CANALES PARA ATENDER LAS io
+// fALTA APLICAR EL ALGORITMO DE VRR
+// MANEJO DE RECURSOS:
+/* A la hora de recibir de la CPU un Contexto de Ejecución desalojado por WAIT, el Kernel deberá verificar primero que exista el recurso
+solicitado ("resources") y en caso de que exista restarle 1 a la cantidad de instancias del mismo (""resource_instances").
+En caso de que el número sea estrictamente menor a 0, el proceso que realizó WAIT se bloqueará en la cola de
+bloqueados correspondiente al recurso.
+A la hora de recibir de la CPU un Contexto de Ejecución desalojado por SIGNAL,
+el Kernel deberá verificar primero que exista el recurso solicitado, luego sumarle 1 a la cantidad de instancias del mismo.
+En caso de que corresponda, desbloquea al primer proceso de la cola de bloqueados de ese recurso. Una vez hecho esto, se devuelve la
+ejecución al proceso que peticiona el SIGNAL.
+Para las operaciones de WAIT y SIGNAL donde no se cumpla que el recurso exista, se deberá enviar el proceso a EXIT.*/
+//MANEJO DE I/O:
+/**/
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -61,6 +74,12 @@ type PCB struct {
 	CpuReg  RegisterCPU
 }
 
+type ExecutionContext struct {
+	Pid    int
+	State  string
+	CpuReg RegisterCPU
+}
+
 type RegisterCPU struct {
 	PC  uint32
 	AX  uint8
@@ -100,25 +119,29 @@ type Syscall struct {
 }
 
 type KernelRequest struct {
-	PcbUpdated     PCB    `json:"pcbUpdated"`
-	MotivoDesalojo string `json:"motivoDesalojo"`
-	TimeIO         int    `json:"timeIO"`
-	Interface      string `json:"interface"`
-	IoType         string `json:"ioType"`
+	PcbUpdated     ExecutionContext `json:"pcbUpdated"`
+	MotivoDesalojo string           `json:"motivoDesalojo"`
+	TimeIO         int              `json:"timeIO"`
+	Interface      string           `json:"interface"`
+	IoType         string           `json:"ioType"`
+	Recurso        string           `json:"recurso"`
 }
 
 type RequestInterrupt struct {
-	Interrupt bool `json:"interrupt"`
-	PID       int  `json:"pid"`
+	Interrupt bool   `json:"interrupt"`
+	PID       int    `json:"pid"`
+	Motivo    string `json:"motivo"`
 }
 
 type BodyRequestPort struct {
 	Nombre string `json:"nombre"`
 	Port   int    `json:"port"`
+	Type   string `json:"type"`
 }
 type interfaz struct {
 	Name string
 	Port int
+	Type string
 }
 
 type BodyRegisters struct {
@@ -143,22 +166,24 @@ var (
 	DirFisica    []int
 	LengthREG    int
 	IOpid        int
+	done         chan struct{}
 	//CPURequest   KernelRequest
 
 )
-var mutexes = make(map[string]*sync.Mutex)
 
 // ----------DECLARACION DE COLAS POR ESTADO----------------
-var colaNew []Proceso
-var colaReady []Proceso
-var colaExecution []Proceso
-var colaBlocked []Proceso
-var colaExit []Proceso
+var colaNew []PCB
+var colaReady []PCB
+var colaReadyVRR []PCB
+var colaExecution []PCB
+var colaBlocked = make(map[string][]PCB) // Tiene que ser un map string[]PCB[]
+var colaExit []PCB
 
 // --------------------------------------------------------
 // ----------DECLARACION DE MUTEX POR COLAS DE ESTADO----------------
 var mutexNew sync.Mutex
 var mutexReady sync.Mutex
+var mutexReadyVRR sync.Mutex
 var mutexExecution sync.Mutex
 var mutexBlocked sync.Mutex
 var mutexExit sync.Mutex
@@ -167,7 +192,8 @@ var mutexExit sync.Mutex
 // ----------DECLARACION MUTEX MÓDULO----------------
 var mutexExecutionCPU sync.Mutex // este mutex es para que no se envie dos procesos al mismo tiempo a la cpu
 var mutexExecutionMEMORIA sync.Mutex
-var mutexExecutionIO sync.Mutex
+
+var mutexes = make(map[string]*sync.Mutex)
 
 // --------------------------------------------------------
 
@@ -177,7 +203,10 @@ var procesoEXEC Proceso // este proceso es el que se esta ejecutando
 /*-------------------------------------------------FUNCIONES CREADAS----------------------------------------------*/
 
 func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
-	// CREO VARIABLE I/O
+
+	if globals.ClientConfig.AlgoritmoPlanificacion != "FIFO" {
+		close(done)
+	}
 	var CPURequest KernelRequest
 
 	err := json.NewDecoder(r.Body).Decode(&CPURequest)
@@ -186,39 +215,59 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Printf("Recibido syscall: %+v", CPURequest)
-	switch CPURequest.MotivoDesalojo {
-	case "FINALIZADO":
-		log.Printf("Finaliza el proceso %v - Motivo: <SUCCESS>", CPURequest.PcbUpdated.Pid)
-		CPURequest.PcbUpdated.State = "EXIT"
-		//meter en cola exit
-	case "INTERRUPCION POR IO":
-		// aca manejar el handelSyscallIo
-		//ioChannel <- CPURequest //meto erl proceso en IO para atender ESTO HAY QUE VERLO
-		go handleSyscallIO(CPURequest)
-		IOpid = CPURequest.PcbUpdated.Pid
-		CPURequest.PcbUpdated.State = "BLOCKED"
-	case "CLOCK":
-		log.Printf("Proceso %v desalojado por fin de Quantum", CPURequest.PcbUpdated.Pid)
-		go clockHandler(CPURequest)
-		//actualizo el proceso
-		//volver a meter proceso en ready
-
-	default:
-		log.Printf("Proceso %v desalojado desconocido por %v", CPURequest.PcbUpdated.Pid, CPURequest.MotivoDesalojo)
-	}
-
-	log.Printf("Recibido pcb: %v", CPURequest.PcbUpdated)
-
 	if len(colaExecution) > 0 { // aca lo saco de la cola exec
 		mutexExecution.Lock()
 		colaExecution = append(colaExecution[:0], colaExecution[1:]...)
 		mutexExecution.Unlock()
 	}
 
-	//actualizo despues de que vuelva de la cpu
-	procesoEXEC.PCB.State = CPURequest.PcbUpdated.State
 	procesoEXEC.PCB.CpuReg = CPURequest.PcbUpdated.CpuReg
 	procesoEXEC.PCB.Pid = CPURequest.PcbUpdated.Pid
+	switch CPURequest.MotivoDesalojo {
+	case "FINALIZADO":
+		log.Printf("Finaliza el proceso %v - Motivo: SUCCESS", CPURequest.PcbUpdated.Pid)
+
+		procesoEXEC.PCB.State = "EXIT"
+		//meter en cola exit
+		mutexExit.Lock()
+		colaExit = append(colaExit, *procesoEXEC.PCB)
+		mutexExit.Unlock()
+
+	case "INTERRUPCION POR IO":
+		// aca manejar el handelSyscallIo
+		//ioChannel <- CPURequest //meto erl proceso en IO para atender ESTO HAY QUE VERLO
+		procesoEXEC.PCB.State = "BLOCKED"
+		go handleSyscallIO(*procesoEXEC.PCB, CPURequest.TimeIO, CPURequest.Interface, CPURequest.IoType)
+
+	case "CLOCK":
+		log.Printf("PID: %v desalojado por fin de Quantum", CPURequest.PcbUpdated.Pid)
+		go enqueueProcess(*procesoEXEC.PCB)
+		//procesoEXEC.PCB.State = "BLOCKED"
+		//actualizo el proceso
+		//volver a meter proceso en ready
+	case "WAIT":
+		procesoEXEC.PCB.State = "BLOCKED"
+		go waitHandler(*procesoEXEC.PCB, CPURequest.Recurso)
+
+	case "INTERRUPTED_BY_USER":
+		log.Printf("Finaliza el proceso %v - Motivo: INTERRUPTED_BY_USER", CPURequest.PcbUpdated.Pid)
+		procesoEXEC.PCB.State = "EXIT"
+		//meter en cola exit
+		mutexExit.Lock()
+		colaExit = append(colaExit, *procesoEXEC.PCB)
+		mutexExit.Unlock()
+
+	case "INVALID_RESOURCE":
+		log.Printf("Finaliza el proceso %v - Motivo: INVALID_RESOURCE", CPURequest.PcbUpdated.Pid)
+		procesoEXEC.PCB.State = "EXIT"
+		//meter en cola exit
+		mutexExit.Lock()
+		colaExit = append(colaExit, *procesoEXEC.PCB)
+		mutexExit.Unlock()
+
+	default:
+		log.Printf("PID: %v desalojado desconocido por %v", CPURequest.PcbUpdated.Pid, CPURequest.MotivoDesalojo)
+	}
 
 	mutexExecutionCPU.Unlock()
 
@@ -261,7 +310,7 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Received data: %+v", request)
+	//log.Printf("Received data: %+v", request)
 
 	// Create PCB
 	pcb := createPCB()
@@ -277,7 +326,7 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 
 func init() {
 	globals.ClientConfig = IniciarConfiguracion("config.json") // tiene que prender la confi cuando arranca
-	readyChannel = make(chan PCB)                              // Ajusta el tamaño del buffer según sea necesario, lista por estado
+	readyChannel = make(chan PCB, 1)
 	ioChannel = make(chan KernelRequest)
 
 	if globals.ClientConfig != nil {
@@ -285,11 +334,12 @@ func init() {
 			go executeProcessFIFO()
 		} else if globals.ClientConfig.AlgoritmoPlanificacion == "RR" {
 			go executeProcessRR(globals.ClientConfig.Quantum)
+		} else if globals.ClientConfig.AlgoritmoPlanificacion == "VRR" {
+			go executeProcessVRR()
 		}
 	} else {
 		log.Fatal("ClientConfig is not initialized")
 	}
-	//go executeProcessFIFO()
 }
 
 func IniciarPlanificacionDeProcesos(request BodyRequest, pcb PCB) {
@@ -298,7 +348,7 @@ func IniciarPlanificacionDeProcesos(request BodyRequest, pcb PCB) {
 		PCB:     &pcb,
 	}
 	mutexNew.Lock()
-	colaNew = append(colaNew, proceso)
+	colaNew = append(colaNew, *proceso.PCB)
 	mutexNew.Unlock()
 
 	mutexExecutionMEMORIA.Lock()
@@ -315,24 +365,27 @@ func IniciarPlanificacionDeProcesos(request BodyRequest, pcb PCB) {
 	}
 
 	//meter en ready
-	mutexReady.Lock()
-	colaReady = append(colaReady, proceso)
-	mutexReady.Unlock()
-
-	readyChannel <- *proceso.PCB
+	enqueueProcess(*proceso.PCB)
 }
 
 func executeTask(proceso PCB) {
 	procesoEXEC.PCB = &proceso
+	procesoEXEC.PCB.State = "EXEC"
 	//sacar de Ready y lo mando a execution
-	if len(colaReady) > 0 { // aca lo saco de la cola new y lo mando a ready
+	if len(colaReady) > 0 && procesoEXEC.PCB.Quantum == 0 { // aca lo saco de la cola ready y lo mando a execution
 		mutexReady.Lock()
 		colaReady = append(colaReady[:0], colaReady[1:]...)
+		log.Printf("Cola R desalojada  %+v", colaReady)
 		mutexReady.Unlock()
+	} else if len(colaReadyVRR) > 0 && procesoEXEC.PCB.Quantum > 0 {
+		mutexReadyVRR.Lock()
+		colaReadyVRR = append(colaReadyVRR[:0], colaReadyVRR[1:]...)
+		log.Printf("Cola VRR desalojada  %+v", colaReadyVRR)
+		mutexReadyVRR.Unlock()
 	}
 	//meter en execution
 	mutexExecution.Lock()
-	colaExecution = append(colaExecution, procesoEXEC)
+	colaExecution = append(colaExecution, *procesoEXEC.PCB)
 	mutexExecution.Unlock()
 
 	if err := SendContextToCPU(*procesoEXEC.PCB); err != nil {
@@ -341,49 +394,178 @@ func executeTask(proceso PCB) {
 	}
 }
 
-/*func requeueProcess(proceso PCB) {
-	mu.Lock()
-	defer mu.Unlock()
-	readyChannel <- proceso
-}*/
-
-/*func handleIOQueue() {
-	for proceso := range ioChannel {
-		go handleSyscallIO(proceso)
-
+// Function to check if a resource exists
+func resourceExists(recurso string) (bool, int) {
+	for i, r := range globals.ClientConfig.Recursos {
+		if r == recurso {
+			return true, i
+		}
 	}
-}*/
+	return false, -1
+}
 
-func handleSyscallIO(proceso KernelRequest) {
+func RecieveWait(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		Pid     int    `json:"pid"`
+		Recurso string `json:"recurso"`
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Check if the resource exists
+	recursoExistente, index := resourceExists(request.Recurso)
+	if recursoExistente {
+		// resto 1 si existe
+		globals.ClientConfig.InstanciasRecursos[index] -= 1
+		fmt.Println("Instancias recursos: ", globals.ClientConfig.InstanciasRecursos, request.Recurso)
+		// Check if the number of instances is less than 0
+		if globals.ClientConfig.InstanciasRecursos[index] < 0 {
+			w.Write([]byte(`{"success": "false"}`))
+			return
+		}
+	} else {
+		// If the resource does not exist, send the process to EXIT
+		w.Write([]byte(`{"success": "exit"}`))
+		return
+	}
+
+	// Return execution to the process that requests the WAIT
+	w.Write([]byte(`{"success": "true"}`))
+}
+
+func waitHandler(pcb PCB, recurso string) {
+	log.Printf("PID: %v Bloqueado por: %s", pcb.Pid, recurso)
+	mutexBlocked.Lock()
+	colaBlocked[recurso] = append(colaBlocked[recurso], pcb)
+	mutexBlocked.Unlock()
+}
+
+func HandleSignal(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		Pid     int    `json:"pid"`
+		Recurso string `json:"recurso"`
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var recurso = request.Recurso
+	// Check if the resource exists
+	recursoExistente, index := resourceExists(recurso)
+	if recursoExistente {
+		// Add 1 to the number of resource instances
+		globals.ClientConfig.InstanciasRecursos[index]++
+		if len(colaBlocked[recurso]) > 0 {
+			// Unblock the first process in the blocked queue
+			proceso := colaBlocked[recurso][0]
+			mutexBlocked.Lock()
+			colaBlocked[recurso] = colaBlocked[recurso][1:]
+			mutexBlocked.Unlock()
+			enqueueProcess(proceso)
+		}
+	} else {
+		// If the resource does not exist, send the process to EXIT
+		w.Write([]byte(`{"success": "exit"}`))
+		return
+	}
+
+	// Return execution to the process that requests the WAIT
+	w.Write([]byte(`{"success": "true"}`))
+}
+
+func handleSyscallIO(pcb PCB, timeIo int, ioInterface string, ioType string) {
+	if !InterfazExiste(ioInterface, ioType) {
+		log.Printf("Error de interfaces")
+		log.Printf("Finaliza el proceso %v - Motivo: INVALID_INTERFACE", pcb.Pid)
+		//Llamar a funcion que finalioza el proceso aca se esta terminando y no se porque
+		pcb.State = "EXIT"
+		mutexExit.Lock()
+		colaExit = append(colaExit, pcb)
+		mutexExit.Unlock()
+
+		return
+	}
 
 	//proceso := <-ioChannel MIRAR ESTO
 	// meter en bloqueado
-	mutex, ok := mutexes[proceso.Interface]
+	log.Printf("PID: %d - Bloqueado por: %s", pcb.Pid, ioInterface)
+	mutexBlocked.Lock()
+	colaBlocked[ioInterface] = append(colaBlocked[ioInterface], pcb)
+	mutexBlocked.Unlock()
+
+	mutex, ok := mutexes[ioInterface]
 	if !ok {
 		mutex = &sync.Mutex{}
-		mutexes[proceso.Interface] = mutex
+		mutexes[ioInterface] = mutex
 	}
 
 	mutex.Lock()
-	SendIOToEntradaSalida(proceso.Interface, proceso.TimeIO)
+	SendIOToEntradaSalida(ioInterface, timeIo)
 	mutex.Unlock()
-	readyChannel <- proceso.PcbUpdated
-	//requeueProcess(proceso.PcbUpdated)
+
+	if len(colaBlocked) > 0 { // aca lo saco de la cola blocked y lo mando a ready
+		mutexBlocked.Lock()
+		colaBlocked[ioInterface] = append(colaBlocked[ioInterface][:0], colaBlocked[ioInterface][1:]...)
+		mutexBlocked.Unlock()
+
+	}
+	log.Printf("Proceso %+v volvió de con. Quantum: %d", pcb.Pid, pcb.Quantum)
+
+	enqueueProcess(pcb)
 }
 
-func clockHandler(proceso KernelRequest) {
-	mutexExecutionCPU.Lock()
-	readyChannel <- proceso.PcbUpdated
-	//requeueProcess(proceso.PcbUpdated)
+func InterfazExiste(nombre string, ioType string) bool {
+	for _, interfaz := range interfaces {
+		if interfaz.Name == nombre && interfaz.Type == ioType {
+			return true
+		}
+	}
+	return false
+}
+
+func enqueueProcess(pcb PCB) {
+	pcb.State = "READY"
+	if pcb.Quantum > 0 && globals.ClientConfig.AlgoritmoPlanificacion == "VRR" {
+		log.Printf("Proceso %+v con Quantum: %d", pcb.Pid, pcb.Quantum)
+		mutexReadyVRR.Lock()
+		colaReadyVRR = append(colaReadyVRR, pcb)
+		mutexReadyVRR.Unlock()
+		readyChannel <- pcb
+		pidSlice := make([]int, 0, len(colaReadyVRR))
+		for _, pcb := range colaReadyVRR {
+			pidSlice = append(pidSlice, pcb.Pid)
+		}
+		log.Printf("Cola Ready VRR: %+v", pidSlice)
+	} else {
+		mutexReady.Lock()
+		pcb.Quantum = 0
+		colaReady = append(colaReady, pcb)
+		mutexReady.Unlock()
+		readyChannel <- pcb
+		pidSlice := make([]int, 0, len(colaReady))
+		for _, pcb := range colaReady {
+			pidSlice = append(pidSlice, pcb.Pid)
+		}
+		log.Printf("Cola Ready: %+v", pidSlice)
+	}
 }
 
 func executeProcessFIFO() {
 	// infinitamente estar sacando el primero de taskque ---> readyqueue
 	for {
-		//mutex para no enviar dos procesos al mismo timepo a cpu
-		mutexExecutionCPU.Lock()
 		proceso := <-readyChannel
-		executeTask(proceso)
+		if len(colaReady) > 0 {
+			mutexExecutionCPU.Lock()
+			proceso = colaReady[0]
+			executeTask(proceso)
+		}
 
 	}
 
@@ -392,30 +574,68 @@ func executeProcessFIFO() {
 func executeProcessRR(quantum int) {
 
 	for {
-		mutexExecutionCPU.Lock()
 		proceso := <-readyChannel
-		startQuantum(quantum, proceso)
-		executeTask(proceso)
+		if len(colaReady) > 0 {
+			mutexExecutionCPU.Lock()
+			proceso = colaReady[0]
+			startQuantum(quantum, &proceso)
+			executeTask(proceso)
+		}
 
 	}
 
 }
 
-func startQuantum(quantum int, proceso PCB) {
-	log.Printf("PID %d - Quantum iniciado", proceso.Pid)
-	go func() {
-		done := make(chan struct{})
-		select {
-		case <-time.After(time.Duration(quantum) * time.Millisecond):
-			if err := SendInterruptForClock(proceso.Pid); err != nil {
-				log.Printf("Error sending interrupt to CPU: %v", err)
-			}
+func executeProcessVRR() {
+	for {
+		var proceso PCB
+		var quantum int
 
-		case <-done:
-			log.Printf("PID %d - Proceso finalizado antes de que el quantum termine", proceso.Pid)
+		proceso = <-readyChannel
+		if len(colaReadyVRR) > 0 {
+			mutexExecutionCPU.Lock()
+			proceso = colaReadyVRR[0]
+			quantum = proceso.Quantum
+			startQuantum(quantum, &proceso)
+			executeTask(proceso)
+
+		} else if len(colaReady) > 0 {
+			mutexExecutionCPU.Lock()
+			proceso = colaReady[0]
+			quantum = globals.ClientConfig.Quantum
+			startQuantum(quantum, &proceso)
+			executeTask(proceso)
+		}
+
+	}
+}
+func startQuantum(quantum int, proceso *PCB) {
+	log.Printf("PID %d - Quantum iniciado %d", proceso.Pid, quantum)
+
+	go func() {
+		done = make(chan struct{})
+		ticker := time.NewTicker(time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				//log.Printf("PID %d - Quantum restante: %d", proceso.Pid, quantum)
+				quantum -= 10
+				//log.Printf("PID %d - Quantum restante: %d", proceso.Pid, quantum)
+				if quantum == 0 {
+					if err := SendInterrupt(proceso.Pid, "CLOCK"); err != nil {
+						log.Printf("Error sending interrupt to CPU: %v", err)
+					}
+					procesoEXEC.PCB.Quantum = quantum
+					return
+				}
+			case <-done:
+				procesoEXEC.PCB.Quantum = quantum
+				log.Printf("PID %d - Proceso finalizado antes de que el quantum termine. Quantum restante %d", proceso.Pid, quantum)
+				return
+			}
 		}
 	}()
-
 }
 
 func createPCB() PCB {
@@ -425,7 +645,7 @@ func createPCB() PCB {
 		Pid: nextPid - 1, // ASIGNO EL VALOR ANTERIOR AL pid
 
 		Quantum: 0,
-		State:   "READY",
+		State:   "NEW",
 
 		CpuReg: RegisterCPU{
 			PC:  0,
@@ -450,7 +670,7 @@ func SendPathToMemory(request BodyRequest, pid int) error {
 		return fmt.Errorf("error al serializar los datos JSON: %v", err)
 	}
 
-	log.Println("Enviando solicitud con contenido:", string(savedPathJSON))
+	//log.Println("Enviando solicitud con contenido:", string(savedPathJSON))
 
 	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(savedPathJSON))
 	if err != nil {
@@ -475,7 +695,7 @@ func SendContextToCPU(pcb PCB) error {
 		return fmt.Errorf("error al serializar el PCB: %v", err)
 	}
 
-	log.Println("Enviando solicitud con contenido:", string(pcbResponseTest))
+	//log.Println("Enviando solicitud con contenido:", string(pcbResponseTest))
 
 	resp, err := http.Post(cpuURL, "application/json", bytes.NewBuffer(pcbResponseTest))
 	if err != nil {
@@ -511,29 +731,42 @@ func RecievePortOfInterfaceFromIO(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf("Port received: %d", requestPort.Port)))
 }
 
-func SendPortOfInterfaceToMemory(nombreInterfaz string, puerto int) error {
-	memoriaURL := fmt.Sprintf("http://localhost:%d/SendPortOfInterfaceToMemory", globals.ClientConfig.PuertoMemoria)
-	body := BodyRequestPort{
-		Nombre: nombreInterfaz,
-		Port:   puerto,
+func SendIOToEntradaSalida(nombre string, io int) error {
+	payload := Payload{
+		Nombre: nombre,
+		IO:     io,
 	}
+	var interfazEncontrada interfaz // Asume que Interfaz es el tipo de tus interfaces
 
-	bodyBytes, err := json.Marshal(body)
-	if err != nil {
-		return fmt.Errorf("error al serializar el body: %v", err)
+	for _, interfaz := range interfaces {
+		if interfaz.Name == payload.Nombre {
+			interfazEncontrada = interfaz
+			break
+		}
 	}
+	if interfazEncontrada != (interfaz{}) {
+		SendREGtoIO(DirFisica, LengthREG, interfazEncontrada.Port) //envia los registros a IO
+		//envia el payload a IO
+		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
 
-	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(bodyBytes))
-	if err != nil {
-		return fmt.Errorf("error al enviar la solicitud al módulo de memoria: %v", err)
+		ioResponseTest, err := json.Marshal(payload)
+		if err != nil {
+			return fmt.Errorf("error al serializar el payload: %v", err)
+		}
+
+		resp, err := http.Post(entradasalidaURL, "application/json", bytes.NewBuffer(ioResponseTest))
+		if err != nil {
+			return fmt.Errorf("error al enviar la solicitud al módulo de cpu: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("error en la respuesta del módulo de cpu: %v", resp.StatusCode)
+		}
+
+		log.Println("Respuesta del módulo de IO recibida correctamente.")
+		return nil
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("error en la respuesta del módulo de memoria: %v", resp.StatusCode)
-	}
-
-	log.Println("Respuesta del módulo de memoria recibida correctamente.")
 	return nil
 }
 
@@ -579,51 +812,58 @@ func SendREGtoIO(REGdireccion []int, lengthREG int, port int) error {
 	return nil
 }
 
-func SendIOToEntradaSalida(nombre string, io int) error {
-	payload := Payload{
-		Nombre: nombre,
-		IO:     io,
+func RecievePort(w http.ResponseWriter, r *http.Request) {
+	var requestPort BodyRequestPort
+	var interfaz interfaz
+	err := json.NewDecoder(r.Body).Decode(&requestPort)
+	if err != nil {
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
+		return
 	}
-	var interfazEncontrada interfaz // Asume que Interfaz es el tipo de tus interfaces
+	interfaz.Name = requestPort.Nombre
+	interfaz.Port = requestPort.Port
+	interfaz.Type = requestPort.Type
 
-	for _, interfaz := range interfaces {
-		if interfaz.Name == payload.Nombre {
-			interfazEncontrada = interfaz
-			break
-		}
+	interfaces = append(interfaces, interfaz)
+	log.Printf("Puerto de Io recibido: %+v", requestPort)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("Port received: %d", requestPort.Port)))
+}
+
+func SendPortOfInterfaceToMemory(nombreInterfaz string, puerto int) error {
+	memoriaURL := fmt.Sprintf("http://localhost:%d/SendPortOfInterfaceToMemory", globals.ClientConfig.PuertoMemoria)
+	body := BodyRequestPort{
+		Nombre: nombreInterfaz,
+		Port:   puerto,
 	}
-	if interfazEncontrada != (interfaz{}) {
-		SendREGtoIO(DirFisica, LengthREG, interfazEncontrada.Port) //envia los registros a IO
-		//envia el payload a IO
-		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
 
-		ioResponseTest, err := json.Marshal(payload)
-		if err != nil {
-			return fmt.Errorf("error al serializar el payload: %v", err)
-		}
-
-		resp, err := http.Post(entradasalidaURL, "application/json", bytes.NewBuffer(ioResponseTest))
-		if err != nil {
-			return fmt.Errorf("error al enviar la solicitud al módulo de cpu: %v", err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("error en la respuesta del módulo de cpu: %v", resp.StatusCode)
-		}
-
-		log.Println("Respuesta del módulo de IO recibida correctamente.")
-		return nil
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("error al serializar el body: %v", err)
 	}
+
+	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(bodyBytes))
+	if err != nil {
+		return fmt.Errorf("error al enviar la solicitud al módulo de memoria: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("error en la respuesta del módulo de memoria: %v", resp.StatusCode)
+	}
+
+	log.Println("Respuesta del módulo de memoria recibida correctamente.")
 	return nil
 }
 
-func SendInterruptForClock(pid int) error {
+func SendInterrupt(pid int, motivo string) error {
 	cpuURL := "http://localhost:8075/interrupt"
 
 	RequestInterrupt := RequestInterrupt{
 		Interrupt: true,
 		PID:       pid,
+		Motivo:    motivo,
 	}
 
 	hayQuantumBytes, err := json.Marshal(RequestInterrupt)
@@ -643,7 +883,7 @@ func SendInterruptForClock(pid int) error {
 		log.Printf("Error en la respuesta del módulo de cpu: %v", resp.StatusCode)
 	}
 
-	log.Println("Respuesta del módulo de cpu recibida correctamente.")
+	log.Println("Solicitado la interrupción del módulo CPU.")
 	return nil
 }
 
@@ -656,7 +896,7 @@ func IOFinished(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Termino: %+v", finished)
+	log.Printf("Termino IO: %+v", finished)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("Termino: %+v", finished)))
@@ -664,22 +904,87 @@ func IOFinished(w http.ResponseWriter, r *http.Request) {
 
 /*---------------------------------------------FUNCIONES OBLIGATORIAS--------------------------------------------------*/
 
+// New function to check if a PID exists
+func findPCB(pid int) (PCB, error) {
+	queues := map[string][]PCB{
+		"New":       colaNew,
+		"Ready":     colaReady,
+		"Execution": colaExecution,
+		"Exit":      colaExit,
+	}
+
+	for state, queue := range colaBlocked {
+		queues["Blocked "+state] = queue
+	}
+
+	for _, queue := range queues {
+		for _, pcb := range queue {
+			if pcb.Pid == pid {
+				return pcb, nil
+			}
+		}
+	}
+
+	return PCB{}, fmt.Errorf("PID not found")
+}
+
 func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
-	pid := r.URL.Query().Get("pid")
-	if pid == "" {
+	pidStr := r.URL.Query().Get("pid")
+
+	if pidStr == "" {
 		http.Error(w, "PID no especificado", http.StatusBadRequest)
 		return
 	}
 
-	log.Printf("Finaliza el proceso %s - Motivo: <SUCCESS / INVALID_RESOURCE / INVALID_WRITE>", pid)
+	pid, err := strconv.Atoi(pidStr)
+	if err != nil {
+		http.Error(w, "PID debe ser un número", http.StatusBadRequest)
+		return
+	}
 
-	respuestaOK := fmt.Sprintf("Proceso finalizado: %s", pid)
+	// Use pidExists to check if the PID exists in any of the queues
+	pcb, err := findPCB(pid)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	//log.Printf("Finalizing process %v - Reason: <SUCCESS / INVALID_RESOURCE / INVALID_WRITE> con estado %v", pcb.Pid, pcb.State)
+
+	//Llamar a funcion que finalioza el proceso
+
+	if pcb.State == "EXEC" {
+		SendInterrupt(pcb.Pid, "INTERRUPTED_BY_USER")
+		deletePagesmemory(pcb.Pid)
+	} else {
+		eliminarProceso(pcb.Pid)
+		deletePagesmemory(pcb.Pid)
+		pcb.State = "EXIT"
+		mutexExit.Lock()
+		colaExit = append(colaExit, pcb)
+		mutexExit.Unlock()
+		log.Printf("Finaliza el proceso %v - Motivo: INTERRUPTED_BY_USER", pcb.Pid)
+
+	}
+
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(respuestaOK))
+}
+
+func deletePagesmemory(pid int) {
+	memoriaURL := fmt.Sprintf("http://localhost:8085/terminateProcess?pid=%d", pid)
+	resp, err := http.Post(memoriaURL, "application/json", nil)
+	if err != nil {
+		log.Printf("Error al enviar la solicitud al módulo de memoria: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("Error en la respuesta del módulo de memoria: %v", resp.StatusCode)
+	}
 }
 
 func EstadoProceso(w http.ResponseWriter, r *http.Request) {
-	pidStr := r.URL.Query().Get("pid")
+	pidStr := r.PathValue("pid")
 	if pidStr == "" {
 		http.Error(w, "PID no especificado", http.StatusBadRequest)
 		return
@@ -691,13 +996,7 @@ func EstadoProceso(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var processState string
-	for _, process := range colaReady {
-		if process.PCB.Pid == pid {
-			processState = process.PCB.State
-			break
-		}
-	}
+	processState := findPID(pid)
 
 	BodyResponse := BodyResponseState{
 		State: processState,
@@ -715,28 +1014,96 @@ func IniciarPlanificacion(w http.ResponseWriter, r *http.Request) {
 }
 
 func DetenerPlanificacion(w http.ResponseWriter, r *http.Request) {
-	log.Printf("PID: <PID> - Desalojado por fin de Quantum")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Planificación detenida"))
 }
 
-func ListarProcesos(w http.ResponseWriter, r *http.Request) {
-	var pids []int
-	for _, process := range colaReady {
-		pids = append(pids, process.PCB.Pid)
+func findPID(pid int) string {
+	queues := map[string][]PCB{
+		"New":       colaNew,
+		"Ready":     colaReady,
+		"Execution": colaExecution,
+		"Exit":      colaExit,
 	}
 
-	pidsJSON, err := json.Marshal(pids)
+	for state, queue := range colaBlocked {
+		queues["Blocked "+state] = queue
+	}
+
+	for state, queue := range queues {
+		for _, pcb := range queue {
+			if pcb.Pid == pid {
+				return state
+			}
+		}
+	}
+
+	return "PID not found"
+}
+func eliminarProceso(pid int) error {
+	var findIt = false
+	colas := []*[]PCB{&colaNew, &colaReady, &colaReadyVRR}
+	for _, cola := range colas {
+		for i, proceso := range *cola {
+			if proceso.Pid == pid {
+				// Eliminar el proceso de la cola
+				findIt = true
+				*cola = append((*cola)[:i], (*cola)[i+1:]...)
+				log.Printf("Proceso %v eliminado de la cola: %v", pid, cola)
+				return nil
+			}
+		}
+	}
+	if !findIt {
+		for key, cola := range colaBlocked {
+			for i, proceso := range cola {
+				if proceso.Pid == pid {
+					// Eliminar el proceso de la cola
+					colaBlocked[key] = append(cola[:i], cola[i+1:]...)
+					log.Printf("Proceso %v eliminado de la cola: %v", pid, key)
+					return nil
+				}
+			}
+		}
+	}
+	return errors.New("Proceso no encontrado")
+}
+
+type ProcessState struct {
+	PID   int    `json:"pid"`
+	State string `json:"state"`
+}
+
+func ListarProcesos(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	queues := map[string][]PCB{
+		"New":       colaNew,
+		"Ready":     colaReady,
+		"Ready+":    colaReadyVRR,
+		"Execution": colaExecution,
+		"Exit":      colaExit,
+	}
+
+	for state, queue := range colaBlocked {
+		queues["Blocked "+state] = queue
+	}
+
+	var processStates []ProcessState
+	for state, queue := range queues {
+		for _, pcb := range queue {
+			processStates = append(processStates, ProcessState{PID: pcb.Pid, State: state})
+		}
+	}
+
+	json, err := json.Marshal(processStates)
 	if err != nil {
-		http.Error(w, "Error al convertir colaReady a JSON", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("Cola Ready COLA: %v", pids)
-
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(pidsJSON)
+	w.Write(json)
 }
 
 func ConfigurarLogger() {
