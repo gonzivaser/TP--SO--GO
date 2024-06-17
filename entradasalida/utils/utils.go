@@ -1,15 +1,5 @@
 package utils
 
-//vana  a ir llegando prcesos segun la interfaz. primero chequear que intefaz es de esta froma
-// If Int1-->Io_GEN_SLEEP
-// If Int2-->Io_STDIN_READ Y ASI....
-
-//YA ESTOY A DENTRO DE LA INTERFAZ
-// aca voy a poner un canal a forma de buffer para que vayan llegando los procesos
-// voy a ir sacando de a uno y haciendo lo que tenga que hacer la entradasalida
-// cuando termino de hacer lo que tenga que hacer la entradasalida, le aviso al kernel que termine
-// y saco el proximo proceso del canal
-
 import (
 	"bytes"
 	"encoding/json"
@@ -193,30 +183,6 @@ func SendPortOfInterfaceToKernel(nombreInterfaz string, config *globals.Config) 
 
 	log.Println("Respuesta del módulo de kernel recibida correctamente.")
 	return nil
-}
-
-func IOFinished(w http.ResponseWriter, r *http.Request) {
-	kernelURL := fmt.Sprintf("http://localhost:%d/IOFinished", config.PuertoKernel)
-	finished := Finalizado{
-		Finalizado: true,
-	}
-
-	finishedResponseTest, err := json.Marshal(finished)
-	if err != nil {
-		log.Fatalf("Error al serializar el PCB: %v", err)
-	}
-
-	log.Println("Enviando solicitud con contenido:", string(finishedResponseTest))
-
-	resp, err := http.Post(kernelURL, "application/json", bytes.NewBuffer(finishedResponseTest))
-	if err != nil {
-		log.Fatalf("Error al enviar la solicitud al módulo de kernel: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		log.Fatalf("Error en la respuesta del módulo de kernel: %v", resp.StatusCode)
-	}
 }
 
 func SendAdressSTDOUTToMemory(address BodyAdress) error {

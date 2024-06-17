@@ -851,21 +851,6 @@ func SendInterrupt(pid int, motivo string) error {
 	return nil
 }
 
-func IOFinished(w http.ResponseWriter, r *http.Request) {
-	var finished Finalizado
-	err := json.NewDecoder(r.Body).Decode(&finished)
-
-	if err != nil {
-		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
-		return
-	}
-
-	log.Printf("Termino IO: %+v", finished)
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("Termino: %+v", finished)))
-}
-
 /*---------------------------------------------FUNCIONES OBLIGATORIAS--------------------------------------------------*/
 
 // New function to check if a PID exists
