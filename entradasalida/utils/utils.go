@@ -152,6 +152,7 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Termino de escribir en la interfaz '%s'\n", Interfaz.Nombre)
 
 	case "DialFS":
+		Interfaz.FILE_SYSTEM(N)
 
 	default:
 		log.Fatalf("Tipo de interfaz desconocido: %s", Interfaz.Config.Tipo)
@@ -324,4 +325,11 @@ func (Interfaz *InterfazIO) IO_STDIN_READ(lengthREG int) {
 // INTERFAZ GENERICA (IO_GEN_SLEEP)
 func (interfaz *InterfazIO) IO_GEN_SLEEP(n int) time.Duration {
 	return time.Duration(n*interfaz.Config.UnidadDeTiempo) * time.Millisecond
+}
+
+// INTERFAZ FILE SYSTEM
+func (interfaz *InterfazIO) FILE_SYSTEM(n int) {
+	log.Printf("La interfaz '%s' es de tipo FILE SYSTEM", interfaz.Nombre)
+	log.Printf("La duración de la operación de FILE SYSTEM es de %d unidades de tiempo", n)
+	time.Sleep(time.Duration(n*interfaz.Config.UnidadDeTiempo) * time.Millisecond)
 }
