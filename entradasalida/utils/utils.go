@@ -83,6 +83,10 @@ type Payload struct {
 	IO int
 }
 
+type BlockFile struct {
+	Content string
+}
+
 /*--------------------------------------------------- VAR GLOBALES ------------------------------------------------------*/
 
 var GLOBALlengthREG int
@@ -330,6 +334,54 @@ func (interfaz *InterfazIO) IO_GEN_SLEEP(n int) time.Duration {
 // INTERFAZ FILE SYSTEM
 func (interfaz *InterfazIO) FILE_SYSTEM(n int) {
 	log.Printf("La interfaz '%s' es de tipo FILE SYSTEM", interfaz.Nombre)
+
+	CreateBlockFile(interfaz.Config.PathDialFS, interfaz.Config.TamanioBloqueDialFS, interfaz.Config.CantidadBloquesDialFS)
+
 	log.Printf("La duración de la operación de FILE SYSTEM es de %d unidades de tiempo", n)
 	time.Sleep(time.Duration(n*interfaz.Config.UnidadDeTiempo) * time.Millisecond)
 }
+
+func CreateBlockFile(path string, blocksSize int, blocksCount int) {
+
+	sizeFile := blocksSize * blocksCount
+
+	file, err := os.Create(path)
+	if err != nil {
+		log.Fatalf("Error al crear el archivo '%s': %v", path, err)
+	}
+	defer file.Close()
+
+	// ASIGNO EL TAMAÑO DEL ARCHIVO AL QUE DICE EL CONFIG
+	err = file.Truncate(int64(sizeFile))
+	if err != nil {
+		log.Fatalf("Error al truncar el archivo '%s': %v", path, err)
+	}
+
+	// CREO UN SLICE PARA REPRESENTAR UN BLOQUE
+	block := make([]byte, blocksSize)
+
+	// ESCRIBO EL BLOQUE EN EL ARCHIVO
+	for i := 0; i < blocksCount; i++ {
+		_, err = file.Write(block)
+		if err != nil {
+			log.Fatalf("Error al escribir el bloque %d en el archivo '%s': %v", i, path, err)
+		}
+	}
+}
+
+// INTERFAZ FILE SYSTEM (IO_FS_CREATE)
+/*func (interfaz *InterfazIO, nombreArchivo string) IO_FS_CREATE() {
+	// RECIBO EL NOMBRE DEL ARCHIVO A CREAR
+	// MEDIANTE LA INTERFAZ SELECCIONADA SE CREE UN ARCHIVO EN EL FS, MONTADO EN DICHA INTERFAZ
+}*/
+
+// INTERFAZ FILE SYSTEM (IO_FS_DELETE)
+/*func (interfaz *InterfazIO, nombreArchivo string) IO_FS_DELETE() {
+	// RECIBO EL NOMBRE DEL ARCHIVO A ELIMINAR
+	// MEDIANTE LA INTERFAZ SELECCIONADA SE ELIMINE UN ARCHIVO EN EL FS, MONTADO EN DICHA INTERFAZ
+}*/
+
+/*
+LISTA GLOBAL DE ARCHIVOS ABIERTOS
+LISTA GLOBAL DE ARCHIVOS ABIERTOS POR PROCESO
+*/
