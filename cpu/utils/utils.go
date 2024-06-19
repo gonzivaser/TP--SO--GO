@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -100,6 +101,10 @@ type BodyPageTam struct {
 	PageTam int `json:"pageTam"`
 }
 
+type BodyContent struct {
+	Content string `json:"content"`
+}
+
 type MemoryReadRequest struct {
 	PID     int    `json:"pid"`
 	Address int    `json:"address"`
@@ -118,6 +123,7 @@ var GLOBALrequestCPU KernelRequest
 var GLOBALcontextoDeEjecucion PCB //PCB recibido desde kernel
 var MemoryFrame int
 var GLOBALpageTam int
+var GLOBALdataMOV_IN []byte
 
 // var requestCPU KernelRequest
 var responseInterrupt ResponseInterrupt
@@ -546,15 +552,53 @@ func MOV_IN(words []string, contextoEjecucion *PCB) error {
 	valueDireccion := verificarRegistro(REGdireccion, contextoEjecucion)
 	direcciones := TranslateAddress(contextoEjecucion.Pid, valueDireccion, GLOBALpageTam, valueDireccion)
 
-	valorLeido, err := LeerMemoria(contextoEjecucion.Pid, direcciones[0], valueDireccion)
+	REGdatos := words[1]
+
+	// Verificar el tipo de dato del registro en RegisterCPU
+	var tamREGdatos int
+
+	switch REGdatos {
+	case "PC", "EAX", "EBX", "ECX", "EDX", "SI", "DI":
+		tamREGdatos = 4 // uint32
+	case "AX", "BX", "CX", "DX":
+		tamREGdatos = 1 // uint8
+	default:
+		return fmt.Errorf("registro no soportado: %s", REGdatos)
+	}
+
+	// Realizar la lectura de memoria
+	err := LeerMemoria(contextoEjecucion.Pid, direcciones[0], tamREGdatos)
 	if err != nil {
 		return err
 	}
-	REGdatos := words[1]
-	err1 := SetCampo(&contextoEjecucion.CpuReg, REGdatos, valorLeido)
-	if err1 != nil {
-		return fmt.Errorf("error en execute: %s", err1)
+
+	buf := bytes.NewReader(GLOBALdataMOV_IN)
+	if tamREGdatos == 1 {
+		var result uint32
+		err2 := binary.Read(buf, binary.BigEndian, &result)
+		if err2 != nil {
+			return fmt.Errorf("error en conversion de byte a entero: %s", err2)
+		}
+
+		err1 := SetCampo(&contextoEjecucion.CpuReg, REGdatos, result)
+		if err1 != nil {
+			return fmt.Errorf("error en execute: %s", err1)
+		}
+		return nil
+	} else {
+		var result uint32
+		err2 := binary.Read(buf, binary.BigEndian, &result)
+		if err2 != nil {
+			return fmt.Errorf("error en conversion de byte a entero: %s", err2)
+		}
+
+		err1 := SetCampo(&contextoEjecucion.CpuReg, REGdatos, result)
+		if err1 != nil {
+			return fmt.Errorf("error en execute: %s", err1)
+		}
 	}
+
+	log.Printf("PID: %d - MOV_IN - %s - %s", contextoEjecucion.Pid, REGdatos, GLOBALdataMOV_IN)
 
 	return nil
 }
@@ -592,7 +636,7 @@ func COPY_STRING(words []string, contextoEjecucion *PCB) error {
 	return nil
 }
 
-func LeerMemoria(pid, direccion, size int) ([]byte, error) {
+func LeerMemoria(pid, direccion, size int) error {
 	memoriaURL := fmt.Sprintf("http://localhost:%d/readMemory", globals.ClientConfig.PortMemory)
 	req := MemoryReadRequest{
 		PID:     pid,
@@ -601,25 +645,34 @@ func LeerMemoria(pid, direccion, size int) ([]byte, error) {
 	}
 	reqJSON, err := json.Marshal(req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(reqJSON))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("error en la respuesta del módulo de memoria: %v", resp.StatusCode)
+		return fmt.Errorf("error en la respuesta del módulo de memoria: %v", resp.StatusCode)
 	}
 
-	var data []byte
-	err = json.NewDecoder(resp.Body).Decode(&data)
+	return nil
+}
+
+func RecieveMOV_IN(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Recibiendo solicitud de datos desde la memoria")
+
+	var Content []byte
+	err := json.NewDecoder(r.Body).Decode(&Content)
 	if err != nil {
-		return nil, err
+		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
+		return
 	}
-	return data, nil
+
+	GLOBALdataMOV_IN = Content
+	w.WriteHeader(http.StatusOK)
 }
 
 func EscribirMemoria(pid, direccion int, data interface{}) error {

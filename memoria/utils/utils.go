@@ -378,7 +378,7 @@ func ReadMemoryHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
+	sendDataToCPU(data)
 	w.Write(data)
 }
 
@@ -395,6 +395,28 @@ func ReadMemory(pid int, address int, size int) ([]byte, error) {
 	}
 
 	return memory[address : address+size], nil //Devuelvo todos los datos (desde la base hasta la base mas el desplazamiento)
+}
+
+func sendDataToCPU(content []byte) error {
+	CPUurl := fmt.Sprintf("http://localhost:%d/receiveDataFromMemory", globals.ClientConfig.PuertoCPU)
+	ContentResponseTest, err := json.Marshal(content)
+	if err != nil {
+		log.Fatalf("Error al serializar el Input: %v", err)
+	}
+
+	log.Println("Enviando solicitud con contenido:", ContentResponseTest)
+
+	resp, err := http.Post(CPUurl, "application/json", bytes.NewBuffer(ContentResponseTest))
+	if err != nil {
+		log.Fatalf("Error al enviar la solicitud al módulo de memoria: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Fatalf("Error en la respuesta del módulo de memoria: %v", resp.StatusCode)
+	}
+
+	return nil
 }
 
 func WriteMemoryHandler(w http.ResponseWriter, r *http.Request) {
