@@ -104,7 +104,7 @@ antes de subir el tag.
 
 - Módulo Interfaz I/O:
 
-    - [ ] Todos - Operación
+    - [X] Todos - Operación
     - [ ] DialFS - Crear Archivo
     - [ ] DialFS - Eliminar Archivo
     - [ ] DialFS - Truncar Archivo
