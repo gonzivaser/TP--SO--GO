@@ -339,6 +339,32 @@ func Execute(instruction string, line []string, contextoDeEjecucion *PCB) error 
 			return fmt.Errorf("error en execute: %s", err)
 
 		}
+	case "IO_FS_CREATE":
+		err := IO(instruction, words, contextoDeEjecucion)
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	case "IO_FS_DELETE":
+		err := IO(instruction, words, contextoDeEjecucion)
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	case "IO_FS_TRUNCATE":
+		err := IO(instruction, words, contextoDeEjecucion)
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	case "IO_FS_WRITE":
+		err := IO(instruction, words, contextoDeEjecucion)
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	case "IO_FS_READ":
+		err := IO(instruction, words, contextoDeEjecucion)
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+
 	case "EXIT":
 		err := TerminarProceso(&contextoDeEjecucion.CpuReg, "FINALIZADO")
 		if err != nil {
