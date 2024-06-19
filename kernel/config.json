@@ -4,7 +4,7 @@
     "port_memory": 8085,
     "ip_cpu": "127.0.0.1",
     "port_cpu": 8075,
-    "planning_algorithm": "VRR",
+    "planning_algorithm": "FIFO",
     "quantum": 5000,
     "resources": ["RECURSO_1","RECURSO_2","RECURSO_3"],
     "resource_instances": [0,2,1],
