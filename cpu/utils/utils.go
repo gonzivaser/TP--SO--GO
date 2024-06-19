@@ -546,17 +546,16 @@ func JNZ(registerCPU *RegisterCPU, reg, valor string) error {
 	return nil
 }
 
-// TranslateAddress(pid, DireccionLogica, TamPag, TamData int)
 func MOV_IN(words []string, contextoEjecucion *PCB) error {
 	REGdireccion := words[2]
 	valueDireccion := verificarRegistro(REGdireccion, contextoEjecucion)
+
 	direcciones := TranslateAddress(contextoEjecucion.Pid, valueDireccion, GLOBALpageTam, valueDireccion)
 
 	REGdatos := words[1]
 
 	// Verificar el tipo de dato del registro en RegisterCPU
 	var tamREGdatos int
-
 	switch REGdatos {
 	case "PC", "EAX", "EBX", "ECX", "EDX", "SI", "DI":
 		tamREGdatos = 4 // uint32
@@ -566,25 +565,23 @@ func MOV_IN(words []string, contextoEjecucion *PCB) error {
 		return fmt.Errorf("registro no soportado: %s", REGdatos)
 	}
 
-	// Realizar la lectura de memoria
-	err := LeerMemoria(contextoEjecucion.Pid, direcciones[0], tamREGdatos)
-	if err != nil {
-		return err
+	err1 := LeerMemoria(contextoEjecucion.Pid, direcciones[0], tamREGdatos)
+	if err1 != nil {
+		return fmt.Errorf("error leyendo memoria: %s", err1)
 	}
 
 	buf := bytes.NewReader(GLOBALdataMOV_IN)
 	if tamREGdatos == 1 {
-		var result uint32
+		var result uint8
 		err2 := binary.Read(buf, binary.BigEndian, &result)
 		if err2 != nil {
 			return fmt.Errorf("error en conversion de byte a entero: %s", err2)
 		}
 
-		err1 := SetCampo(&contextoEjecucion.CpuReg, REGdatos, result)
-		if err1 != nil {
-			return fmt.Errorf("error en execute: %s", err1)
+		err3 := SetCampo(&contextoEjecucion.CpuReg, REGdatos, uint32(result))
+		if err3 != nil {
+			return fmt.Errorf("error en execute: %s", err3)
 		}
-		return nil
 	} else {
 		var result uint32
 		err2 := binary.Read(buf, binary.BigEndian, &result)
@@ -592,9 +589,9 @@ func MOV_IN(words []string, contextoEjecucion *PCB) error {
 			return fmt.Errorf("error en conversion de byte a entero: %s", err2)
 		}
 
-		err1 := SetCampo(&contextoEjecucion.CpuReg, REGdatos, result)
-		if err1 != nil {
-			return fmt.Errorf("error en execute: %s", err1)
+		err3 := SetCampo(&contextoEjecucion.CpuReg, REGdatos, result)
+		if err3 != nil {
+			return fmt.Errorf("error en execute: %s", err3)
 		}
 	}
 
