@@ -256,6 +256,21 @@ func RecieveREG(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf("length received: %d", requestRegister.Length)))
 }
 
+func RecieveFileName(w http.ResponseWriter, r *http.Request) {
+	var requestFileName string
+
+	err := json.NewDecoder(r.Body).Decode(&requestFileName)
+	if err != nil {
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("Received data: %s", requestFileName)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Content received correctly"))
+}
+
 func ReceiveContentFromMemory(w http.ResponseWriter, r *http.Request) {
 	var content BodyContent
 	err := json.NewDecoder(r.Body).Decode(&content)

@@ -296,6 +296,7 @@ func Execute(instruction string, line []string, contextoDeEjecucion *PCB) error 
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "IO_STDIN_READ":
+		log.Printf("Instruccion IO_STDIN_READ:   %v", instruction)
 		err := IO(instruction, words, contextoDeEjecucion)
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
@@ -337,9 +338,9 @@ func Execute(instruction string, line []string, contextoDeEjecucion *PCB) error 
 		err := CheckSignal(nil, nil, contextoDeEjecucion.Pid, instruction, words[1])
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
-
 		}
 	case "IO_FS_CREATE":
+
 		err := IO(instruction, words, contextoDeEjecucion)
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
@@ -729,17 +730,26 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 			TimeIO:         0,
 		}
 	case "IO_FS_CREATE":
-		fmt.Println("IO_FS_CREATE")
+		fileName := words[2]
+		GLOBALrequestCPU = KernelRequest{
+			PcbUpdated:     *contextoEjecucion,
+			MotivoDesalojo: "INTERRUPCION POR IO",
+			IoType:         "DialFS",
+			Interface:      words[1],
+			TimeIO:         0,
+		}
+		sendFileNameToKernel(fileName)
+		fmt.Printf("IO_FS_CREATE")
 	case "IO_FS_DELETE":
-		fmt.Println("IO_FS_DELETE")
+		fmt.Printf("IO_FS_DELETE")
 	case "IO_FS_SEEK":
-		fmt.Println("IO_FS_SEEK")
+		fmt.Printf("IO_FS_SEEK")
 	case "IO_FS_TRUNCATE":
-		fmt.Println("IO_FS_TRUNCATE")
+		fmt.Printf("IO_FS_TRUNCATE")
 	case "IO_FS_WRITE":
-		fmt.Println("IO_FS_WRITE")
+		fmt.Printf("IO_FS_WRITE")
 	case "IO_FS_READ":
-		fmt.Println("IO_FS_READ")
+		fmt.Printf("IO_FS_READ")
 	default:
 		return fmt.Errorf("tipo de instrucción no soportado")
 	}
@@ -1056,6 +1066,21 @@ func sendREGtoKernel(adress []int, length int) {
 	}
 
 	resp, err := http.Post(kernelURL, "application/json", bytes.NewBuffer(BodyRegistersJSON))
+	if err != nil {
+		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
+	}
+	defer resp.Body.Close()
+}
+
+func sendFileNameToKernel(fileName string) {
+	kernelURL := fmt.Sprintf("http://localhost:%d/recieveFILENAME", globals.ClientConfig.PortKernel)
+
+	fileNameJSON, err := json.Marshal(fileName)
+	if err != nil {
+		log.Fatalf("Error al serializar el Input: %v", err)
+	}
+
+	resp, err := http.Post(kernelURL, "application/json", bytes.NewBuffer(fileNameJSON))
 	if err != nil {
 		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
 	}
