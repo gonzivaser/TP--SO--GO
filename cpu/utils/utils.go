@@ -329,11 +329,7 @@ func Execute(instruction string, line []string, contextoDeEjecucion *PCB) error 
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "COPY_STRING":
-		err := COPY_STRING(words, contextoDeEjecucion)
-		if err != nil {
-			return fmt.Errorf("error en execute: %s", err)
-
-		}
+		fmt.Println("COPY_STRING")
 	case "WAIT":
 		err := CheckWait(nil, nil, contextoDeEjecucion, words[1])
 		if err != nil {
@@ -608,7 +604,9 @@ func MOV_OUT(words []string, contextoEjecucion *PCB) error {
 	REGdatos := words[2]
 	valueDatos := verificarRegistro(REGdatos, contextoEjecucion)
 
-	err := EscribirMemoria(contextoEjecucion.Pid, direcciones[0], valueDatos)
+	valueDatosBytes := []byte(strconv.Itoa(valueDatos)) // Convert int to []byte
+
+	err := EscribirMemoria(contextoEjecucion.Pid, direcciones[0], valueDatosBytes)
 	if err != nil {
 		return err
 	}
@@ -616,7 +614,7 @@ func MOV_OUT(words []string, contextoEjecucion *PCB) error {
 	return nil
 }
 
-// Pendiente---------------------------------------------------
+/*Pendiente---------------------------------------------------
 func COPY_STRING(words []string, contextoEjecucion *PCB) error {
 	REGdireccion := words[1]
 	valueDireccion := verificarRegistro(REGdireccion, contextoEjecucion)
@@ -632,6 +630,8 @@ func COPY_STRING(words []string, contextoEjecucion *PCB) error {
 
 	return nil
 }
+
+-------------------------------------------------------------*/
 
 func LeerMemoria(pid, direccion, size int) error {
 	memoriaURL := fmt.Sprintf("http://localhost:%d/readMemory", globals.ClientConfig.PortMemory)
@@ -672,18 +672,12 @@ func RecieveMOV_IN(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func EscribirMemoria(pid, direccion int, data interface{}) error {
+func EscribirMemoria(pid, direccion int, data []byte) error {
 	memoriaURL := fmt.Sprintf("http://localhost:%d/writeMemory", globals.ClientConfig.PortMemory)
 	var req MemoryReadRequest
 	req.PID = pid
 	req.Address = direccion
-
-	switch data.(type) {
-	case []byte:
-		req.Data = data.([]byte)
-	default:
-		return fmt.Errorf("tipo de dato no soportado")
-	}
+	req.Data = data
 
 	reqJSON, err := json.Marshal(req)
 	if err != nil {
@@ -976,7 +970,7 @@ func TranslateHandler(w http.ResponseWriter, r *http.Request) {
 func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 	var DireccionesFisicas []int
 
-	for offset := 0; offset < TamData; offset += TamPag {
+	for i := 0; i < TamData; i += TamPag {
 		pageNumber := int(math.Floor(float64(DireccionLogica) / float64(TamPag)))
 		pageOffset := DireccionLogica - (pageNumber * TamPag)
 
@@ -986,15 +980,19 @@ func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 			err := FetchFrameFromMemory(pid, pageNumber)
 			if err != nil {
 				fmt.Println("Error al obtener el marco desde la memoria")
+				return nil // O manejar el error de manera adecuada
 			}
 			frame = MemoryFrame
-			ReplaceTLBEntry(pid, pageNumber, MemoryFrame) //frame encontrado en memoria con la funcion FetchFrameFromMemory
+			ReplaceTLBEntry(pid, pageNumber, MemoryFrame)
 		} else {
 			fmt.Println("globalTLB Hit")
 		}
 
 		physicalAddress := frame*TamPag + pageOffset
 		DireccionesFisicas = append(DireccionesFisicas, physicalAddress)
+
+		// Actualizar la dirección lógica para la siguiente página
+		DireccionLogica += TamPag
 	}
 	return DireccionesFisicas
 }

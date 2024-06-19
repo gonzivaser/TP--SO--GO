@@ -426,7 +426,7 @@ func WriteMemoryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := WriteMemory(memReq.Address, memReq.Data); err != nil {
+	if err := WriteMemory(memReq.PID, memReq.Address, memReq.Data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -434,17 +434,18 @@ func WriteMemoryHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func WriteMemory(address int, data []byte) error {
+func WriteMemory(pid int, address int, data []byte) error {
 	mu.Lock()
 	defer mu.Unlock()
 
-	verificarTopeDeMemoria(IOpid, address)
+	verificarTopeDeMemoria(pid, address)
 
 	if address+len(data) > len(memory) { //Verifico si la direccion de memoria donde quiero escribir esta dentro de los limites de la memoria
 		log.Printf("Memory access out of bounds")
 	}
 
 	copy(memory[address:], data) // Funcion que viene con map, copia los datos en la direccion de memoria (data)
+	fmt.Println(memory)
 	return nil
 }
 
@@ -464,7 +465,7 @@ func RecieveInputSTDINFromIO(w http.ResponseWriter, r *http.Request) {
 	var IOinputMemoria []byte = []byte(IOinput)
 
 	for i := 0; i < len(IOaddress) && len(IOinputMemoria) < globals.ClientConfig.PageSize; i++ {
-		_ = WriteMemory(IOaddress[i], IOinputMemoria)
+		_ = WriteMemory(IOpid, IOaddress[i], IOinputMemoria)
 		AssignAddressToProcess(IOpid, IOaddress[i])
 	}
 
@@ -582,7 +583,7 @@ func sendFrameToCPU(pid int, page int) error {
 	}
 	log.Println("Enviando solicitud con contenido:", FrameResponseTest)
 
-	resp, err := http.Post(CPUurl, "application/json", nil)
+	resp, err := http.Post(CPUurl, "application/json", bytes.NewBuffer(FrameResponseTest))
 	if err != nil {
 		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
 	}
