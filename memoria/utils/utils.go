@@ -560,7 +560,7 @@ func sendFrameToCPU(pid int, page int) error {
 	}
 	log.Println("Enviando solicitud con contenido:", FrameResponseTest)
 
-	resp, err := http.Post(CPUurl, "application/json", nil)
+	resp, err := http.Post(CPUurl, "application/json", bytes.NewBuffer(FrameResponseTest))
 	if err != nil {
 		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
 	}

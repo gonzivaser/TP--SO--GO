@@ -962,7 +962,7 @@ func TranslateHandler(w http.ResponseWriter, r *http.Request) {
 func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 	var DireccionesFisicas []int
 
-	for offset := 0; offset < TamData; offset += TamPag {
+	for i := 0; i < TamData; i += TamPag {
 		pageNumber := int(math.Floor(float64(DireccionLogica) / float64(TamPag)))
 		pageOffset := DireccionLogica - (pageNumber * TamPag)
 
@@ -972,15 +972,19 @@ func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 			err := FetchFrameFromMemory(pid, pageNumber)
 			if err != nil {
 				fmt.Println("Error al obtener el marco desde la memoria")
+				return nil // O manejar el error de manera adecuada
 			}
 			frame = MemoryFrame
-			ReplaceTLBEntry(pid, pageNumber, MemoryFrame) //frame encontrado en memoria con la funcion FetchFrameFromMemory
+			ReplaceTLBEntry(pid, pageNumber, MemoryFrame)
 		} else {
 			fmt.Println("globalTLB Hit")
 		}
 
 		physicalAddress := frame*TamPag + pageOffset
 		DireccionesFisicas = append(DireccionesFisicas, physicalAddress)
+
+		// Actualizar la dirección lógica para la siguiente página
+		DireccionLogica += TamPag
 	}
 	return DireccionesFisicas
 }
