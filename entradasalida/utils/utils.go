@@ -80,7 +80,8 @@ type InterfazIO struct {
 }
 
 type Payload struct {
-	IO int
+	IO  int
+	Pid int
 }
 
 type BlockFile struct {
@@ -123,6 +124,7 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	N := payload.IO
+	pidExecutionProcess := payload.Pid
 
 	interfaceName := os.Args[1]
 	log.Printf("Nombre de la interfaz: %s", interfaceName)
@@ -142,17 +144,20 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 
 	switch Interfaz.Config.Tipo {
 	case "GENERICA":
+		log.Printf("PID: %d - Operacion: IO_GEN_SLEEP", pidExecutionProcess)
 		duracion := Interfaz.IO_GEN_SLEEP(N)
 		log.Printf("La espera por %d unidades para la interfaz '%s' es de %v\n", N, Interfaz.Nombre, duracion)
 		time.Sleep(duracion)
 		log.Printf("Termino de esperar por la interfaz genérica '%s' es de %v\n", Interfaz.Nombre, duracion)
 
 	case "STDIN":
+		log.Printf("PID: %d - Operacion: IO_STDIN_READ", pidExecutionProcess)
 		Interfaz.IO_STDIN_READ(GLOBALlengthREG)
 		log.Printf("Termino de leer desde la interfaz '%s'\n", Interfaz.Nombre)
 
 	case "STDOUT":
-		Interfaz.IO_STDOUT_WRITE(GLOBALdireccionFisica, GLOBALlengthREG) //esto está re hardcodeado loco, no me juzguen
+		log.Printf("PID: %d - Operacion: IO_STDOUT_WRITE", pidExecutionProcess)
+		Interfaz.IO_STDOUT_WRITE(GLOBALdireccionFisica, GLOBALlengthREG)
 		log.Printf("Termino de escribir en la interfaz '%s'\n", Interfaz.Nombre)
 
 	case "DialFS":

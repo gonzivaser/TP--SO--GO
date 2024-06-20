@@ -83,6 +83,7 @@ type RegisterCPU struct {
 type Payload struct {
 	Nombre string `json:"nombre"`
 	IO     int    `json:"io"`
+	Pid    int    `json:"pid"`
 }
 
 type Finalizado struct {
@@ -217,7 +218,8 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 		// aca manejar el handelSyscallIo
 		//ioChannel <- CPURequest //meto erl proceso en IO para atender ESTO HAY QUE VERLO
 		procesoEXEC.PCB.State = "BLOCKED"
-		go handleSyscallIO(*procesoEXEC.PCB, CPURequest.TimeIO, CPURequest.Interface, CPURequest.IoType)
+		pcbCopy := *procesoEXEC.PCB
+		go handleSyscallIO(pcbCopy, CPURequest.TimeIO, CPURequest.Interface, CPURequest.IoType)
 
 	case "CLOCK":
 		log.Printf("PID: %v desalojado por fin de Quantum", CPURequest.PcbUpdated.Pid)
@@ -487,7 +489,7 @@ func handleSyscallIO(pcb PCB, timeIo int, ioInterface string, ioType string) {
 	}
 
 	mutex.Lock()
-	SendIOToEntradaSalida(ioInterface, timeIo)
+	SendIOToEntradaSalida(ioInterface, timeIo, pcb.Pid)
 	mutex.Unlock()
 
 	if len(colaBlocked) > 0 { // aca lo saco de la cola blocked y lo mando a ready
@@ -712,10 +714,11 @@ func RecievePortOfInterfaceFromIO(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf("Port received: %d", requestPort.Port)))
 }
 
-func SendIOToEntradaSalida(nombre string, io int) error {
+func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 	payload := Payload{
 		Nombre: nombre,
 		IO:     io,
+		Pid:    pid,
 	}
 	var interfazEncontrada interfaz // Asume que Interfaz es el tipo de tus interfaces
 
