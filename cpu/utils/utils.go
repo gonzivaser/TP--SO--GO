@@ -614,24 +614,27 @@ func MOV_OUT(words []string, contextoEjecucion *PCB) error {
 	return nil
 }
 
-/*Pendiente---------------------------------------------------
 func COPY_STRING(words []string, contextoEjecucion *PCB) error {
-	REGdireccion := words[1]
-	valueDireccion := verificarRegistro(REGdireccion, contextoEjecucion)
-	direcciones := TranslateAddress(contextoEjecucion.Pid, valueDireccion, GLOBALpageTam, valueDireccion)
-
-	REGdatos := words[2]
-	valueDatos := verificarRegistro(REGdatos, contextoEjecucion)
-
-	err := EscribirMemoria(contextoEjecucion.Pid, direcciones[0], valueDatos)
+	tamString := words[1]
+	tam, err := strconv.Atoi(tamString)
 	if err != nil {
 		return err
 	}
 
+	direcciones := TranslateAddress(contextoEjecucion.Pid, int(contextoEjecucion.CpuReg.SI), GLOBALpageTam, tam)
+
+	err1 := LeerMemoria(contextoEjecucion.Pid, direcciones[0], tam)
+	if err1 != nil {
+		return err1
+	}
+
+	err2 := EscribirMemoria(contextoEjecucion.Pid, int(contextoEjecucion.CpuReg.DI), GLOBALdataMOV_IN)
+	if err2 != nil {
+		return err2
+	}
+
 	return nil
 }
-
--------------------------------------------------------------*/
 
 func LeerMemoria(pid, direccion, size int) error {
 	memoriaURL := fmt.Sprintf("http://localhost:%d/readMemory", globals.ClientConfig.PortMemory)
