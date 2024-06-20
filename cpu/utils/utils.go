@@ -329,7 +329,10 @@ func Execute(instruction string, line []string, contextoDeEjecucion *PCB) error 
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "COPY_STRING":
-		fmt.Println("COPY_STRING")
+		err := COPY_STRING(words, contextoDeEjecucion)
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
 	case "WAIT":
 		err := CheckWait(nil, nil, contextoDeEjecucion, words[1])
 		if err != nil {
@@ -620,19 +623,20 @@ func COPY_STRING(words []string, contextoEjecucion *PCB) error {
 	if err != nil {
 		return err
 	}
+	valorSI := verificarRegistro("SI", contextoEjecucion)
+	direccionesSI := TranslateAddress(contextoEjecucion.Pid, valorSI, GLOBALpageTam, tam)
 
-	direcciones := TranslateAddress(contextoEjecucion.Pid, int(contextoEjecucion.CpuReg.SI), GLOBALpageTam, tam)
-
-	err1 := LeerMemoria(contextoEjecucion.Pid, direcciones[0], tam)
+	err1 := LeerMemoria(contextoEjecucion.Pid, direccionesSI[0], tam)
 	if err1 != nil {
 		return err1
 	}
-
-	err2 := EscribirMemoria(contextoEjecucion.Pid, int(contextoEjecucion.CpuReg.DI), GLOBALdataMOV_IN)
+	valorDI := verificarRegistro("DI", contextoEjecucion)
+	direccionesDI := TranslateAddress(contextoEjecucion.Pid, valorDI, GLOBALpageTam, tam)
+	err2 := EscribirMemoria(contextoEjecucion.Pid, direccionesDI[0], GLOBALdataMOV_IN)
 	if err2 != nil {
 		return err2
 	}
-
+	fmt.Println(GLOBALdataMOV_IN)
 	return nil
 }
 
