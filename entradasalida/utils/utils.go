@@ -161,7 +161,6 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Termino de escribir en la interfaz '%s'\n", Interfaz.Nombre)
 
 	case "DialFS":
-		Interfaz.FILE_SYSTEM(N)
 
 	default:
 		log.Fatalf("Tipo de interfaz desconocido: %s", Interfaz.Config.Tipo)
@@ -355,17 +354,44 @@ func (interfaz *InterfazIO) IO_GEN_SLEEP(n int) time.Duration {
 func (interfaz *InterfazIO) FILE_SYSTEM(n int) {
 	log.Printf("La interfaz '%s' es de tipo FILE SYSTEM", interfaz.Nombre)
 
-	CreateBlockFile(interfaz.Config.PathDialFS, interfaz.Config.TamanioBloqueDialFS, interfaz.Config.CantidadBloquesDialFS)
+	pathDialFS := interfaz.Config.PathDialFS
+	blocksSize := interfaz.Config.TamanioBloqueDialFS
+	blocksCount := interfaz.Config.CantidadBloquesDialFS
+	sizeFile := blocksSize * blocksCount
+	bitmapSize := (blocksCount + 7) / 8
+
+	// CHEQUEO EXISTENCIA DE ARCHIVOS BLOQUES.DAT Y BITMAP.DAT, DE NO SER ASI, LOS CREO
+	CheckIfFileExists(pathDialFS, blocksSize, blocksCount, sizeFile, bitmapSize)
 
 	log.Printf("La duración de la operación de FILE SYSTEM es de %d unidades de tiempo", n)
 	time.Sleep(time.Duration(n*interfaz.Config.UnidadDeTiempo) * time.Millisecond)
 }
 
-func CreateBlockFile(path string, blocksSize int, blocksCount int) {
+func CheckIfFileExists(pathDialFS string, blocksSize int, blocksCount int, sizeFile int, bitmapSize int) {
+	// Ruta completa para bloques.dat
+	blockFilePath := pathDialFS + "/bloques.dat"
+	if _, err := os.Stat(blockFilePath); os.IsNotExist(err) {
+		log.Printf("El archivo de bloques no existe, creando: %s", blockFilePath)
+		CreateBlockFile(pathDialFS, blocksSize, blocksCount, sizeFile)
+	} else {
+		log.Printf("El archivo de bloques ya existe: %s", blockFilePath)
+	}
 
-	sizeFile := blocksSize * blocksCount
+	// Ruta completa para bitmap.dat
+	bitmapFilePath := pathDialFS + "/bitmap.dat"
+	if _, err := os.Stat(bitmapFilePath); os.IsNotExist(err) {
+		log.Printf("El archivo bitmap no existe, creando: %s", bitmapFilePath)
+		CreateBitmapFile(pathDialFS, blocksCount, bitmapSize)
+	} else {
+		log.Printf("El archivo bitmap ya existe: %s", bitmapFilePath)
+	}
+}
 
-	file, err := os.Create(path)
+func CreateBlockFile(path string, blocksSize int, blocksCount int, sizeFile int) {
+
+	filePath := path + "bloques.dat"
+
+	file, err := os.Create(filePath)
 	if err != nil {
 		log.Fatalf("Error al crear el archivo '%s': %v", path, err)
 	}
@@ -376,16 +402,27 @@ func CreateBlockFile(path string, blocksSize int, blocksCount int) {
 	if err != nil {
 		log.Fatalf("Error al truncar el archivo '%s': %v", path, err)
 	}
+}
 
-	// CREO UN SLICE PARA REPRESENTAR UN BLOQUE
-	block := make([]byte, blocksSize)
+func CreateBitmapFile(path string, blocksCount int, bitmapSize int) {
+	// CADA BIT EN EL BITMAP REPRESENTA UN BLOQUE
+	// ENTONCES BLOCKCOUNT == BLOCKCOUNT bits
+	// ENTONCES EL TAMAÑO DEL ARCHIVO VA A SER LA CANTIDAD DE BLOQUES (+7 por si division no es exacta) / 8 bytes
 
-	// ESCRIBO EL BLOQUE EN EL ARCHIVO
-	for i := 0; i < blocksCount; i++ {
-		_, err = file.Write(block)
-		if err != nil {
-			log.Fatalf("Error al escribir el bloque %d en el archivo '%s': %v", i, path, err)
-		}
+	filePath := path + "bitmap.dat"
+
+	// CREO EL ARCHIVO DE BITMAP
+	bitmapFile, err := os.Create(filePath)
+	if err != nil {
+		log.Fatalf("Error al crear el archivo de bitmap '%s.bitmap': %v", path, err)
+	}
+	defer bitmapFile.Close()
+
+	// INICIALIZO TODOS LOS BITS EN CERO
+	bitmap := make([]byte, bitmapSize)
+	_, err = bitmapFile.Write(bitmap)
+	if err != nil {
+		log.Fatalf("Error al inicializar el archivo de bitmap '%s.bitmap': %v", path, err)
 	}
 }
 
