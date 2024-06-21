@@ -301,6 +301,8 @@ func init() {
 	log.Printf("Configuración %v", globals.ClientConfig.Multiprogramacion)
 	multiProgramacion = make(chan int, globals.ClientConfig.Multiprogramacion)
 
+	go handelMultiProg()
+
 	ioChannel = make(chan KernelRequest)
 
 	if globals.ClientConfig != nil {
@@ -313,6 +315,21 @@ func init() {
 		}
 	} else {
 		log.Fatal("ClientConfig is not initialized")
+	}
+}
+
+func handelMultiProg() {
+	for {
+		if len(colaNew) > 0 {
+
+			multiProgramacion <- 0
+			mutexNew.Lock()
+			proceso := colaNew[0]
+			colaNew = append(colaNew[:0], colaNew[1:]...)
+			mutexNew.Unlock()
+			enqueueReadyProcess(proceso)
+
+		}
 	}
 }
 
@@ -332,16 +349,14 @@ func IniciarPlanificacionDeProcesos(request BodyRequest, pcb PCB) {
 	}
 	mutexExecutionMEMORIA.Unlock()
 
-	multiProgramacion <- 0
+	// if len(colaNew) > 0 { // aca lo saco de la cola new y lo mando a ready
+	// 	mutexNew.Lock()
+	// 	colaNew = append(colaNew[:0], colaNew[1:]...)
+	// 	mutexNew.Unlock()
+	// }
 
-	if len(colaNew) > 0 { // aca lo saco de la cola new y lo mando a ready
-		mutexNew.Lock()
-		colaNew = append(colaNew[:0], colaNew[1:]...)
-		mutexNew.Unlock()
-	}
-
-	//meter en ready
-	enqueueReadyProcess(*proceso.PCB)
+	// //meter en ready
+	// enqueueReadyProcess(*proceso.PCB)
 }
 
 func executeTask(proceso PCB) {
