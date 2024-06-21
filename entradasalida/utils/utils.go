@@ -161,6 +161,7 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Termino de escribir en la interfaz '%s'\n", Interfaz.Nombre)
 
 	case "DialFS":
+		Interfaz.FILE_SYSTEM(N)
 
 	default:
 		log.Fatalf("Tipo de interfaz desconocido: %s", Interfaz.Config.Tipo)
@@ -363,7 +364,13 @@ func (interfaz *InterfazIO) FILE_SYSTEM(n int) {
 	// CHEQUEO EXISTENCIA DE ARCHIVOS BLOQUES.DAT Y BITMAP.DAT, DE NO SER ASI, LOS CREO
 	EnsureIfFileExists(pathDialFS, blocksSize, blocksCount, sizeFile, bitmapSize)
 
-	// SIMULO LA OPERACIÓN DE FILE SYSTEM
+	// COMO YA TENGO MI ARCHIVO DE BLOQUES Y BITMAP, PUEDO PROCEDER A REALIZAR LAS OPERACIONES DE FILE SYSTEM
+	/*switch InstruccionFS {
+	case "IO_FS_CREATE":
+	case "IO_FS_DELETE":
+	case "IO_FS_TRUNCATE":
+	case "IO_FS_READ":
+	}*/
 
 	log.Printf("La duración de la operación de FILE SYSTEM es de %d unidades de tiempo", n)
 	time.Sleep(time.Duration(n*interfaz.Config.UnidadDeTiempo) * time.Millisecond)
@@ -432,6 +439,7 @@ func CreateBitmapFile(path string, blocksCount int, bitmapSize int) {
 /*func (interfaz *InterfazIO, nombreArchivo string) IO_FS_CREATE() {
 	// RECIBO EL NOMBRE DEL ARCHIVO A CREAR
 	// MEDIANTE LA INTERFAZ SELECCIONADA SE CREE UN ARCHIVO EN EL FS, MONTADO EN DICHA INTERFAZ
+
 }*/
 
 // INTERFAZ FILE SYSTEM (IO_FS_DELETE)
