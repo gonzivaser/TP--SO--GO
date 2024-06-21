@@ -361,13 +361,15 @@ func (interfaz *InterfazIO) FILE_SYSTEM(n int) {
 	bitmapSize := (blocksCount + 7) / 8
 
 	// CHEQUEO EXISTENCIA DE ARCHIVOS BLOQUES.DAT Y BITMAP.DAT, DE NO SER ASI, LOS CREO
-	CheckIfFileExists(pathDialFS, blocksSize, blocksCount, sizeFile, bitmapSize)
+	EnsureIfFileExists(pathDialFS, blocksSize, blocksCount, sizeFile, bitmapSize)
+
+	// SIMULO LA OPERACIÓN DE FILE SYSTEM
 
 	log.Printf("La duración de la operación de FILE SYSTEM es de %d unidades de tiempo", n)
 	time.Sleep(time.Duration(n*interfaz.Config.UnidadDeTiempo) * time.Millisecond)
 }
 
-func CheckIfFileExists(pathDialFS string, blocksSize int, blocksCount int, sizeFile int, bitmapSize int) {
+func EnsureIfFileExists(pathDialFS string, blocksSize int, blocksCount int, sizeFile int, bitmapSize int) {
 	// Ruta completa para bloques.dat
 	blockFilePath := pathDialFS + "/bloques.dat"
 	if _, err := os.Stat(blockFilePath); os.IsNotExist(err) {
