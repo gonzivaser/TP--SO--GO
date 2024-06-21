@@ -218,8 +218,7 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 		// aca manejar el handelSyscallIo
 		//ioChannel <- CPURequest //meto erl proceso en IO para atender ESTO HAY QUE VERLO
 		procesoEXEC.PCB.State = "BLOCKED"
-		pcbCopy := *procesoEXEC.PCB
-		go handleSyscallIO(pcbCopy, CPURequest.TimeIO, CPURequest.Interface, CPURequest.IoType)
+		go handleSyscallIO(*procesoEXEC.PCB, CPURequest.TimeIO, CPURequest.Interface, CPURequest.IoType)
 
 	case "CLOCK":
 		log.Printf("PID: %v desalojado por fin de Quantum", CPURequest.PcbUpdated.Pid)
@@ -728,7 +727,7 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 			break
 		}
 	}
-	if interfazEncontrada != (interfaz{}) && interfazEncontrada.Name == "STDIN" {
+	if interfazEncontrada != (interfaz{}) {
 		SendREGtoIO(DirFisica, LengthREG, interfazEncontrada.Port) //envia los registros a IO
 		//envia el payload a IO
 		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
@@ -751,30 +750,6 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 		log.Println("Respuesta del módulo de IO recibida correctamente.")
 		return nil
 	}
-	/*else if interfazEncontrada != (interfaz{}) && interfazEncontrada.Name == "DialFS"{
-		SendFileNametoIO() //envia los registros a IO
-		//envia el payload a IO
-		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
-
-		ioResponseTest, err := json.Marshal(payload)
-		if err != nil {
-			return fmt.Errorf("error al serializar el payload: %v", err)
-		}
-
-		resp, err := http.Post(entradasalidaURL, "application/json", bytes.NewBuffer(ioResponseTest))
-		if err != nil {
-			return fmt.Errorf("error al enviar la solicitud al módulo de cpu: %v", err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("error en la respuesta del módulo de cpu: %v", resp.StatusCode)
-		}
-
-		log.Println("Respuesta del módulo de IO recibida correctamente.")
-		return nil
-
-	}*/
 	return nil
 }
 
@@ -821,43 +796,6 @@ func SendREGtoIO(REGdireccion []int, lengthREG int, port int) error {
 	log.Println("Respuesta del módulo de entradasalida recibida correctamente.")
 	return nil
 }
-
-func RecieveFileNameFromCPU(w http.ResponseWriter, r *http.Request) {
-	var fileNmae string
-	err := json.NewDecoder(r.Body).Decode(&fileNmae)
-	if err != nil {
-		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
-		return
-	}
-	log.Printf("Received data: %+v", fileNmae)
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("Registers received: %v", fileNmae)))
-}
-
-/*func SendFileNametoIO(REGdireccion []int, lengthREG int, port int) error {
-	ioURL := fmt.Sprintf("http://localhost:%d/recieveFILENAME", port)
-
-	savedRegJSON, err := json.Marshal(BodyRegister)
-	if err != nil {
-		return fmt.Errorf("error al serializar los datos JSON: %v", err)
-	}
-
-	log.Println("Enviando solicitud con contenido:", string(savedRegJSON))
-
-	resp, err := http.Post(ioURL, "application/json", bytes.NewBuffer(savedRegJSON))
-	if err != nil {
-		return fmt.Errorf("error al enviar la solicitud al módulo de entradasalida: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("error en la respuesta del módulo de entradasalida: %v", resp.StatusCode)
-	}
-
-	log.Println("Respuesta del módulo de entradasalida recibida correctamente.")
-	return nil
-}*/
 
 func SendPortOfInterfaceToMemory(nombreInterfaz string, puerto int) error {
 	memoriaURL := fmt.Sprintf("http://localhost:%d/SendPortOfInterfaceToMemory", globals.ClientConfig.PuertoMemoria)

@@ -24,7 +24,7 @@ func main() {
 	http.HandleFunc("POST /syscall", utils.ProcessSyscall)
 	http.HandleFunc("POST /SendPortOfInterfaceToKernel", utils.RecievePortOfInterfaceFromIO)
 	http.HandleFunc("POST /recieveREG", utils.RecieveREGFromCPU)
-	http.HandleFunc("POST /recieveFILENAME", utils.RecieveFileNameFromCPU)
+	//http.HandleFunc("POST /recieveFILENAME", utils.RecieveFileNameFromCPU)
 	http.HandleFunc("DELETE /process", utils.FinalizarProceso)
 	http.HandleFunc("POST /wait", utils.RecieveWait)
 	http.HandleFunc("POST /signal", utils.HandleSignal)
