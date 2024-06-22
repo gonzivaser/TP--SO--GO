@@ -397,6 +397,11 @@ func EnsureIfFileExists(pathDialFS string, blocksSize int, blocksCount int, size
 	}
 }
 
+//fs pide posicion a memoria, si lo agarra y lo guarda en el archivo de bloques.dat
+// bloques basados por tamaños de byte, ej 4 bytes por bloque y si pongo hola que ocupa 7 bytes, ocupa un bloque
+// cuando hago create lo que voy a hacer es meterlo al filesystem, notas.txt ya existe en tu ruta de dialfs_path y lo que hago es escribir en bloques.dat
+// como existe en esa ruta voy a acceder y sacar la metdata
+
 func CreateBlockFile(path string, blocksSize int, blocksCount int, sizeFile int) {
 
 	filePath := path + "bloques.dat"
