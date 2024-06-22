@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -411,6 +412,20 @@ func CreateBlockFile(path string, blocksSize int, blocksCount int, sizeFile int)
 	if err != nil {
 		log.Fatalf("Error al truncar el archivo '%s': %v", path, err)
 	}
+	_, err = file.WriteString("hola2")
+	if err != nil {
+		log.Fatalf("Error al escribir en el archivo '%s': %v", filePath, err)
+	}
+	ShowFileContent(filePath)
+}
+
+func ShowFileContent(path string) {
+	content, err := ioutil.ReadFile(path)
+	if err != nil {
+		log.Fatalf("Error al leer el archivo '%s': %v", path, err)
+	}
+	fmt.Println("Contenido del archivo:")
+	fmt.Println(string(content))
 }
 
 func CreateBitmapFile(path string, blocksCount int, bitmapSize int) {
