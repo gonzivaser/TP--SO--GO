@@ -183,6 +183,12 @@ var procesoEXEC Proceso // este proceso es el que se esta ejecutando
 
 // ---------FilaeNmae global-----------------------
 var fileName string
+var fsInstruction string
+
+type FSstructure struct {
+	FileName      string `json:"filename"`
+	FSInstruction string `json:"fsinstruction"`
+}
 
 /*-------------------------------------------------FUNCIONES CREADAS----------------------------------------------*/
 
@@ -776,7 +782,7 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 		return nil
 	} else if interfazEncontrada != (interfaz{}) && interfazEncontrada.Type == "DialFS" {
 		log.Printf("entre al tercer if con la interfaz: %+v", interfazEncontrada.Name)
-		SendFileNametoIO(fileName, interfazEncontrada.Port)
+		SendFileNametoIO(fileName, fsInstruction, interfazEncontrada.Port)
 		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
 
 		ioResponseTest, err := json.Marshal(payload)
@@ -817,12 +823,16 @@ func RecieveREGFromCPU(w http.ResponseWriter, r *http.Request) {
 }
 
 func RecieveFileNameFromCPU(w http.ResponseWriter, r *http.Request) {
-	err := json.NewDecoder(r.Body).Decode(&fileName)
+	var fsStructure FSstructure
+	err := json.NewDecoder(r.Body).Decode(&fsStructure)
 	if err != nil {
 		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
 		return
 	}
+	fileName = fsStructure.FileName
+	fsInstruction = fsStructure.FSInstruction
 	log.Printf("Received filename: %+v", fileName)
+	log.Printf("Received FS instruction: %+v", fsInstruction)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("Registers received: %v", fileName)))
@@ -856,17 +866,21 @@ func SendREGtoIO(REGdireccion []int, lengthREG int, port int) error {
 	return nil
 }
 
-func SendFileNametoIO(filename string, port int) error {
+func SendFileNametoIO(filename string, instruction string, port int) error {
 	ioURL := fmt.Sprintf("http://localhost:%d/recieveFILENAME", port)
+	fsStructure := FSstructure{
+		FileName:      fileName,
+		FSInstruction: instruction,
+	}
 
-	filenameJSON, err := json.Marshal(filename)
+	fsStructureJSON, err := json.Marshal(fsStructure)
 	if err != nil {
 		return fmt.Errorf("error al serializar los datos JSON: %v", err)
 	}
 
-	log.Println("Enviando solicitud con contenido:", string(filenameJSON))
+	log.Println("Enviando solicitud con contenido:", string(fsStructureJSON))
 
-	resp, err := http.Post(ioURL, "application/json", bytes.NewBuffer(filenameJSON))
+	resp, err := http.Post(ioURL, "application/json", bytes.NewBuffer(fsStructureJSON))
 	if err != nil {
 		return fmt.Errorf("error al enviar la solicitud al módulo de entradasalida: %v", err)
 	}

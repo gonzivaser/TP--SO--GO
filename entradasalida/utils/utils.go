@@ -89,6 +89,17 @@ type BlockFile struct {
 	Content string
 }
 
+type FSstructure struct {
+	FileName      string `json:"filename"`
+	FSInstruction string `json:"fsinstruction"`
+}
+
+// ----------------Nombre del archivo e Instruccion----------------
+var fileName string
+var fsInstruction string
+
+//-------------------------------------------------------------------
+
 /*--------------------------------------------------- VAR GLOBALES ------------------------------------------------------*/
 
 var GLOBALlengthREG int
@@ -263,15 +274,19 @@ func RecieveREG(w http.ResponseWriter, r *http.Request) {
 }
 
 func RecieveFileName(w http.ResponseWriter, r *http.Request) {
-	var requestFileName string
+	var fsStructure FSstructure
 
-	err := json.NewDecoder(r.Body).Decode(&requestFileName)
+	err := json.NewDecoder(r.Body).Decode(&fsStructure)
 	if err != nil {
 		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("Received data: %s", requestFileName)
+	log.Printf("Received fileName: %s", fsStructure.FileName)
+	log.Printf("Received fsInstruction: %s", fsStructure.FSInstruction)
+
+	fileName = fsStructure.FileName
+	fsInstruction = fsStructure.FSInstruction
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Content received correctly"))
@@ -372,6 +387,17 @@ func (interfaz *InterfazIO) FILE_SYSTEM(n int) {
 	case "IO_FS_TRUNCATE":
 	case "IO_FS_READ":
 	}*/
+
+	switch fsInstruction {
+	case "IO_FS_CREATE":
+		log.Printf("PID: %d - Operacion: IO_FS_CREATE", GLOBALpid)
+	case "IO_FS_DELETE":
+		log.Printf("PID: %d - Operacion: IO_FS_DELETE", GLOBALpid)
+	case "IO_FS_TRUNCATE":
+		log.Printf("PID: %d - Operacion: IO_FS_TRUNCATE", GLOBALpid)
+	case "IO_FS_READ":
+		log.Printf("PID: %d - Operacion: IO_FS_READ", GLOBALpid)
+	}
 
 	log.Printf("La duración de la operación de FILE SYSTEM es de %d unidades de tiempo", n)
 	time.Sleep(time.Duration(n*interfaz.Config.UnidadDeTiempo) * time.Millisecond)

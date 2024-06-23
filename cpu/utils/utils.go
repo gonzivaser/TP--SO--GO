@@ -107,6 +107,11 @@ type MemoryReadRequest struct {
 	Data    []byte `json:"data,omitempty"` //Si es 0, se omite Util para creacion y terminacion de procesos)
 }
 
+type FSstructure struct {
+	FileName      string `json:"filename"`
+	FSInstruction string `json:"fsinstruction"`
+}
+
 /*------------------------------------------------- VAR GLOBALES --------------------------------------------------------*/
 
 var globalTLB []TLBEntry
@@ -738,7 +743,7 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 			Interface:      words[1],
 			TimeIO:         0,
 		}
-		sendFileNameToKernel(fileName)
+		sendFileNameToKernel(fileName, kind)
 		fmt.Printf("IO_FS_CREATE")
 	case "IO_FS_DELETE":
 		fmt.Printf("IO_FS_DELETE")
@@ -1076,15 +1081,19 @@ func sendREGtoKernel(adress []int, length int) {
 	defer resp.Body.Close()
 }
 
-func sendFileNameToKernel(fileName string) {
+func sendFileNameToKernel(fileName string, instructionFS string) {
+	fsStructure := FSstructure{
+		FileName:      fileName,
+		FSInstruction: instructionFS,
+	}
 	kernelURL := fmt.Sprintf("http://localhost:%d/recieveFILENAME", globals.ClientConfig.PortKernel)
 
-	fileNameJSON, err := json.Marshal(fileName)
+	fsStructureJSON, err := json.Marshal(fsStructure)
 	if err != nil {
 		log.Fatalf("Error al serializar el Input: %v", err)
 	}
 
-	resp, err := http.Post(kernelURL, "application/json", bytes.NewBuffer(fileNameJSON))
+	resp, err := http.Post(kernelURL, "application/json", bytes.NewBuffer(fsStructureJSON))
 	if err != nil {
 		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
 	}
