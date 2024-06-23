@@ -390,7 +390,9 @@ func (interfaz *InterfazIO) FILE_SYSTEM(n int) {
 
 	switch fsInstruction {
 	case "IO_FS_CREATE":
+		createFile(pathDialFS, fileName)
 		log.Printf("PID: %d - Operacion: IO_FS_CREATE", GLOBALpid)
+
 	case "IO_FS_DELETE":
 		log.Printf("PID: %d - Operacion: IO_FS_DELETE", GLOBALpid)
 	case "IO_FS_TRUNCATE":
@@ -421,6 +423,22 @@ func EnsureIfFileExists(pathDialFS string, blocksSize int, blocksCount int, size
 	} else {
 		log.Printf("El archivo bitmap ya existe: %s", bitmapFilePath)
 	}
+}
+
+func createFile(pathDialFS string, fileName string) {
+	log.Printf("Creando archivo %s en %s", fileName, pathDialFS)
+	// read in the contents of the localfile.data
+	data, err := os.ReadFile(pathDialFS + "/" + fileName)
+	// if our program was unable to read the file
+	// print out the reason why it can't
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	// if it was successful in reading the file then
+	// print out the contents as a string
+	fmt.Printf("contenido %v", string(data))
+
 }
 
 //fs pide posicion a memoria, si lo agarra y lo guarda en el archivo de bloques.dat
