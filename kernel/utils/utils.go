@@ -181,6 +181,9 @@ var mutexes = make(map[string]*sync.Mutex)
 // ----------DECLARACION DE PROCESO EN EJECUCION----------------
 var procesoEXEC Proceso // este proceso es el que se esta ejecutando
 
+// ---------FilaeNmae global-----------------------
+var fileName string
+
 /*-------------------------------------------------FUNCIONES CREADAS----------------------------------------------*/
 
 func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
@@ -727,9 +730,53 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 			break
 		}
 	}
-	if interfazEncontrada != (interfaz{}) {
+	if interfazEncontrada != (interfaz{}) && interfazEncontrada.Type == "STDOUT" || interfazEncontrada.Type == "STDIN" {
+		log.Printf("entre alk primer if con la interfaz: %+v", interfazEncontrada.Type)
 		SendREGtoIO(DirFisica, LengthREG, interfazEncontrada.Port) //envia los registros a IO
 		//envia el payload a IO
+		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
+
+		ioResponseTest, err := json.Marshal(payload)
+		if err != nil {
+			return fmt.Errorf("error al serializar el payload: %v", err)
+		}
+
+		resp, err := http.Post(entradasalidaURL, "application/json", bytes.NewBuffer(ioResponseTest))
+		if err != nil {
+			return fmt.Errorf("error al enviar la solicitud al módulo de cpu: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("error en la respuesta del módulo de cpu: %v", resp.StatusCode)
+		}
+
+		log.Println("Respuesta del módulo de IO recibida correctamente.")
+		return nil
+	} else if interfazEncontrada != (interfaz{}) && interfazEncontrada.Type == "GENERICA" {
+		log.Printf("entre al SEGUNDO if con la interfaz: %+v", interfazEncontrada.Name)
+		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
+
+		ioResponseTest, err := json.Marshal(payload)
+		if err != nil {
+			return fmt.Errorf("error al serializar el payload: %v", err)
+		}
+
+		resp, err := http.Post(entradasalidaURL, "application/json", bytes.NewBuffer(ioResponseTest))
+		if err != nil {
+			return fmt.Errorf("error al enviar la solicitud al módulo de cpu: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("error en la respuesta del módulo de cpu: %v", resp.StatusCode)
+		}
+
+		log.Println("Respuesta del módulo de IO recibida correctamente.")
+		return nil
+	} else if interfazEncontrada != (interfaz{}) && interfazEncontrada.Type == "DialFS" {
+		log.Printf("entre al tercer if con la interfaz: %+v", interfazEncontrada.Name)
+		SendFileNametoIO(fileName, interfazEncontrada.Port)
 		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
 
 		ioResponseTest, err := json.Marshal(payload)
@@ -769,6 +816,18 @@ func RecieveREGFromCPU(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf("Registers received: %v", bodyRegisters)))
 }
 
+func RecieveFileNameFromCPU(w http.ResponseWriter, r *http.Request) {
+	err := json.NewDecoder(r.Body).Decode(&fileName)
+	if err != nil {
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
+		return
+	}
+	log.Printf("Received filename: %+v", fileName)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("Registers received: %v", fileName)))
+}
+
 func SendREGtoIO(REGdireccion []int, lengthREG int, port int) error {
 	ioURL := fmt.Sprintf("http://localhost:%d/recieveREG", port)
 	var BodyRegister BodyRegisters
@@ -784,6 +843,30 @@ func SendREGtoIO(REGdireccion []int, lengthREG int, port int) error {
 	log.Println("Enviando solicitud con contenido:", string(savedRegJSON))
 
 	resp, err := http.Post(ioURL, "application/json", bytes.NewBuffer(savedRegJSON))
+	if err != nil {
+		return fmt.Errorf("error al enviar la solicitud al módulo de entradasalida: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("error en la respuesta del módulo de entradasalida: %v", resp.StatusCode)
+	}
+
+	log.Println("Respuesta del módulo de entradasalida recibida correctamente.")
+	return nil
+}
+
+func SendFileNametoIO(filename string, port int) error {
+	ioURL := fmt.Sprintf("http://localhost:%d/recieveFILENAME", port)
+
+	filenameJSON, err := json.Marshal(filename)
+	if err != nil {
+		return fmt.Errorf("error al serializar los datos JSON: %v", err)
+	}
+
+	log.Println("Enviando solicitud con contenido:", string(filenameJSON))
+
+	resp, err := http.Post(ioURL, "application/json", bytes.NewBuffer(filenameJSON))
 	if err != nil {
 		return fmt.Errorf("error al enviar la solicitud al módulo de entradasalida: %v", err)
 	}
