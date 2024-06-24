@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -85,16 +84,12 @@ type Payload struct {
 	Pid int
 }
 
-type BlockFile struct {
-	Content string
-}
-
 type FSstructure struct {
 	FileName      string `json:"filename"`
 	FSInstruction string `json:"fsinstruction"`
 }
 
-// ----------------Nombre del archivo e Instruccion----------------
+// ----------------NOMBRE DEL ARCHIVO E INTRUCCION----------------
 var fileName string
 var fsInstruction string
 
@@ -173,7 +168,7 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Termino de escribir en la interfaz '%s'\n", Interfaz.Nombre)
 
 	case "DialFS":
-		Interfaz.FILE_SYSTEM(N)
+		Interfaz.FILE_SYSTEM(pidExecutionProcess)
 
 	default:
 		log.Fatalf("Tipo de interfaz desconocido: %s", Interfaz.Config.Tipo)
@@ -368,7 +363,7 @@ func (interfaz *InterfazIO) IO_GEN_SLEEP(n int) time.Duration {
 }
 
 // INTERFAZ FILE SYSTEM
-func (interfaz *InterfazIO) FILE_SYSTEM(n int) {
+func (interfaz *InterfazIO) FILE_SYSTEM(pid int) {
 	log.Printf("La interfaz '%s' es de tipo FILE SYSTEM", interfaz.Nombre)
 
 	pathDialFS := interfaz.Config.PathDialFS
@@ -376,33 +371,26 @@ func (interfaz *InterfazIO) FILE_SYSTEM(n int) {
 	blocksCount := interfaz.Config.CantidadBloquesDialFS
 	sizeFile := blocksSize * blocksCount
 	bitmapSize := (blocksCount + 7) / 8
+	unitWorkTimeFS := interfaz.Config.UnidadDeTiempo
 
 	// CHEQUEO EXISTENCIA DE ARCHIVOS BLOQUES.DAT Y BITMAP.DAT, DE NO SER ASI, LOS CREO
 	EnsureIfFileExists(pathDialFS, blocksSize, blocksCount, sizeFile, bitmapSize)
 
-	// COMO YA TENGO MI ARCHIVO DE BLOQUES Y BITMAP, PUEDO PROCEDER A REALIZAR LAS OPERACIONES DE FILE SYSTEM
-	/*switch InstruccionFS {
-	case "IO_FS_CREATE":
-	case "IO_FS_DELETE":
-	case "IO_FS_TRUNCATE":
-	case "IO_FS_READ":
-	}*/
-
 	switch fsInstruction {
 	case "IO_FS_CREATE":
 		createFile(pathDialFS, fileName)
-		log.Printf("PID: %d - Operacion: IO_FS_CREATE", GLOBALpid)
+		log.Printf("PID: %d - Operacion: IO_FS_CREATE", pid)
 
 	case "IO_FS_DELETE":
-		log.Printf("PID: %d - Operacion: IO_FS_DELETE", GLOBALpid)
+		log.Printf("PID: %d - Operacion: IO_FS_DELETE", pid)
 	case "IO_FS_TRUNCATE":
-		log.Printf("PID: %d - Operacion: IO_FS_TRUNCATE", GLOBALpid)
+		log.Printf("PID: %d - Operacion: IO_FS_TRUNCATE", pid)
 	case "IO_FS_READ":
-		log.Printf("PID: %d - Operacion: IO_FS_READ", GLOBALpid)
+		log.Printf("PID: %d - Operacion: IO_FS_READ", pid)
 	}
 
-	log.Printf("La duración de la operación de FILE SYSTEM es de %d unidades de tiempo", n)
-	time.Sleep(time.Duration(n*interfaz.Config.UnidadDeTiempo) * time.Millisecond)
+	log.Printf("La duración de la operación de FILE SYSTEM es de %d unidades de tiempo", unitWorkTimeFS)
+	time.Sleep(time.Duration(unitWorkTimeFS) * time.Millisecond)
 }
 
 func EnsureIfFileExists(pathDialFS string, blocksSize int, blocksCount int, sizeFile int, bitmapSize int) {
@@ -427,18 +415,14 @@ func EnsureIfFileExists(pathDialFS string, blocksSize int, blocksCount int, size
 
 func createFile(pathDialFS string, fileName string) {
 	log.Printf("Creando archivo %s en %s", fileName, pathDialFS)
-	// read in the contents of the localfile.data
+
 	data, err := os.ReadFile(pathDialFS + "/" + fileName)
-	// if our program was unable to read the file
-	// print out the reason why it can't
+
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	// if it was successful in reading the file then
-	// print out the contents as a string
-	fmt.Printf("contenido %v", string(data))
-
+	fmt.Printf("Contendio del Archivo: %v", string(data))
 }
 
 //fs pide posicion a memoria, si lo agarra y lo guarda en el archivo de bloques.dat
@@ -469,7 +453,7 @@ func CreateBlockFile(path string, blocksSize int, blocksCount int, sizeFile int)
 }
 
 func ShowFileContent(path string) {
-	content, err := ioutil.ReadFile(path)
+	content, err := os.ReadFile(path)
 	if err != nil {
 		log.Fatalf("Error al leer el archivo '%s': %v", path, err)
 	}
