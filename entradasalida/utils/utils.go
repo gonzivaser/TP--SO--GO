@@ -89,6 +89,11 @@ type FSstructure struct {
 	FSInstruction string `json:"fsinstruction"`
 }
 
+type FileContent struct {
+	InitialBlock int `json:"initial_block"`
+	Size         int `json:"size"`
+}
+
 // ----------------NOMBRE DEL ARCHIVO E INTRUCCION----------------
 var fileName string
 var fsInstruction string
@@ -378,7 +383,7 @@ func (interfaz *InterfazIO) FILE_SYSTEM(pid int) {
 
 	switch fsInstruction {
 	case "IO_FS_CREATE":
-		createFile(pathDialFS, fileName)
+		createFile(pathDialFS, fileName, blocksSize)
 		log.Printf("PID: %d - Operacion: IO_FS_CREATE", pid)
 
 	case "IO_FS_DELETE":
@@ -413,16 +418,70 @@ func EnsureIfFileExists(pathDialFS string, blocksSize int, blocksCount int, size
 	}
 }
 
-func createFile(pathDialFS string, fileName string) {
+func createFile(pathDialFS string, fileName string, blocksSize int) {
 	log.Printf("Creando archivo %s en %s", fileName, pathDialFS)
 
 	data, err := os.ReadFile(pathDialFS + "/" + fileName)
-
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
+		return
 	}
 
-	fmt.Printf("Contendio del Archivo: %v", string(data))
+	var content FileContent
+	err = json.Unmarshal(data, &content)
+	if err != nil {
+		log.Println("Error unmarshalling JSON:", err)
+		return
+	}
+
+	fmt.Printf("Initial Block: %d, Size: %d\n", content.InitialBlock, content.Size)
+
+	// ABRIR EL ARCHIVO DE BLOQUES
+	blockFilePath := pathDialFS + "/bloques.dat"
+	position := int64(content.InitialBlock * blocksSize)
+	data = []byte(fmt.Sprintf("%d", content.Size))
+	writeToSpecificByte(blockFilePath, position, data)
+	f, err := os.OpenFile(blockFilePath, os.O_RDONLY, 0644)
+	if err != nil {
+		log.Fatalf("failed to open file for reading: %v", err)
+	}
+	defer f.Close()
+
+	_, err = f.Seek(position, 0)
+	if err != nil {
+		log.Fatalf("failed to seek for reading: %v", err)
+	}
+
+	readData := make([]byte, len(data))
+	_, err = f.Read(readData)
+	if err != nil {
+		log.Fatalf("failed to read: %v", err)
+	}
+
+	fmt.Printf("Leído desde el archivo: %s\n", string(readData))
+}
+
+func writeToSpecificByte(filePath string, position int64, data []byte) {
+	// Open the file with read-write permissions
+	f, err := os.OpenFile(filePath, os.O_RDWR, 0644)
+	if err != nil {
+		log.Fatalf("failed to open file: %v", err)
+	}
+	defer f.Close()
+
+	// Seek to the specific byte position
+	_, err = f.Seek(position, 0) // 0 means relative to the beginning of the file
+	if err != nil {
+		log.Fatalf("failed to seek: %v", err)
+	}
+
+	// Write data at that position
+	_, err = f.Write(data)
+	if err != nil {
+		log.Fatalf("failed to write: %v", err)
+	}
+
+	log.Println("Data written successfully")
 }
 
 //fs pide posicion a memoria, si lo agarra y lo guarda en el archivo de bloques.dat
@@ -432,7 +491,7 @@ func createFile(pathDialFS string, fileName string) {
 
 func CreateBlockFile(path string, blocksSize int, blocksCount int, sizeFile int) {
 
-	filePath := path + "bloques.dat"
+	filePath := path + "/bloques.dat"
 
 	file, err := os.Create(filePath)
 	if err != nil {
@@ -445,20 +504,6 @@ func CreateBlockFile(path string, blocksSize int, blocksCount int, sizeFile int)
 	if err != nil {
 		log.Fatalf("Error al truncar el archivo '%s': %v", path, err)
 	}
-	_, err = file.WriteString("hola2")
-	if err != nil {
-		log.Fatalf("Error al escribir en el archivo '%s': %v", filePath, err)
-	}
-	ShowFileContent(filePath)
-}
-
-func ShowFileContent(path string) {
-	content, err := os.ReadFile(path)
-	if err != nil {
-		log.Fatalf("Error al leer el archivo '%s': %v", path, err)
-	}
-	fmt.Println("Contenido del archivo:")
-	fmt.Println(string(content))
 }
 
 func CreateBitmapFile(path string, blocksCount int, bitmapSize int) {
@@ -466,7 +511,7 @@ func CreateBitmapFile(path string, blocksCount int, bitmapSize int) {
 	// ENTONCES BLOCKCOUNT == BLOCKCOUNT bits
 	// ENTONCES EL TAMAÑO DEL ARCHIVO VA A SER LA CANTIDAD DE BLOQUES (+7 por si division no es exacta) / 8 bytes
 
-	filePath := path + "bitmap.dat"
+	filePath := path + "/bitmap.dat"
 
 	// CREO EL ARCHIVO DE BITMAP
 	bitmapFile, err := os.Create(filePath)
