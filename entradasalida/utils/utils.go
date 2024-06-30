@@ -437,11 +437,15 @@ func createFile(pathDialFS string, fileName string, blocksSize int) {
 	fmt.Printf("Initial Block: %d, Size: %d\n", content.InitialBlock, content.Size)
 
 	// ABRIR EL ARCHIVO DE BLOQUES
-	blockFilePath := pathDialFS + "/bloques.dat"
-	position := int64(content.InitialBlock * blocksSize)
-	data = []byte(fmt.Sprintf("%d", content.Size))
-	writeToSpecificByte(blockFilePath, position, data)
-	f, err := os.OpenFile(blockFilePath, os.O_RDONLY, 0644)
+	//blockFilePath := pathDialFS + "/bloques.dat"
+	bitmapFilePath := pathDialFS + "/bitmap.dat"
+	position := (content.InitialBlock * blocksSize)
+	//data = []byte(fmt.Sprintf("%d", content.Size))
+	setBit(bitmapFilePath, position)
+	isSet(bitmapFilePath, position)
+
+	//writeToSpecificByte(blockFilePath, position, data)
+	/*f, err := os.OpenFile(blockFilePath, os.O_RDONLY, 0644)
 	if err != nil {
 		log.Fatalf("failed to open file for reading: %v", err)
 	}
@@ -458,10 +462,11 @@ func createFile(pathDialFS string, fileName string, blocksSize int) {
 		log.Fatalf("failed to read: %v", err)
 	}
 
-	fmt.Printf("Leído desde el archivo: %s\n", string(readData))
+	fmt.Printf("Leído desde el archivo: %s\n", string(readData))*/
+
 }
 
-func writeToSpecificByte(filePath string, position int64, data []byte) {
+/*func writeToSpecificByte(filePath string, position int64, data []byte) {
 	// Open the file with read-write permissions
 	f, err := os.OpenFile(filePath, os.O_RDWR, 0644)
 	if err != nil {
@@ -482,7 +487,7 @@ func writeToSpecificByte(filePath string, position int64, data []byte) {
 	}
 
 	log.Println("Data written successfully")
-}
+}*/
 
 //fs pide posicion a memoria, si lo agarra y lo guarda en el archivo de bloques.dat
 // bloques basados por tamaños de byte, ej 4 bytes por bloque y si pongo hola que ocupa 7 bytes, ocupa un bloque
@@ -526,6 +531,91 @@ func CreateBitmapFile(path string, blocksCount int, bitmapSize int) {
 	if err != nil {
 		log.Fatalf("Error al inicializar el archivo de bitmap '%s.bitmap': %v", path, err)
 	}
+}
+
+func setBit(filePath string, index int) error {
+	file, err := os.OpenFile(filePath, os.O_RDWR, 0666)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	byteIndex := index / 8
+	bitIndex := index % 8
+
+	// Leer el byte actual
+	var currentByte byte
+	_, err = file.ReadAt([]byte{currentByte}, int64(byteIndex))
+	if err != nil {
+		return err
+	}
+
+	// Establecer el bit
+	currentByte |= 1 << bitIndex
+
+	// Escribir el byte modificado
+	_, err = file.WriteAt([]byte{currentByte}, int64(byteIndex))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// clearBit establece el bit en la posición index a 0
+func clearBit(filePath string, index int) error {
+	file, err := os.OpenFile(filePath, os.O_RDWR, 0666)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	byteIndex := index / 8
+	bitIndex := index % 8
+
+	// Leer el byte actual
+	var currentByte byte
+	_, err = file.ReadAt([]byte{currentByte}, int64(byteIndex))
+	if err != nil {
+		return err
+	}
+
+	// Limpiar el bit
+	currentByte &^= 1 << bitIndex
+
+	// Escribir el byte modificado
+	_, err = file.WriteAt([]byte{currentByte}, int64(byteIndex))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// isSet verifica si el bit en la posición index está establecido a 1
+func isSet(filePath string, index int) (bool, error) {
+	file, err := os.OpenFile(filePath, os.O_RDONLY, 0666)
+	if err != nil {
+		return false, err
+	}
+	defer file.Close()
+
+	byteIndex := index / 8
+	bitIndex := index % 8
+
+	// Leer el byte actual
+	var currentByte byte
+	_, err = file.ReadAt([]byte{currentByte}, int64(byteIndex))
+	if err != nil {
+		return false, err
+	}
+
+	// Verificar si el bit está establecido
+	isSet := currentByte&(1<<bitIndex) != 0
+
+	fmt.Printf("El bit en la posición %d está establecido: %v", index, isSet)
+
+	return isSet, nil
 }
 
 // INTERFAZ FILE SYSTEM (IO_FS_CREATE)
