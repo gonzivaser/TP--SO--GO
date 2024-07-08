@@ -465,6 +465,7 @@ func createFile(pathDialFS string, fileName string) {
 		}
 	}
 }
+
 func (b *Bitmap) FromBytes(bytes []byte) error {
 	if len(bytes) != 128 {
 		return fmt.Errorf("invalid byte slice length: expected 128, got %d", len(bytes))
