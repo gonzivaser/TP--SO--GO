@@ -594,7 +594,7 @@ func MOV_IN(words []string, contextoEjecucion *PCB) error {
 		}
 	}
 
-	log.Printf("PID: %d - MOV_IN - %s - %s", contextoEjecucion.Pid, REGdatos, GLOBALdataMOV_IN)
+	log.Printf("PID: %d - MOV_IN - %s - dato obtenido de memoria:%s", contextoEjecucion.Pid, REGdatos, GLOBALdataMOV_IN)
 
 	return nil
 }
@@ -602,7 +602,7 @@ func MOV_IN(words []string, contextoEjecucion *PCB) error {
 func MOV_OUT(words []string, contextoEjecucion *PCB) error {
 	REGdireccion := words[1]
 	valueDireccion := verificarRegistro(REGdireccion, contextoEjecucion)
-	direcciones := TranslateAddress(contextoEjecucion.Pid, valueDireccion, GLOBALpageTam, valueDireccion)
+	direcciones := TranslateAddress(contextoEjecucion.Pid, valueDireccion, GLOBALpageTam, len(string(valueDireccion)))
 
 	REGdatos := words[2]
 	valueDatos := verificarRegistro(REGdatos, contextoEjecucion)
@@ -937,21 +937,21 @@ func ReplaceTLBEntry(pid, page, frame int) { //Reemplazo una entrada de globalTL
 		globalTLB = append(globalTLB, newEntry) //Si la globalTLB no está llena, agrego la entrada
 	} else {
 		if replacementAlgorithm == "FIFO" {
-			oldestPos := 0
+			victima := 0
 			for i, entry := range globalTLB {
-				if entry.globalPosicionFila < globalTLB[oldestPos].globalPosicionFila {
-					oldestPos = i
+				if entry.globalPosicionFila < globalTLB[victima].globalPosicionFila {
+					victima = i
 				}
 			}
-			globalTLB[oldestPos] = newEntry
+			globalTLB[victima] = newEntry
 		} else if replacementAlgorithm == "LRU" {
-			oldestPos := 0
+			victima := 0
 			for i, entry := range globalTLB {
-				if entry.UltimoAcceso.Before(globalTLB[oldestPos].UltimoAcceso) {
-					oldestPos = i
+				if entry.UltimoAcceso.Before(globalTLB[victima].UltimoAcceso) {
+					victima = i
 				}
 			}
-			globalTLB[oldestPos] = newEntry
+			globalTLB[victima] = newEntry
 		}
 	}
 	globalPosicionFila++
@@ -1005,9 +1005,11 @@ func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 }
 
 /*
+ 0--6	 7--13   14-20
+frame 0 frame 1	frame 2
 22/7 = 3 = numero de pagina
 offset = 1
-pageTable[pid][3-1] = frame 2
+pageTable[pid][3] = frame 3
 
 dir fisica = (frame*TamPag + pageOffset) = 15
 

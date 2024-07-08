@@ -1,8 +1,8 @@
 {
     "port": 8085,
-    "memory_size": 4096,
+    "memory_size": 1024,
     "port_cpu": 8075,
-    "page_size": 16,
+    "page_size": 32,
     "instructions_path": "C:/Users/user/Desktop/instruccionesPruebas",
     "delay_response": 1000
 }

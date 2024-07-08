@@ -129,8 +129,8 @@ func init() {
 	if globals.ClientConfig != nil {
 		pageSize = globals.ClientConfig.PageSize
 		memorySize = globals.ClientConfig.MemorySize
-		memory = make([]byte, memorySize)
-		memoryMap = make([]bool, memorySize)
+		memory = make([]byte, memorySize) //intocable
+		memoryMap = make([]bool, memorySize/globals.ClientConfig.PageSize)
 		SendPageTamToCPU(globals.ClientConfig.PageSize)
 		//cantidadFrames := globals.ClientConfig.MemorySize / globals.ClientConfig.PageSize
 	} else {
@@ -340,14 +340,16 @@ func ResizeProcess(pid int, newSize int) error {
 	}
 	currentSize := len(pages)
 	if newSize > currentSize { //Comparo el tamaño actual con el nuevo tamaño
-		if len(memory)/pageSize < newSize-currentSize { //Verifico si hay suficiente espacio en memoria despues de la ampliacion
+		freespace := counterMemoryFree()
+		if freespace < newSize-currentSize { //Verifico si hay suficiente espacio en memoria despues de la ampliacion
 			log.Printf("Memoria insuficiente para la ampliación")
 		}
 		for i := currentSize; i < newSize/pageSize; i++ { //Asigno nuevos marcos a la ampliacion
-			proxLugarLibre := proximosXLugaresLibres(globals.ClientConfig.PageSize)
-			if proxLugarLibre != -1 {
-				pageTable[pid] = append(pageTable[pid], proxLugarLibre)
-				memoryMap[proxLugarLibre] = true
+			indiceLibre := proximoLugarLibre()
+			if indiceLibre != -1 {
+
+				pageTable[pid] = append(pageTable[pid], indiceLibre)
+				memoryMap[indiceLibre] = true
 				fmt.Println("Proceso ampliado")
 			} else {
 				log.Printf("No more free spots in memory")
@@ -364,6 +366,16 @@ func ResizeProcess(pid int, newSize int) error {
 	fmt.Println(pageTable)
 	fmt.Println(memoryMap)
 	return nil
+}
+
+func counterMemoryFree() int {
+	var contador int
+	for i := 0; i < len(memoryMap); i++ {
+		if !memoryMap[i] {
+			contador++
+		}
+	}
+	return contador
 }
 
 func ReadMemoryHandler(w http.ResponseWriter, r *http.Request) {
@@ -397,6 +409,7 @@ func ReadMemory(pid int, address int, size int) ([]byte, error) {
 	return memory[address : address+size], nil //Devuelvo todos los datos (desde la base hasta la base mas el desplazamiento)
 }
 
+// address : address+size
 func sendDataToCPU(content []byte) error {
 	CPUurl := fmt.Sprintf("http://localhost:%d/receiveDataFromMemory", globals.ClientConfig.PuertoCPU)
 	ContentResponseTest, err := json.Marshal(content)
@@ -591,25 +604,19 @@ func sendFrameToCPU(pid int, page int) error {
 	return nil
 }
 
-func proximosXLugaresLibres(x int) int {
-	contadorLugares := 0
-	for i, libre := range memoryMap {
-		if !libre {
-			contadorLugares++
-			if contadorLugares == x {
-				return i - x + 1 // Devuelvo el indicie del primer lugar libre
-			}
-		} else {
-			contadorLugares = 0 // Reinicio el contador si encuentro un lugar ocupado
+func proximoLugarLibre() int {
+	for i := 0; i < len(memoryMap); i++ {
+		if !memoryMap[i] {
+			return i
 		}
 	}
-	return -1 // Si no hay espacios libres, devuelvo -1
+	return -1
 }
 
 func verificarTopeDeMemoria(pid int, address int) {
 	contador := 0
 	for i := 0; i < len(pageTable[pid]); i++ {
-		if pageTable[pid][i]*globals.ClientConfig.PageSize <= address && address <= ((i+1)*pageSize)-1 {
+		if pageTable[pid][i]*globals.ClientConfig.PageSize <= address && address <= ((pageTable[pid][i]+1)*globals.ClientConfig.PageSize)-1 {
 			log.Printf("Proceso dentro de espacio memoria")
 			contador++
 		}
