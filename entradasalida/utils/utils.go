@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -375,7 +376,7 @@ func (interfaz *InterfazIO) FILE_SYSTEM(pid int) {
 	blocksSize := interfaz.Config.TamanioBloqueDialFS
 	blocksCount := interfaz.Config.CantidadBloquesDialFS
 	sizeFile := blocksSize * blocksCount
-	bitmapSize := (blocksCount + 7) / 8
+	bitmapSize := blocksCount / 8
 	unitWorkTimeFS := interfaz.Config.UnidadDeTiempo
 
 	// CHEQUEO EXISTENCIA DE ARCHIVOS BLOQUES.DAT Y BITMAP.DAT, DE NO SER ASI, LOS CREO
@@ -383,9 +384,8 @@ func (interfaz *InterfazIO) FILE_SYSTEM(pid int) {
 
 	switch fsInstruction {
 	case "IO_FS_CREATE":
-		createFile(pathDialFS, fileName, blocksSize)
+		createFile(pathDialFS, fileName)
 		log.Printf("PID: %d - Operacion: IO_FS_CREATE", pid)
-
 	case "IO_FS_DELETE":
 		log.Printf("PID: %d - Operacion: IO_FS_DELETE", pid)
 	case "IO_FS_TRUNCATE":
@@ -418,7 +418,7 @@ func EnsureIfFileExists(pathDialFS string, blocksSize int, blocksCount int, size
 	}
 }
 
-func createFile(pathDialFS string, fileName string, blocksSize int) {
+func createFile(pathDialFS string, fileName string) {
 	log.Printf("Creando archivo %s en %s", fileName, pathDialFS)
 
 	data, err := os.ReadFile(pathDialFS + "/" + fileName)
@@ -436,58 +436,51 @@ func createFile(pathDialFS string, fileName string, blocksSize int) {
 
 	fmt.Printf("Initial Block: %d, Size: %d\n", content.InitialBlock, content.Size)
 
-	// ABRIR EL ARCHIVO DE BLOQUES
-	//blockFilePath := pathDialFS + "/bloques.dat"
+	// Abrir el archivo de bitmap para lectura
 	bitmapFilePath := pathDialFS + "/bitmap.dat"
-	position := (content.InitialBlock * blocksSize)
-	//data = []byte(fmt.Sprintf("%d", content.Size))
-	setBit(bitmapFilePath, position)
-	isSet(bitmapFilePath, position)
 
-	//writeToSpecificByte(blockFilePath, position, data)
-	/*f, err := os.OpenFile(blockFilePath, os.O_RDONLY, 0644)
+	// LEER EL CONTENIDO DEL ARCHIVO DE BITMAP
+	bitmapBytes, err := os.ReadFile(bitmapFilePath)
 	if err != nil {
-		log.Fatalf("failed to open file for reading: %v", err)
-	}
-	defer f.Close()
-
-	_, err = f.Seek(position, 0)
-	if err != nil {
-		log.Fatalf("failed to seek for reading: %v", err)
+		log.Fatalf("Error al leer el archivo de bitmap '%s': %v", bitmapFilePath, err)
 	}
 
-	readData := make([]byte, len(data))
-	_, err = f.Read(readData)
+	// Crear un nuevo Bitmap y llenarlo con los datos leídos
+	bitmap := NewBitmap()
+	err = bitmap.FromBytes(bitmapBytes)
 	if err != nil {
-		log.Fatalf("failed to read: %v", err)
+		log.Fatalf("Error al convertir bytes a bitmap: %v", err)
 	}
 
-	fmt.Printf("Leído desde el archivo: %s\n", string(readData))*/
-
+	// Mostrar el contenido del bitmap
+	fmt.Println("Bitmap:")
+	for i := 0; i < 1024; i++ {
+		if bitmap.Get(i) {
+			fmt.Print("1")
+		} else {
+			fmt.Print("0")
+		}
+		if (i+1)%64 == 0 {
+			fmt.Println() // New line every 64 bits for readability
+		}
+	}
+}
+func (b *Bitmap) FromBytes(bytes []byte) error {
+	if len(bytes) != 128 {
+		return fmt.Errorf("invalid byte slice length: expected 128, got %d", len(bytes))
+	}
+	for i := 0; i < 16; i++ {
+		b.bits[i] = binary.LittleEndian.Uint64(bytes[i*8:])
+	}
+	return nil
 }
 
-/*func writeToSpecificByte(filePath string, position int64, data []byte) {
-	// Open the file with read-write permissions
-	f, err := os.OpenFile(filePath, os.O_RDWR, 0644)
-	if err != nil {
-		log.Fatalf("failed to open file: %v", err)
+func (b *Bitmap) Get(pos int) bool {
+	if pos < 0 || pos >= 1024 {
+		return false
 	}
-	defer f.Close()
-
-	// Seek to the specific byte position
-	_, err = f.Seek(position, 0) // 0 means relative to the beginning of the file
-	if err != nil {
-		log.Fatalf("failed to seek: %v", err)
-	}
-
-	// Write data at that position
-	_, err = f.Write(data)
-	if err != nil {
-		log.Fatalf("failed to write: %v", err)
-	}
-
-	log.Println("Data written successfully")
-}*/
+	return (b.bits[pos/64] & (1 << (pos % 64))) != 0
+}
 
 //fs pide posicion a memoria, si lo agarra y lo guarda en el archivo de bloques.dat
 // bloques basados por tamaños de byte, ej 4 bytes por bloque y si pongo hola que ocupa 7 bytes, ocupa un bloque
@@ -511,111 +504,55 @@ func CreateBlockFile(path string, blocksSize int, blocksCount int, sizeFile int)
 	}
 }
 
-func CreateBitmapFile(path string, blocksCount int, bitmapSize int) {
-	// CADA BIT EN EL BITMAP REPRESENTA UN BLOQUE
-	// ENTONCES BLOCKCOUNT == BLOCKCOUNT bits
-	// ENTONCES EL TAMAÑO DEL ARCHIVO VA A SER LA CANTIDAD DE BLOQUES (+7 por si division no es exacta) / 8 bytes
+type Bitmap struct {
+	bits [16]uint64 // 16 * 64 = 1024 bits
+}
 
+func NewBitmap() *Bitmap {
+	return &Bitmap{}
+}
+
+func CreateBitmapFile(path string, blocksCount int, bitmapSize int) {
 	filePath := path + "/bitmap.dat"
 
-	// CREO EL ARCHIVO DE BITMAP
 	bitmapFile, err := os.Create(filePath)
 	if err != nil {
-		log.Fatalf("Error al crear el archivo de bitmap '%s.bitmap': %v", path, err)
+		log.Fatalf("Error al crear el archivo de bitmap '%s': %v", filePath, err)
 	}
 	defer bitmapFile.Close()
 
-	// INICIALIZO TODOS LOS BITS EN CERO
-	bitmap := make([]byte, bitmapSize)
-	_, err = bitmapFile.Write(bitmap)
+	bitmap := NewBitmap()
+
+	// Initialize all bits to 1
+
+	//bitmap.Set(10)
+
+	// Convert bitmap to bytes before writing
+	bitmapBytes := bitmap.ToBytes()
+	_, err = bitmapFile.Write(bitmapBytes)
 	if err != nil {
-		log.Fatalf("Error al inicializar el archivo de bitmap '%s.bitmap': %v", path, err)
+		log.Fatalf("Error al inicializar el archivo de bitmap '%s': %v", filePath, err)
+	}
+
+	// Force flush to disk
+	if err := bitmapFile.Sync(); err != nil {
+		log.Fatalf("Error al forzar la escritura del archivo de bitmap '%s': %v", filePath, err)
 	}
 }
 
-func setBit(filePath string, index int) error {
-	file, err := os.OpenFile(filePath, os.O_RDWR, 0666)
-	if err != nil {
-		return err
+func (b *Bitmap) ToBytes() []byte {
+	bytes := make([]byte, 128) // 16 * 8 = 128 bytes
+	for i, v := range b.bits {
+		binary.LittleEndian.PutUint64(bytes[i*8:], v)
 	}
-	defer file.Close()
-
-	byteIndex := index / 8
-	bitIndex := index % 8
-
-	// Leer el byte actual
-	var currentByte byte
-	_, err = file.ReadAt([]byte{currentByte}, int64(byteIndex))
-	if err != nil {
-		return err
-	}
-
-	// Establecer el bit
-	currentByte |= 1 << bitIndex
-
-	// Escribir el byte modificado
-	_, err = file.WriteAt([]byte{currentByte}, int64(byteIndex))
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return bytes
 }
 
-// clearBit establece el bit en la posición index a 0
-func clearBit(filePath string, index int) error {
-	file, err := os.OpenFile(filePath, os.O_RDWR, 0666)
-	if err != nil {
-		return err
+func (b *Bitmap) Set(pos int) {
+	if pos < 0 || pos >= 1024 {
+		return
 	}
-	defer file.Close()
-
-	byteIndex := index / 8
-	bitIndex := index % 8
-
-	// Leer el byte actual
-	var currentByte byte
-	_, err = file.ReadAt([]byte{currentByte}, int64(byteIndex))
-	if err != nil {
-		return err
-	}
-
-	// Limpiar el bit
-	currentByte &^= 1 << bitIndex
-
-	// Escribir el byte modificado
-	_, err = file.WriteAt([]byte{currentByte}, int64(byteIndex))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// isSet verifica si el bit en la posición index está establecido a 1
-func isSet(filePath string, index int) (bool, error) {
-	file, err := os.OpenFile(filePath, os.O_RDONLY, 0666)
-	if err != nil {
-		return false, err
-	}
-	defer file.Close()
-
-	byteIndex := index / 8
-	bitIndex := index % 8
-
-	// Leer el byte actual
-	var currentByte byte
-	_, err = file.ReadAt([]byte{currentByte}, int64(byteIndex))
-	if err != nil {
-		return false, err
-	}
-
-	// Verificar si el bit está establecido
-	isSet := currentByte&(1<<bitIndex) != 0
-
-	fmt.Printf("El bit en la posición %d está establecido: %v", index, isSet)
-
-	return isSet, nil
+	b.bits[pos/64] |= 1 << (pos % 64)
 }
 
 // INTERFAZ FILE SYSTEM (IO_FS_CREATE)
