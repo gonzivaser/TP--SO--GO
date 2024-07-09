@@ -480,6 +480,34 @@ func createFile(pathDialFS string, fileName string) {
 	}
 
 	fmt.Println("Bitmap file updated successfully.")
+	fileContent := FileContent{
+		InitialBlock: firstFreeBlock,
+		Size:         0,
+	}
+	contentBytes, err := json.Marshal(fileContent)
+	if err != nil {
+		log.Fatalf("Error al convertir FileContent a bytes: %v", err)
+	}
+
+	// Write FileContent to the file
+	_, err = file.Write(contentBytes)
+	if err != nil {
+		log.Fatalf("Error al escribir el contenido en el archivo '%s': %v", filePath, err)
+	}
+
+	file.Close()
+
+	fmt.Printf("Archivo '%s' creado y escrito exitosamente.\n", fileName)
+
+	// Read the file content
+	readContent, err := os.ReadFile(filePath)
+	if err != nil {
+		log.Fatalf("Error al leer el archivo '%s': %v", filePath, err)
+	}
+
+	fmt.Println("Contenido del archivo:")
+	fmt.Println(string(readContent))
+
 }
 
 // Bitmap representa un bitmap de 1024 bits (128 bytes)
