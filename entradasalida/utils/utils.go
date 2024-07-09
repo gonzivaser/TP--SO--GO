@@ -340,6 +340,7 @@ func (Interfaz *InterfazIO) IO_STDOUT_WRITE(address []int, length int) {
 func (Interfaz *InterfazIO) IO_STDIN_READ(lengthREG int) {
 	var BodyInput BodyRequestInput
 	var input string
+	var inputMenorARegLongitud string
 
 	fmt.Print("Ingrese por teclado: ")
 	_, err := fmt.Scanln(&input)
@@ -350,6 +351,12 @@ func (Interfaz *InterfazIO) IO_STDIN_READ(lengthREG int) {
 	if len(input) > lengthREG {
 		input = input[:lengthREG]
 		log.Println("El texto ingresado es mayor al tamaño del registro, se truncará a: ", input)
+	} else if len(input) < lengthREG {
+		fmt.Print("El texto ingresado es menor, porfavor ingrese devuelta: ")
+		_, err := fmt.Scanln(&inputMenorARegLongitud)
+		if err != nil {
+			log.Fatalf("Error al leer desde stdin: %v", err)
+		}
 	}
 
 	BodyInput.Input = input
@@ -466,6 +473,7 @@ func createFile(pathDialFS string, fileName string) {
 		}
 	}
 }
+
 func (b *Bitmap) FromBytes(bytes []byte) error {
 	if len(bytes) != 128 {
 		return fmt.Errorf("invalid byte slice length: expected 128, got %d", len(bytes))
