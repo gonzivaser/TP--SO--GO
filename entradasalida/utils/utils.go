@@ -451,6 +451,7 @@ func createFile(pathDialFS string, fileName string) {
 	if err != nil {
 		log.Fatalf("Error al convertir bytes a bitmap: %v", err)
 	}
+	bitmap.Set(content.InitialBlock)
 
 	// Mostrar el contenido del bitmap
 	fmt.Println("Bitmap:")
@@ -523,18 +524,13 @@ func CreateBitmapFile(path string, blocksCount int, bitmapSize int) {
 
 	bitmap := NewBitmap()
 
-	// Initialize all bits to 1
-
-	//bitmap.Set(10)
-
-	// Convert bitmap to bytes before writing
 	bitmapBytes := bitmap.ToBytes()
 	_, err = bitmapFile.Write(bitmapBytes)
 	if err != nil {
 		log.Fatalf("Error al inicializar el archivo de bitmap '%s': %v", filePath, err)
 	}
 
-	// Force flush to disk
+	// flushear si hubo error
 	if err := bitmapFile.Sync(); err != nil {
 		log.Fatalf("Error al forzar la escritura del archivo de bitmap '%s': %v", filePath, err)
 	}
