@@ -238,6 +238,7 @@ func CreateProcess(pid int, pages int) error {
 		println("Proceso creado")
 	}
 
+	log.Printf("PID: %d - Tamaño: %d", pid, pages)
 	fmt.Println(pageTable)
 	fmt.Println(memoryMap)
 
@@ -350,7 +351,8 @@ func ResizeProcess(pid int, newSize int) error {
 
 				pageTable[pid] = append(pageTable[pid], indiceLibre)
 				memoryMap[indiceLibre] = true
-				fmt.Println("Proceso ampliado")
+				//fmt.Println("Proceso ampliado")
+				log.Printf("PID: %d - Tamaño Actual: %d - Tamaño a Ampliar: %d", pid, currentSize, newSize)
 			} else {
 				log.Printf("No more free spots in memory")
 				break
@@ -361,7 +363,8 @@ func ResizeProcess(pid int, newSize int) error {
 			memoryMap[pageTable[pid][i]] = false
 		}
 		pageTable[pid] = pageTable[pid][:newSize] //Reduce el tamaño del proceso. :newSize es un slice de 0 a newSize (reduce el tope)
-		fmt.Println("Proceso reducido")
+		//fmt.Println("Proceso reducido")
+		log.Printf("PID: %d - Tamaño Actual: %d - Tamaño a Reducir: %d", pid, currentSize, newSize)
 	}
 	fmt.Println(pageTable)
 	fmt.Println(memoryMap)
@@ -589,6 +592,7 @@ func sendFrameToCPU(pid int, page int) error {
 	var bodyFrame BodyFrame
 	CPUurl := fmt.Sprintf("http://localhost:%d/recieveFrame", globals.ClientConfig.PuertoCPU)
 	frame := pageTable[pid][page]
+	log.Printf("PID: %d - Pagina: %d - Marco: %d", pid, page, frame)
 	bodyFrame.Frame = frame
 	FrameResponseTest, err := json.Marshal(bodyFrame)
 	if err != nil {

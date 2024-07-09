@@ -568,7 +568,7 @@ func MOV_IN(words []string, contextoEjecucion *PCB) error {
 	if err1 != nil {
 		return fmt.Errorf("error leyendo memoria: %s", err1)
 	}
-
+	log.Printf("PID: %d - Acción: LEER - Dirección Física: %d - Valor: %s", contextoEjecucion.Pid, direcciones[0], GLOBALdataMOV_IN)
 	buf := bytes.NewReader(GLOBALdataMOV_IN)
 	if tamREGdatos == 1 {
 		var result uint8
@@ -613,7 +613,7 @@ func MOV_OUT(words []string, contextoEjecucion *PCB) error {
 	if err != nil {
 		return err
 	}
-
+	log.Printf("PID: %d - Acción: ESCRIBIR - Dirección Física: %d - Valor: %d", contextoEjecucion.Pid, direcciones[0], valueDatos)
 	return nil
 }
 
@@ -630,13 +630,15 @@ func COPY_STRING(words []string, contextoEjecucion *PCB) error {
 	if err1 != nil {
 		return err1
 	}
+	log.Printf("PID: %d - Acción: LEER - Dirección Física: %d - Valor: %s", contextoEjecucion.Pid, direccionesSI[0], GLOBALdataMOV_IN)
 	valorDI := verificarRegistro("DI", contextoEjecucion)
 	direccionesDI := TranslateAddress(contextoEjecucion.Pid, valorDI, GLOBALpageTam, tam)
 	err2 := EscribirMemoria(contextoEjecucion.Pid, direccionesDI[0], GLOBALdataMOV_IN)
 	if err2 != nil {
 		return err2
 	}
-	fmt.Println(GLOBALdataMOV_IN)
+	log.Printf("PID: %d - Acción: ESCRIBIR - Dirección Física: %d - Valor: %d", contextoEjecucion.Pid, direccionesDI[0], GLOBALdataMOV_IN)
+	//fmt.Println(GLOBALdataMOV_IN)
 	return nil
 }
 
@@ -772,7 +774,6 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 }
 
 func verificarRegistro(registerName string, contextoEjecucion *PCB) int {
-	fmt.Println(&contextoEjecucion)
 	var registerValue int
 	switch registerName {
 	case "AX":
@@ -983,16 +984,17 @@ func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 
 		frame, found := CheckTLB(pid, pageNumber)
 		if !found {
-			fmt.Println("globalTLB Miss")
+			log.Printf("PID: %d - TLB MISS - Pagina: %d", pid, pageNumber)
 			err := FetchFrameFromMemory(pid, pageNumber)
 			if err != nil {
 				fmt.Println("Error al obtener el marco desde la memoria")
 				return nil // O manejar el error de manera adecuada
 			}
 			frame = MemoryFrame
+			log.Printf("PID: %d - OBTENER MARCO - Página: %d - Marco: %d", pid, pageNumber, frame)
 			ReplaceTLBEntry(pid, pageNumber, MemoryFrame)
 		} else {
-			fmt.Println("globalTLB Hit")
+			log.Printf("PID: %d - TLB HIT - Pagina: %d", pid, pageNumber)
 		}
 
 		physicalAddress := frame*TamPag + pageOffset
@@ -1001,6 +1003,11 @@ func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 		// Actualizar la dirección lógica para la siguiente página
 		DireccionLogica += TamPag
 	}
+	paginas := make([]int, len(globalTLB))
+	for i, entry := range globalTLB {
+		paginas[i] = entry.Pagina
+	}
+	fmt.Println("Páginas en la TLB:", paginas)
 	return DireccionesFisicas
 }
 
