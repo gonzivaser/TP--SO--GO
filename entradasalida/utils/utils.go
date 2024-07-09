@@ -428,20 +428,12 @@ func EnsureIfFileExists(pathDialFS string, blocksSize int, blocksCount int, size
 func createFile(pathDialFS string, fileName string) {
 	log.Printf("Creando archivo %s en %s", fileName, pathDialFS)
 
-	data, err := os.ReadFile(pathDialFS + "/" + fileName)
+	filePath := pathDialFS + "/" + fileName
+	file, err := os.Create(filePath)
 	if err != nil {
-		log.Println(err)
-		return
+		log.Fatalf("Error al crear el archivo '%s': %v", pathDialFS, err)
 	}
-
-	var content FileContent
-	err = json.Unmarshal(data, &content)
-	if err != nil {
-		log.Println("Error unmarshalling JSON:", err)
-		return
-	}
-
-	fmt.Printf("Initial Block: %d, Size: %d\n", content.InitialBlock, content.Size)
+	defer file.Close()
 
 	// Abrir el archivo de bitmap para lectura
 	bitmapFilePath := pathDialFS + "/bitmap.dat"
@@ -458,7 +450,13 @@ func createFile(pathDialFS string, fileName string) {
 	if err != nil {
 		log.Fatalf("Error al convertir bytes a bitmap: %v", err)
 	}
-	bitmap.Set(content.InitialBlock)
+
+	//Calcular el primer bit libre
+	firstFreeBlock := firstBitFree(bitmap)
+
+	fmt.Printf("Initial Block: %d\n", firstFreeBlock)
+
+	bitmap.Set(firstFreeBlock)
 
 	// Mostrar el contenido del bitmap
 	fmt.Println("Bitmap:")
@@ -472,6 +470,32 @@ func createFile(pathDialFS string, fileName string) {
 			fmt.Println() // New line every 64 bits for readability
 		}
 	}
+
+	modifiedBitmapBytes := bitmap.ToBytes()
+
+	// Write the modified bitmap back to the file
+	err = os.WriteFile(bitmapFilePath, modifiedBitmapBytes, 0644)
+	if err != nil {
+		log.Fatalf("Error al escribir el archivo de bitmap modificado '%s': %v", bitmapFilePath, err)
+	}
+
+	fmt.Println("Bitmap file updated successfully.")
+}
+
+// Bitmap representa un bitmap de 1024 bits (128 bytes)
+func firstBitFree(bitmap *Bitmap) int {
+	fmt.Println("Searching for first free bit...")
+	for i := 0; i < 1024; i++ {
+		isFree := !bitmap.Get(i)
+		fmt.Printf("Bit %d: %v\n", i, isFree)
+		if isFree {
+			fmt.Printf("Found free bit at index %d\n", i)
+			return i
+		}
+
+	}
+	fmt.Println("No free bits found")
+	return -1
 }
 
 func (b *Bitmap) FromBytes(bytes []byte) error {
