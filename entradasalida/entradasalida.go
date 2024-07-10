@@ -27,7 +27,7 @@ func main() {
 
 	//http.HandleFunc("GET /input", utils.Prueba)
 	http.HandleFunc("POST /recieveREG", utils.RecieveREG)
-	http.HandleFunc("POST /recieveFILENAME", utils.RecieveFileName)
+	http.HandleFunc("POST /recieveFSDATA", utils.RecieveFSDataFromKernel)
 	http.HandleFunc("/interfaz", utils.Iniciar)
 	http.HandleFunc("/receiveContentFromMemory", utils.ReceiveContentFromMemory)
 

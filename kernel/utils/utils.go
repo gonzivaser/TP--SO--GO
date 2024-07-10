@@ -184,10 +184,16 @@ var procesoEXEC Proceso // este proceso es el que se esta ejecutando
 // ---------FilaeNmae global-----------------------
 var fileName string
 var fsInstruction string
+var fsRegTam string
+var fsRegDirec string
+var fsRegPuntero string
 
 type FSstructure struct {
 	FileName      string `json:"filename"`
 	FSInstruction string `json:"fsinstruction"`
+	FSRegTam      string `json:"fsregtam"`
+	FSRegDirec    string `json:"fsregdirec"`
+	FSRegPuntero  string `json:"fsregpuntero"`
 }
 
 /*-------------------------------------------------FUNCIONES CREADAS----------------------------------------------*/
@@ -782,7 +788,7 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 		return nil
 	} else if interfazEncontrada != (interfaz{}) && interfazEncontrada.Type == "DialFS" {
 		log.Printf("entre al tercer if con la interfaz: %+v", interfazEncontrada.Name)
-		SendFileNametoIO(fileName, fsInstruction, interfazEncontrada.Port)
+		SendFSDataToIO(fileName, fsInstruction, interfazEncontrada.Port, fsRegTam, fsRegDirec, fsRegPuntero) //envia los registros a IO
 		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
 
 		ioResponseTest, err := json.Marshal(payload)
@@ -831,6 +837,9 @@ func RecieveFileNameFromCPU(w http.ResponseWriter, r *http.Request) {
 	}
 	fileName = fsStructure.FileName
 	fsInstruction = fsStructure.FSInstruction
+	fsRegTam = fsStructure.FSRegTam
+	fsRegDirec = fsStructure.FSRegDirec
+	fsRegPuntero = fsStructure.FSRegPuntero
 	log.Printf("Received filename: %+v", fileName)
 	log.Printf("Received FS instruction: %+v", fsInstruction)
 
@@ -866,11 +875,14 @@ func SendREGtoIO(REGdireccion []int, lengthREG int, port int) error {
 	return nil
 }
 
-func SendFileNametoIO(filename string, instruction string, port int) error {
-	ioURL := fmt.Sprintf("http://localhost:%d/recieveFILENAME", port)
+func SendFSDataToIO(filename string, instruction string, port int, regTam string, regDirec string, regPuntero string) error {
+	ioURL := fmt.Sprintf("http://localhost:%d/recieveFSDATA", port)
 	fsStructure := FSstructure{
 		FileName:      fileName,
 		FSInstruction: instruction,
+		FSRegTam:      regTam,
+		FSRegDirec:    regDirec,
+		FSRegPuntero:  regPuntero,
 	}
 
 	fsStructureJSON, err := json.Marshal(fsStructure)

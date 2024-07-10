@@ -90,6 +90,9 @@ type Payload struct {
 type FSstructure struct {
 	FileName      string `json:"filename"`
 	FSInstruction string `json:"fsinstruction"`
+	FSRegTam      string `json:"fsregtam"`
+	FSRegDirec    string `json:"fsregdirec"`
+	FSRegPuntero  string `json:"fsregpuntero"`
 }
 
 type FileContent struct {
@@ -110,6 +113,9 @@ var metaDataStructure []FileContent
 // ----------------NOMBRE DEL ARCHIVO E INTRUCCION----------------
 var fileName string
 var fsInstruction string
+var fsRegTam string
+var fsRegDirec string
+var fsRegPuntero string
 
 //-------------------------------------------------------------------
 
@@ -286,7 +292,7 @@ func RecieveREG(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf("length received: %d", requestRegister.Length)))
 }
 
-func RecieveFileName(w http.ResponseWriter, r *http.Request) {
+func RecieveFSDataFromKernel(w http.ResponseWriter, r *http.Request) {
 	var fsStructure FSstructure
 
 	err := json.NewDecoder(r.Body).Decode(&fsStructure)
@@ -297,9 +303,15 @@ func RecieveFileName(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Received fileName: %s", fsStructure.FileName)
 	log.Printf("Received fsInstruction: %s", fsStructure.FSInstruction)
+	log.Printf("Received fsRegistroTamano: %s", fsStructure.FSRegTam)
+	log.Printf("Received fsRegistroDireccion: %s", fsStructure.FSRegDirec)
+	log.Printf("Received fsRegistroPuntero: %s", fsStructure.FSRegPuntero)
 
 	fileName = fsStructure.FileName
 	fsInstruction = fsStructure.FSInstruction
+	fsRegTam = fsStructure.FSRegTam
+	fsRegDirec = fsStructure.FSRegDirec
+	fsRegPuntero = fsStructure.FSRegPuntero
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Content received correctly"))

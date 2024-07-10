@@ -110,6 +110,9 @@ type MemoryReadRequest struct {
 type FSstructure struct {
 	FileName      string `json:"filename"`
 	FSInstruction string `json:"fsinstruction"`
+	FSRegTam      string `json:"fsregtam"`
+	FSRegDirec    string `json:"fsregdirec"`
+	FSRegPuntero  string `json:"fsregpuntero"`
 }
 
 /*------------------------------------------------- VAR GLOBALES --------------------------------------------------------*/
@@ -743,7 +746,7 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 			Interface:      words[1],
 			TimeIO:         0,
 		}
-		sendFileNameToKernel(fileName, kind)
+		sendFSDataToKernel(fileName, kind, "", "", "")
 		fmt.Printf("IO_FS_CREATE")
 	case "IO_FS_DELETE":
 		fileName := words[2]
@@ -754,15 +757,46 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 			Interface:      words[1],
 			TimeIO:         0,
 		}
-		sendFileNameToKernel(fileName, kind)
+		sendFSDataToKernel(fileName, kind, "", "", "")
 		fmt.Printf("IO_FS_DELETE")
-	case "IO_FS_SEEK":
-		fmt.Printf("IO_FS_SEEK")
 	case "IO_FS_TRUNCATE":
+		fileName := words[2]
+		regTamano := words[3]
+		GLOBALrequestCPU = KernelRequest{
+			PcbUpdated:     *contextoEjecucion,
+			MotivoDesalojo: "INTERRUPCION POR IO",
+			IoType:         "DialFS",
+			Interface:      words[1],
+			TimeIO:         0,
+		}
+		sendFSDataToKernel(fileName, kind, regTamano, "", "")
 		fmt.Printf("IO_FS_TRUNCATE")
 	case "IO_FS_WRITE":
+		fileName := words[2]
+		regDirec := words[3]
+		regTamano := words[4]
+		GLOBALrequestCPU = KernelRequest{
+			PcbUpdated:     *contextoEjecucion,
+			MotivoDesalojo: "INTERRUPCION POR IO",
+			IoType:         "DialFS",
+			Interface:      words[1],
+			TimeIO:         0,
+		}
+		sendFSDataToKernel(fileName, kind, regTamano, regDirec, "")
 		fmt.Printf("IO_FS_WRITE")
 	case "IO_FS_READ":
+		fileName := words[2]
+		regDirec := words[3]
+		regTamano := words[4]
+		regPuntero := words[5]
+		GLOBALrequestCPU = KernelRequest{
+			PcbUpdated:     *contextoEjecucion,
+			MotivoDesalojo: "INTERRUPCION POR IO",
+			IoType:         "DialFS",
+			Interface:      words[1],
+			TimeIO:         0,
+		}
+		sendFSDataToKernel(fileName, kind, regTamano, regDirec, regPuntero)
 		fmt.Printf("IO_FS_READ")
 	default:
 		return fmt.Errorf("tipo de instrucción no soportado")
@@ -1090,12 +1124,15 @@ func sendREGtoKernel(adress []int, length int) {
 	defer resp.Body.Close()
 }
 
-func sendFileNameToKernel(fileName string, instructionFS string) {
+func sendFSDataToKernel(fileName string, instructionFS string, regTamano string, regDireccion string, regPuntero string) {
 	fsStructure := FSstructure{
 		FileName:      fileName,
 		FSInstruction: instructionFS,
+		FSRegTam:      regTamano,
+		FSRegDirec:    regDireccion,
+		FSRegPuntero:  regPuntero,
 	}
-	kernelURL := fmt.Sprintf("http://localhost:%d/recieveFILENAME", globals.ClientConfig.PortKernel)
+	kernelURL := fmt.Sprintf("http://localhost:%d/recieveFSDATA", globals.ClientConfig.PortKernel)
 
 	fsStructureJSON, err := json.Marshal(fsStructure)
 	if err != nil {
