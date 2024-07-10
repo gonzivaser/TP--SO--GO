@@ -387,6 +387,7 @@ func (interfaz *InterfazIO) FILE_SYSTEM(pid int) {
 	unitWorkTimeFS := interfaz.Config.UnidadDeTiempo
 
 	// CHEQUEO EXISTENCIA DE ARCHIVOS BLOQUES.DAT Y BITMAP.DAT, DE NO SER ASI, LOS CREO
+	checkFilesInDirectory(pathDialFS)
 	EnsureIfFileExists(pathDialFS, blocksSize, blocksCount, sizeFile, bitmapSize)
 
 	switch fsInstruction {
@@ -425,10 +426,23 @@ func EnsureIfFileExists(pathDialFS string, blocksSize int, blocksCount int, size
 	}
 }
 
+func checkFilesInDirectory(pathDialFS string) bool {
+	pathDialFS = pathDialFS + "/basic"
+	files, err := os.ReadDir(pathDialFS)
+	if err != nil {
+		log.Printf("Error reading directory: %v", err)
+		return false
+	}
+
+	hasFiles := len(files) > 0
+	log.Printf("Files exist in %s: %v", pathDialFS, hasFiles)
+	return hasFiles
+}
+
 func createFile(pathDialFS string, fileName string) {
 	log.Printf("Creando archivo %s en %s", fileName, pathDialFS)
 
-	filePath := pathDialFS + "/" + fileName
+	filePath := pathDialFS + "/basic/" + fileName
 	file, err := os.Create(filePath)
 	if err != nil {
 		log.Fatalf("Error al crear el archivo '%s': %v", pathDialFS, err)
