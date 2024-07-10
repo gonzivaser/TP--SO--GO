@@ -746,6 +746,15 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 		sendFileNameToKernel(fileName, kind)
 		fmt.Printf("IO_FS_CREATE")
 	case "IO_FS_DELETE":
+		fileName := words[2]
+		GLOBALrequestCPU = KernelRequest{
+			PcbUpdated:     *contextoEjecucion,
+			MotivoDesalojo: "INTERRUPCION POR IO",
+			IoType:         "DialFS",
+			Interface:      words[1],
+			TimeIO:         0,
+		}
+		sendFileNameToKernel(fileName, kind)
 		fmt.Printf("IO_FS_DELETE")
 	case "IO_FS_SEEK":
 		fmt.Printf("IO_FS_SEEK")

@@ -9,6 +9,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/sisoputnfrba/tp-golang/entradasalida/globals"
@@ -93,7 +95,17 @@ type FSstructure struct {
 type FileContent struct {
 	InitialBlock int `json:"initial_block"`
 	Size         int `json:"size"`
+	FileName     string
 }
+
+type Bitmap struct {
+	bits [16]uint64 // 16 * 64 = 1024 bits
+}
+
+// ----------- Estructura que tiene la metadata de los archivos en el FS -----------
+var metaDataStructure []FileContent
+
+//--------------------------------------------------------------------------------
 
 // ----------------NOMBRE DEL ARCHIVO E INTRUCCION----------------
 var fileName string
@@ -387,14 +399,15 @@ func (interfaz *InterfazIO) FILE_SYSTEM(pid int) {
 	unitWorkTimeFS := interfaz.Config.UnidadDeTiempo
 
 	// CHEQUEO EXISTENCIA DE ARCHIVOS BLOQUES.DAT Y BITMAP.DAT, DE NO SER ASI, LOS CREO
-	checkFilesInDirectory(pathDialFS)
+	createMetaDataStructure()
 	EnsureIfFileExists(pathDialFS, blocksSize, blocksCount, sizeFile, bitmapSize)
 
 	switch fsInstruction {
 	case "IO_FS_CREATE":
-		createFile(pathDialFS, fileName)
+		IO_FS_CREATE(pathDialFS, fileName)
 		log.Printf("PID: %d - Operacion: IO_FS_CREATE", pid)
 	case "IO_FS_DELETE":
+		IO_FS_DELETE(pathDialFS, fileName)
 		log.Printf("PID: %d - Operacion: IO_FS_DELETE", pid)
 	case "IO_FS_TRUNCATE":
 		log.Printf("PID: %d - Operacion: IO_FS_TRUNCATE", pid)
@@ -426,23 +439,29 @@ func EnsureIfFileExists(pathDialFS string, blocksSize int, blocksCount int, size
 	}
 }
 
+// ---------------------------------- FUNCIONES DE FS_CREATE------------------------------------------------------
 func checkFilesInDirectory(pathDialFS string) bool {
-	pathDialFS = pathDialFS + "/basic"
 	files, err := os.ReadDir(pathDialFS)
 	if err != nil {
 		log.Printf("Error reading directory: %v", err)
 		return false
 	}
 
-	hasFiles := len(files) > 0
-	log.Printf("Files exist in %s: %v", pathDialFS, hasFiles)
-	return hasFiles
+	for _, file := range files {
+		if !file.IsDir() && strings.HasSuffix(file.Name(), ".txt") {
+			log.Printf("Found .txt file in %s", pathDialFS)
+			return true
+		}
+	}
+
+	log.Printf("No .txt files found in %s", pathDialFS)
+	return false
 }
 
-func createFile(pathDialFS string, fileName string) {
+func IO_FS_CREATE(pathDialFS string, fileName string) {
 	log.Printf("Creando archivo %s en %s", fileName, pathDialFS)
 
-	filePath := pathDialFS + "/basic/" + fileName
+	filePath := pathDialFS + "/" + fileName
 	file, err := os.Create(filePath)
 	if err != nil {
 		log.Fatalf("Error al crear el archivo '%s': %v", pathDialFS, err)
@@ -467,8 +486,6 @@ func createFile(pathDialFS string, fileName string) {
 
 	//Calcular el primer bit libre
 	firstFreeBlock := firstBitFree(bitmap)
-
-	fmt.Printf("Initial Block: %d\n", firstFreeBlock)
 
 	bitmap.Set(firstFreeBlock)
 
@@ -512,24 +529,59 @@ func createFile(pathDialFS string, fileName string) {
 	file.Close()
 
 	fmt.Printf("Archivo '%s' creado y escrito exitosamente.\n", fileName)
-
-	// Read the file content
-	readContent, err := os.ReadFile(filePath)
-	if err != nil {
-		log.Fatalf("Error al leer el archivo '%s': %v", filePath, err)
-	}
-
-	fmt.Println("Contenido del archivo:")
-	fmt.Println(string(readContent))
-
 }
 
-// Bitmap representa un bitmap de 1024 bits (128 bytes)
+func readFile(pathFile string) FileContent {
+	readContent, err := os.ReadFile(pathFile)
+	if err != nil {
+		log.Fatalf("Error al leer el archivo '%s': %v", pathFile, err)
+	}
+
+	var fileContent FileContent
+	err = json.Unmarshal(readContent, &fileContent)
+	if err != nil {
+		log.Fatalf("Error al deserializar el contenido del archivo '%s': %v", pathFile, err)
+	}
+
+	fileContent.FileName = filepath.Base(pathFile)
+
+	return fileContent
+}
+
+func readFilesInDirectory(directoryPath string) []FileContent {
+	var filesContent []FileContent
+
+	files, err := os.ReadDir(directoryPath)
+	if err != nil {
+		log.Fatalf("Error al leer el directorio '%s': %v", directoryPath, err)
+	}
+
+	for _, file := range files {
+		if !file.IsDir() && filepath.Ext(file.Name()) == ".txt" {
+			filePath := filepath.Join(directoryPath, file.Name())
+			fileContent := readFile(filePath)
+			filesContent = append(filesContent, fileContent)
+		}
+	}
+
+	return filesContent
+}
+
+func createMetaDataStructure() {
+	if checkFilesInDirectory(config.PathDialFS) {
+		// Example usage of readFilesInDirectory
+		metaDataStructure = readFilesInDirectory(config.PathDialFS)
+
+		// Display filesContent
+		for _, fileContent := range metaDataStructure {
+			fmt.Printf("mostrando: FileName %s InitialBlock: %d, Size: %d\n", fileContent.FileName, fileContent.InitialBlock, fileContent.Size)
+		}
+	}
+}
 func firstBitFree(bitmap *Bitmap) int {
 	fmt.Println("Searching for first free bit...")
 	for i := 0; i < 1024; i++ {
 		isFree := !bitmap.Get(i)
-		fmt.Printf("Bit %d: %v\n", i, isFree)
 		if isFree {
 			fmt.Printf("Found free bit at index %d\n", i)
 			return i
@@ -540,27 +592,94 @@ func firstBitFree(bitmap *Bitmap) int {
 	return -1
 }
 
-func (b *Bitmap) FromBytes(bytes []byte) error {
-	if len(bytes) != 128 {
-		return fmt.Errorf("invalid byte slice length: expected 128, got %d", len(bytes))
+//----------------------------------------------------------------------------------------------------------------
+
+// ------------------- FUNCIONES DE FS_DELETE -------------------
+func IO_FS_DELETE(pathDialFS string, fileName string) {
+	log.Printf("Eliminando el archivo %s en %s", fileName, pathDialFS)
+
+	filePath := pathDialFS + "/" + fileName
+
+	// PRIMERO CHEQUEO QUE EL ARCHIVO EXISTE
+	/*if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return fmt.Errorf("El archivo '%s' no existe", fileName)
+	}*/
+
+	err := os.Remove(filePath)
+	if err != nil {
+		log.Fatalf("Error al eliminar el archivo '%s': %v", pathDialFS, err)
 	}
-	for i := 0; i < 16; i++ {
-		b.bits[i] = binary.LittleEndian.Uint64(bytes[i*8:])
+
+	// UNA VEZ REMOVIDO EL ARCHIVO, TENGO QUE ACTUALIZAR BITMAP Y ARCHIVO DE BLOQUES
+	// Abrir el archivo de bitmap para lectura
+	bitMapPosition := searchInMetaDataStructure(fileName)
+
+	bitmapFilePath := pathDialFS + "/bitmap.dat"
+
+	// LEER EL CONTENIDO DEL ARCHIVO DE BITMAP
+	bitmapBytes, err := os.ReadFile(bitmapFilePath)
+	if err != nil {
+		log.Fatalf("Error al leer el archivo de bitmap '%s': %v", bitmapFilePath, err)
 	}
-	return nil
+
+	// Crear un nuevo Bitmap y llenarlo con los datos leídos
+	bitmap := NewBitmap()
+	err = bitmap.FromBytes(bitmapBytes)
+	if err != nil {
+		log.Fatalf("Error al convertir bytes a bitmap: %v", err)
+	}
+
+	bitmap.Remove(bitMapPosition)
+
+	fmt.Println("Bitmap Modified:")
+	for i := 0; i < 1024; i++ {
+		if bitmap.Get(i) {
+			fmt.Print("1")
+		} else {
+			fmt.Print("0")
+		}
+		if (i+1)%64 == 0 {
+			fmt.Println() // New line every 64 bits for readability
+		}
+	}
+
+	modifiedBitmapBytes := bitmap.ToBytes()
+
+	// Write the modified bitmap back to the file
+	err = os.WriteFile(bitmapFilePath, modifiedBitmapBytes, 0644)
+	if err != nil {
+		log.Fatalf("Error al escribir el archivo de bitmap modificado '%s': %v", bitmapFilePath, err)
+	}
+
+	fmt.Println("Bitmap file updated successfully.")
+
+	deleteInMetaDataStructure(fileName)
+
+	// SIZE / BLOCKSIZE = CANTIDAD DE BLOQUES QUE OCUPA EL ARCHIVO
+	// INITIAL BLOCK + SIZE/BLOCKSIZE
+	// CANTIDAD DE BLOQUES QUE OCUPA EL ARCHIVO
+
 }
 
-func (b *Bitmap) Get(pos int) bool {
-	if pos < 0 || pos >= 1024 {
-		return false
+func searchInMetaDataStructure(fileName string) int {
+	for _, fileContent := range metaDataStructure {
+		if fileContent.FileName == fileName {
+			return fileContent.InitialBlock
+		}
 	}
-	return (b.bits[pos/64] & (1 << (pos % 64))) != 0
+	return -1
 }
 
-//fs pide posicion a memoria, si lo agarra y lo guarda en el archivo de bloques.dat
-// bloques basados por tamaños de byte, ej 4 bytes por bloque y si pongo hola que ocupa 7 bytes, ocupa un bloque
-// cuando hago create lo que voy a hacer es meterlo al filesystem, notas.txt ya existe en tu ruta de dialfs_path y lo que hago es escribir en bloques.dat
-// como existe en esa ruta voy a acceder y sacar la metdata
+func deleteInMetaDataStructure(fileName string) {
+	for i, fileContent := range metaDataStructure {
+		if fileContent.FileName == fileName {
+			metaDataStructure = append(metaDataStructure[:i], metaDataStructure[i+1:]...)
+			break
+		}
+	}
+}
+
+//------------------ CREAR ARCHIVOS DE BLOQUES Y BITMAP ---------------------
 
 func CreateBlockFile(path string, blocksSize int, blocksCount int, sizeFile int) {
 
@@ -577,10 +696,6 @@ func CreateBlockFile(path string, blocksSize int, blocksCount int, sizeFile int)
 	if err != nil {
 		log.Fatalf("Error al truncar el archivo '%s': %v", path, err)
 	}
-}
-
-type Bitmap struct {
-	bits [16]uint64 // 16 * 64 = 1024 bits
 }
 
 func NewBitmap() *Bitmap {
@@ -610,6 +725,26 @@ func CreateBitmapFile(path string, blocksCount int, bitmapSize int) {
 	}
 }
 
+//--------------------------------------------------------------------------
+
+// --------------------METODOS DEL BITMAP----------------------
+func (b *Bitmap) FromBytes(bytes []byte) error {
+	if len(bytes) != 128 {
+		return fmt.Errorf("invalid byte slice length: expected 128, got %d", len(bytes))
+	}
+	for i := 0; i < 16; i++ {
+		b.bits[i] = binary.LittleEndian.Uint64(bytes[i*8:])
+	}
+	return nil
+}
+
+func (b *Bitmap) Get(pos int) bool {
+	if pos < 0 || pos >= 1024 {
+		return false
+	}
+	return (b.bits[pos/64] & (1 << (pos % 64))) != 0
+}
+
 func (b *Bitmap) ToBytes() []byte {
 	bytes := make([]byte, 128) // 16 * 8 = 128 bytes
 	for i, v := range b.bits {
@@ -624,6 +759,20 @@ func (b *Bitmap) Set(pos int) {
 	}
 	b.bits[pos/64] |= 1 << (pos % 64)
 }
+
+func (b *Bitmap) Remove(pos int) {
+	if pos < 0 || pos >= 1024 {
+		return
+	}
+	b.bits[pos/64] &^= 1 << (pos % 64)
+}
+
+//--------------------------------------------------------------------------
+
+//fs pide posicion a memoria, si lo agarra y lo guarda en el archivo de bloques.dat
+// bloques basados por tamaños de byte, ej 4 bytes por bloque y si pongo hola que ocupa 7 bytes, ocupa un bloque
+// cuando hago create lo que voy a hacer es meterlo al filesystem, notas.txt ya existe en tu ruta de dialfs_path y lo que hago es escribir en bloques.dat
+// como existe en esa ruta voy a acceder y sacar la metdata
 
 // INTERFAZ FILE SYSTEM (IO_FS_CREATE)
 /*func (interfaz *InterfazIO, nombreArchivo string) IO_FS_CREATE() {
