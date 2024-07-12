@@ -74,7 +74,7 @@ type Process struct {
 // Estructura de la solicitud de lectura/escritura
 type MemoryRequest struct {
 	PID     int    `json:"pid"`
-	Address int    `json:"address"`
+	Address []int  `json:"address"`
 	Size    int    `json:"size,omitempty"` //Si es 0, se omite (Util para creacion y terminacion de procesos)
 	Data    []byte `json:"data,omitempty"` //Si es 0, se omite Util para creacion y terminacion de procesos)
 }
@@ -342,7 +342,7 @@ func ResizeProcess(pid int, newSize int) error {
 	currentSize := len(pages)
 	if newSize > currentSize { //Comparo el tamaño actual con el nuevo tamaño
 		freespace := counterMemoryFree()
-		if freespace < newSize-currentSize { //Verifico si hay suficiente espacio en memoria despues de la ampliacion
+		if freespace < (newSize/pageSize)-currentSize { //Verifico si hay suficiente espacio en memoria despues de la ampliacion
 			log.Printf("Memoria insuficiente para la ampliación")
 		}
 		for i := currentSize; i < newSize/pageSize; i++ { //Asigno nuevos marcos a la ampliacion
@@ -397,19 +397,46 @@ func ReadMemoryHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-func ReadMemory(pid int, address int, size int) ([]byte, error) {
+func ReadMemory(pid int, addresses []int, size int) ([]byte, error) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	if _, exists := pageTable[pid]; !exists { // Verifico si el proceso existe
-		log.Printf("Process not found")
+	if _, exists := pageTable[pid]; !exists {
+		return nil, fmt.Errorf("Process with PID %d not found", pid)
 	}
 
-	if address+size > len(memory) { // Verifico si el acceso a memoria esta dentro de los limites del proceso
-		log.Printf("Memory access out of bounds")
+	var result []byte
+	remainingSize := size
+
+	for _, address := range addresses {
+		if address < 0 || address >= len(memory) {
+			return nil, fmt.Errorf("memory access out of bounds at address %d", address)
+		}
+
+		// Calculate how much we can read from this address
+		readSize := min(remainingSize, pageSize-(address%pageSize))
+
+		// Read the data
+		result = append(result, memory[address:address+readSize]...)
+
+		remainingSize -= readSize
+		if remainingSize <= 0 {
+			break
+		}
 	}
 
-	return memory[address : address+size], nil //Devuelvo todos los datos (desde la base hasta la base mas el desplazamiento)
+	if len(result) < size {
+		return nil, fmt.Errorf("unable to read %d bytes, only %d bytes available", size, len(result))
+	}
+
+	return result[:size], nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // address : address+size
@@ -450,17 +477,47 @@ func WriteMemoryHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func WriteMemory(pid int, address int, data []byte) error {
+func WriteMemory(pid int, addresses []int, data []byte) error {
 	mu.Lock()
 	defer mu.Unlock()
 
-	verificarTopeDeMemoria(pid, address)
-
-	if address+len(data) > len(memory) { //Verifico si la direccion de memoria donde quiero escribir esta dentro de los limites de la memoria
-		log.Printf("Memory access out of bounds")
+	pages, exists := pageTable[pid]
+	if !exists {
+		return fmt.Errorf("Process with PID %d not found", pid)
 	}
 
-	copy(memory[address:], data) // Funcion que viene con map, copia los datos en la direccion de memoria (data)
+	dataIndex := 0
+	for _, address := range addresses {
+		// Verificar que la dirección pertenece al proceso
+		pageIndex := address / pageSize
+		if pageIndex >= len(pages) {
+			return fmt.Errorf("address %d does not belong to process %d", address, pid)
+		}
+
+		frame := pages[pageIndex]
+		offsetInFrame := address % pageSize
+
+		// Calcular cuánto podemos escribir en este frame
+		bytesToWrite := min(len(data)-dataIndex, pageSize-offsetInFrame)
+
+		// Verificar que no excedemos el límite de la memoria
+		if frame*pageSize+offsetInFrame+bytesToWrite > len(memory) {
+			return fmt.Errorf("memory access out of bounds")
+		}
+
+		// Escribir los datos
+		copy(memory[frame*pageSize+offsetInFrame:], data[dataIndex:dataIndex+bytesToWrite])
+
+		dataIndex += bytesToWrite
+
+		if dataIndex >= len(data) {
+			break
+		}
+	}
+
+	if dataIndex < len(data) {
+		return fmt.Errorf("not all data could be written. Only %d out of %d bytes written", dataIndex, len(data))
+	}
 	fmt.Println(memory)
 	return nil
 }
@@ -480,8 +537,13 @@ func RecieveInputSTDINFromIO(w http.ResponseWriter, r *http.Request) {
 
 	var IOinputMemoria []byte = []byte(IOinput)
 
+	err2 := WriteMemory(IOpid, IOaddress, IOinputMemoria)
+	if err2 != nil {
+		http.Error(w, err2.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	for i := 0; i < len(IOaddress) && len(IOinputMemoria) < globals.ClientConfig.PageSize; i++ {
-		_ = WriteMemory(IOpid, IOaddress[i], IOinputMemoria)
 		AssignAddressToProcess(IOpid, IOaddress[i])
 	}
 
@@ -505,15 +567,12 @@ func RecieveAdressSTDOUTFromIO(w http.ResponseWriter, r *http.Request) {
 	lengthGLOBAL = BodyRequestAdress.Length
 	GLOBALnameSTDOUT = BodyRequestAdress.Name
 
-	var data []byte
-	for i := 0; i < len(addressGLOBAL); i++ {
-		data, err = ReadMemory(IOpid, addressGLOBAL[i], lengthGLOBAL)
-		data = append(data, []byte("\n")...)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+	data, err1 := ReadMemory(IOpid, addressGLOBAL, lengthGLOBAL)
+	if err1 != nil {
+		http.Error(w, err1.Error(), http.StatusInternalServerError)
+		return
 	}
+
 	// data := memory[address : address+lengthGLOBAL]
 	SendContentToIO(string(data))
 
@@ -617,7 +676,7 @@ func proximoLugarLibre() int {
 	return -1
 }
 
-func verificarTopeDeMemoria(pid int, address int) {
+/*func verificarTopeDeMemoria(pid int, address int) {
 	contador := 0
 	for i := 0; i < len(pageTable[pid]); i++ {
 		if pageTable[pid][i]*globals.ClientConfig.PageSize <= address && address <= ((pageTable[pid][i]+1)*globals.ClientConfig.PageSize)-1 {
@@ -628,7 +687,7 @@ func verificarTopeDeMemoria(pid int, address int) {
 	if contador == 0 {
 		log.Printf("Proceso fuera de espacio memoria")
 	}
-}
+}*/
 
 func SendPageTamToCPU(tamPage int) {
 	CPUurl := fmt.Sprintf("http://localhost:%d/recievePageTam", globals.ClientConfig.PuertoCPU)

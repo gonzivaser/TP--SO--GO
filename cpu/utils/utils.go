@@ -107,7 +107,7 @@ type BodyContent struct {
 
 type MemoryReadRequest struct {
 	PID     int    `json:"pid"`
-	Address int    `json:"address"`
+	Address []int  `json:"address"`
 	Size    int    `json:"size,omitempty"` //Si es 0, se omite (Util para creacion y terminacion de procesos)
 	Data    []byte `json:"data,omitempty"` //Si es 0, se omite Util para creacion y terminacion de procesos)
 }
@@ -564,7 +564,7 @@ func MOV_IN(words []string, contextoEjecucion *PCB) error {
 		return fmt.Errorf("registro no soportado: %s", REGdatos)
 	}
 
-	err1 := LeerMemoria(contextoEjecucion.Pid, direcciones[0], tamREGdatos)
+	err1 := LeerMemoria(contextoEjecucion.Pid, direcciones, tamREGdatos)
 	if err1 != nil {
 		return fmt.Errorf("error leyendo memoria: %s", err1)
 	}
@@ -609,7 +609,7 @@ func MOV_OUT(words []string, contextoEjecucion *PCB) error {
 
 	valueDatosBytes := []byte(strconv.Itoa(valueDatos)) // Convert int to []byte
 
-	err := EscribirMemoria(contextoEjecucion.Pid, direcciones[0], valueDatosBytes)
+	err := EscribirMemoria(contextoEjecucion.Pid, direcciones, valueDatosBytes)
 	if err != nil {
 		return err
 	}
@@ -626,14 +626,14 @@ func COPY_STRING(words []string, contextoEjecucion *PCB) error {
 	valorSI := verificarRegistro("SI", contextoEjecucion)
 	direccionesSI := TranslateAddress(contextoEjecucion.Pid, valorSI, GLOBALpageTam, tam)
 
-	err1 := LeerMemoria(contextoEjecucion.Pid, direccionesSI[0], tam)
+	err1 := LeerMemoria(contextoEjecucion.Pid, direccionesSI, tam)
 	if err1 != nil {
 		return err1
 	}
 	log.Printf("PID: %d - Acción: LEER - Dirección Física: %d - Valor: %s", contextoEjecucion.Pid, direccionesSI[0], GLOBALdataMOV_IN)
 	valorDI := verificarRegistro("DI", contextoEjecucion)
 	direccionesDI := TranslateAddress(contextoEjecucion.Pid, valorDI, GLOBALpageTam, tam)
-	err2 := EscribirMemoria(contextoEjecucion.Pid, direccionesDI[0], GLOBALdataMOV_IN)
+	err2 := EscribirMemoria(contextoEjecucion.Pid, direccionesDI, GLOBALdataMOV_IN)
 	if err2 != nil {
 		return err2
 	}
@@ -642,7 +642,7 @@ func COPY_STRING(words []string, contextoEjecucion *PCB) error {
 	return nil
 }
 
-func LeerMemoria(pid, direccion, size int) error {
+func LeerMemoria(pid int, direccion []int, size int) error {
 	memoriaURL := fmt.Sprintf("http://localhost:%d/readMemory", globals.ClientConfig.PortMemory)
 	req := MemoryReadRequest{
 		PID:     pid,
@@ -681,11 +681,11 @@ func RecieveMOV_IN(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func EscribirMemoria(pid, direccion int, data []byte) error {
+func EscribirMemoria(pid int, direcciones []int, data []byte) error {
 	memoriaURL := fmt.Sprintf("http://localhost:%d/writeMemory", globals.ClientConfig.PortMemory)
 	var req MemoryReadRequest
 	req.PID = pid
-	req.Address = direccion
+	req.Address = direcciones
 	req.Data = data
 
 	reqJSON, err := json.Marshal(req)
