@@ -761,6 +761,7 @@ func IO_FS_WRITE_VERSIONGONZI(pathDialFS string, fileName string, adress []int, 
 	}
 
 	// ESCRIBIR EN EL ARCHIVO DE BLOQUES
+
 }
 
 func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, regPuntero int) {

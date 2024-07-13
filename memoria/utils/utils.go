@@ -77,6 +77,7 @@ type MemoryRequest struct {
 	Address []int  `json:"address"`
 	Size    int    `json:"size,omitempty"` //Si es 0, se omite (Util para creacion y terminacion de procesos)
 	Data    []byte `json:"data,omitempty"` //Si es 0, se omite Util para creacion y terminacion de procesos)
+	Type    string `json:"type,omitetype"` //Si es 0, se omite Util para creacion y terminacion de procesos)
 }
 
 type BodyFrame struct {
@@ -393,7 +394,11 @@ func ReadMemoryHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	sendDataToCPU(data)
+	if memReq.Type == "CPU" {
+		sendDataToCPU(data)
+	} else if memReq.Type == "IO" {
+		SendContentToIO(string(data))
+	}
 	w.Write(data)
 }
 
