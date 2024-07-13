@@ -108,6 +108,12 @@ type AdressFS struct {
 	Length  int    `json:"size,omitempty"`
 }
 
+type AdressFSWrite struct {
+	Address []int `json:"address"`
+	Pid     int   `json:"pid"`
+	Length  int   `json:"size"`
+}
+
 type Bitmap struct {
 	bits [16]uint64 // 16 * 64 = 1024 bits
 }
@@ -730,6 +736,12 @@ func IO_FS_WRITE_VERSIONGONZI(pathDialFS string, fileName string, adress []int, 
 	// VERIFICO EXISTENCIA DE ARCHIVO
 	verificarExistenciaDeArchivo(pathDialFS, fileName)
 
+	/*
+		1) TENGO QUE HACER UN ENDPOINT DONDE MEMORIA ME MANDE LOS BYTES A ESCRIBIR EN LA DIRECCION LOGICA QUE ME
+		LLEGA POR PARAMETRO
+		2) RECIBIR LO QUE TENGO QUE ESCRIBIR EN EL ARCHIVO DE BLOQUESS.DAT
+	*/
+
 	// TENGO QUE ABRIR EL ARCHIVO DE BLOQUES.DAT
 	blocksFilePath := pathDialFS + "/bloques.dat"
 	blocksFile, err := os.Open(blocksFilePath)
@@ -748,12 +760,7 @@ func IO_FS_WRITE_VERSIONGONZI(pathDialFS string, fileName string, adress []int, 
 		log.Fatalf("Error al mover el cursor del archivo de bloques '%s': %v", blocksFilePath, err)
 	}
 
-	// VOY A ESCRIBIR LA CANTIDAD DE DATOS ASIGNADA POR EL LENGTH
-	contenidoAEscribir := make([]byte, length)
-	_, err = blocksFile.Write(contenidoAEscribir)
-	if err != nil {
-		log.Fatalf("Error al escribir el archivo de bloques '%s': %v", blocksFilePath, err)
-	}
+	// ESCRIBIR EN EL ARCHIVO DE BLOQUES
 }
 
 func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, regPuntero int) {
