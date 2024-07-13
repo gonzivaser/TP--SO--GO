@@ -90,15 +90,22 @@ type Payload struct {
 type FSstructure struct {
 	FileName      string `json:"filename"`
 	FSInstruction string `json:"fsinstruction"`
-	FSRegTam      string `json:"fsregtam"`
-	FSRegDirec    string `json:"fsregdirec"`
-	FSRegPuntero  string `json:"fsregpuntero"`
+	FSRegTam      int    `json:"fsregtam"`
+	FSRegDirec    []int  `json:"fsregdirec"`
+	FSRegPuntero  int    `json:"fsregpuntero"`
 }
 
 type FileContent struct {
 	InitialBlock int `json:"initial_block"`
 	Size         int `json:"size"`
 	FileName     string
+}
+
+type AdressFS struct {
+	Address []int  `json:"address"`
+	Content []byte `json:"data,omitempty"`
+	Pid     int    `json:"pid"`
+	Length  int    `json:"size,omitempty"`
 }
 
 type Bitmap struct {
@@ -113,9 +120,9 @@ var metaDataStructure []FileContent
 // ----------------NOMBRE DEL ARCHIVO E INTRUCCION----------------
 var fileName string
 var fsInstruction string
-var fsRegTam string
-var fsRegDirec string
-var fsRegPuntero string
+var fsRegTam int
+var fsRegDirec []int
+var fsRegPuntero int
 
 //-------------------------------------------------------------------
 
@@ -260,6 +267,29 @@ func SendInputSTDINToMemory(input *BodyRequestInput) error {
 	log.Println("Enviando solicitud con contenido:", inputResponseTest)
 
 	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(inputResponseTest))
+	if err != nil {
+		log.Fatalf("Error al enviar la solicitud al módulo de memoria: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Fatalf("Error en la respuesta del módulo de memoria: %v", resp.StatusCode)
+	}
+
+	return nil
+}
+
+func SendAdressOfIO_FS_READToMemory(adress AdressFS, config *globals.Config) error {
+	memoriaURL := fmt.Sprintf("http://localhost:%d/writeMemory", config.PuertoMemoria)
+
+	adressResponseTest, err := json.Marshal(adress)
+	if err != nil {
+		log.Fatalf("Error al serializar el address: %v", err)
+	}
+
+	log.Println("Enviando solicitud con contenido:", adressResponseTest)
+
+	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(adressResponseTest))
 	if err != nil {
 		log.Fatalf("Error al enviar la solicitud al módulo de memoria: %v", err)
 	}
@@ -421,9 +451,13 @@ func (interfaz *InterfazIO) FILE_SYSTEM(pid int) {
 	case "IO_FS_DELETE":
 		IO_FS_DELETE(pathDialFS, fileName)
 		log.Printf("PID: %d - Operacion: IO_FS_DELETE", pid)
+	case "IO_FS_WRITE":
+		IO_FS_WRITE(pathDialFS, fileName, fsRegDirec, fsRegTam, fsRegPuntero)
+		log.Printf("PID: %d - Operacion: IO_FS_DELETE", pid)
 	case "IO_FS_TRUNCATE":
 		log.Printf("PID: %d - Operacion: IO_FS_TRUNCATE", pid)
 	case "IO_FS_READ":
+		IO_FS_READ(pathDialFS, fileName, fsRegDirec, fsRegTam, fsRegPuntero, pid)
 		log.Printf("PID: %d - Operacion: IO_FS_READ", pid)
 	}
 
@@ -585,8 +619,8 @@ func createMetaDataStructure() {
 		metaDataStructure = readFilesInDirectory(config.PathDialFS)
 
 		// Display filesContent
-		for _, fileContent := range metaDataStructure {
-			fmt.Printf("mostrando: FileName %s InitialBlock: %d, Size: %d\n", fileContent.FileName, fileContent.InitialBlock, fileContent.Size)
+		for i, fileContent := range metaDataStructure {
+			fmt.Printf("MetaStructure %d: FileName %s InitialBlock: %d, Size: %d\n", i, fileContent.FileName, fileContent.InitialBlock, fileContent.Size)
 		}
 	}
 }
@@ -613,8 +647,8 @@ func IO_FS_DELETE(pathDialFS string, fileName string) {
 	filePath := pathDialFS + "/" + fileName
 
 	// PRIMERO CHEQUEO QUE EL ARCHIVO EXISTE
-	/*if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		return fmt.Errorf("El archivo '%s' no existe", fileName)
+	/*if !verificarExistenciaDeArchivo(pathDialFS, fileName) {
+		return
 	}*/
 
 	err := os.Remove(filePath)
@@ -690,6 +724,131 @@ func deleteInMetaDataStructure(fileName string) {
 		}
 	}
 }
+
+// ------------------- FUNCIONES DE FS_TRUNCATE -------------------
+//--------------------------------------------------------------------------
+
+// ------------------- FUNCIONES DE FS_WRITE ------------------------------
+func IO_FS_WRITE(pathDialFS string, fileName string, regDirec []int, regTam int, regPuntero int) {
+	log.Printf("Escribiendo en el archivo %s en %s", fileName, pathDialFS)
+
+	//filePath := pathDialFS + "/" + fileName
+	//bitMapPosition := searchInMetaDataStructure(fileName)
+
+	// PRIMERO CHEQUEO QUE EL ARCHIVO EXISTE
+	/*if !verificarExistenciaDeArchivo(pathDialFS, fileName) {
+		return
+	}*/
+
+	// Abrir el archivo de bitmap para lectura
+
+	bitmapFilePath := pathDialFS + "/bitmap.dat"
+
+	// LEER EL CONTENIDO DEL ARCHIVO DE BITMAP
+	bitmapBytes, err := os.ReadFile(bitmapFilePath)
+	if err != nil {
+		log.Fatalf("Error al leer el archivo de bitmap '%s': %v", bitmapFilePath, err)
+	}
+
+	// Crear un nuevo Bitmap y llenarlo con los datos leídos
+	bitmap := NewBitmap()
+	err = bitmap.FromBytes(bitmapBytes)
+	if err != nil {
+		log.Fatalf("Error al convertir bytes a bitmap: %v", err)
+	}
+
+	// bitmap.Remove(bitMapPosition)
+
+	fmt.Println("Bitmap Modified:")
+	for i := 0; i < 1024; i++ {
+		if bitmap.Get(i) {
+			fmt.Print("1")
+		} else {
+			fmt.Print("0")
+		}
+		if (i+1)%64 == 0 {
+			fmt.Println() // New line every 64 bits for readability
+		}
+	}
+
+	modifiedBitmapBytes := bitmap.ToBytes()
+
+	// Write the modified bitmap back to the file
+	err = os.WriteFile(bitmapFilePath, modifiedBitmapBytes, 0644)
+	if err != nil {
+		log.Fatalf("Error al escribir el archivo de bitmap modificado '%s': %v", bitmapFilePath, err)
+	}
+
+	fmt.Println("Bitmap file updated successfully.")
+
+	// SIZE / BLOCKSIZE = CANTIDAD DE BLOQUES QUE OCUPA EL ARCHIVO
+	// INITIAL BLOCK + SIZE/BLOCKSIZE
+	// CANTIDAD DE BLOQUES QUE OCUPA EL ARCHIVO
+
+}
+
+//--------------------------------------------------------------------------
+
+// ------------------- FUNCIONES DE FS_READ ------------------------------
+func IO_FS_READ(pathDialFS string, fileName string, address []int, length int, regPuntero int, pid int) {
+	log.Printf("Leyendo el archivo %s en %s", fileName, pathDialFS)
+
+	// VERIFICO EXISTENCIA DE ARCHIVO
+	verificarExistenciaDeArchivo(pathDialFS, fileName)
+
+	// TENGO QUE ABRIR EL ARCHIVO DE BLOQUES.DAT
+	blocksFilePath := pathDialFS + "/bloques.dat"
+	blocksFile, err := os.Open(blocksFilePath)
+	if err != nil {
+		log.Fatalf("Error al abrir el archivo de bloques '%s': %v", blocksFilePath, err)
+	}
+	defer blocksFile.Close()
+
+	// TENGO QUE LEER EL CONTENIDO DEL BLOQUES.DAT
+	// TOMO INITIAL BLOCK DEL ARCHIVO, Y CON EL REGISTRO PUNTERO SUMO PARA SABER DESDE DONDE EMPEZAR A LEER
+	// LUEGO LEO LA CANTIDAD DE BYTES INDICADA POR LENGTH Y LOS ESCRIBO EN MEMORIA A PARTIR DE LA DIRECCION LOGICA INDICADA EN ADDRESS
+
+	// BLOQUE A LEER
+	bloqueInicialDelArchivo := searchInMetaDataStructure(fileName)
+
+	/*var bloqueInicialDeLectura = regPuntero + bloqueInicialDelArchivo
+	var posicionInicialDeLectura = bloqueInicialDeLectura * globals.ClientConfig.TamanioBloqueDialFS*/
+
+	// ME MUEVO A LA POSICION INICIAL DE LECTURA
+	_, err = blocksFile.Seek(int64(posicionInicialDeLectura), 0)
+	if err != nil {
+		log.Fatalf("Error al mover el cursor del archivo de bloques '%s': %v", blocksFilePath, err)
+	}
+
+	// LEO LA CANTIDAD DE BYTES INDICADA POR LENGTH Y CREO UN SLICE CON UN TAMAÑO DEFINIDO PARA ALMACERNARLO
+	contenidoLeidoDeArchivo := make([]byte, length)
+	_, err = blocksFile.Read(contenidoLeidoDeArchivo)
+	if err != nil {
+		log.Fatalf("Error al leer el archivo de bloques '%s': %v", blocksFilePath, err)
+	}
+
+	// TENGO QUE ESCRIBIR EL CONTENIDO LEIDO EN MEMORIA A PARTIR DE LA DIRECCION FISICA INDICADA EN ADDRESS
+	// Llamo a endpoint para escribir el contenido en memoria
+	var BodyadressFS AdressFS
+	BodyadressFS.Address = address
+	BodyadressFS.Content = contenidoLeidoDeArchivo
+	BodyadressFS.Pid = pid
+	BodyadressFS.Length = length
+
+	err1 := SendAdressOfIO_FS_READToMemory(BodyadressFS, globals.ClientConfig)
+	if err1 != nil {
+		log.Fatalf("Error al leer desde la memoria: %v", err)
+	}
+}
+
+func verificarExistenciaDeArchivo(path string, fileName string) {
+	filePath := path + "/" + fileName
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		log.Fatalf("El archivo '%s' no existe", fileName)
+	}
+}
+
+//--------------------------------------------------------------------------
 
 //------------------ CREAR ARCHIVOS DE BLOQUES Y BITMAP ---------------------
 

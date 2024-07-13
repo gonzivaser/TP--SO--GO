@@ -110,9 +110,9 @@ type MemoryReadRequest struct {
 type FSstructure struct {
 	FileName      string `json:"filename"`
 	FSInstruction string `json:"fsinstruction"`
-	FSRegTam      string `json:"fsregtam"`
-	FSRegDirec    string `json:"fsregdirec"`
-	FSRegPuntero  string `json:"fsregpuntero"`
+	FSRegTam      int    `json:"fsregtam"`
+	FSRegDirec    []int  `json:"fsregdirec"`
+	FSRegPuntero  int    `json:"fsregpuntero"`
 }
 
 /*------------------------------------------------- VAR GLOBALES --------------------------------------------------------*/
@@ -746,7 +746,8 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 			Interface:      words[1],
 			TimeIO:         0,
 		}
-		sendFSDataToKernel(fileName, kind, "", "", "")
+
+		sendFSDataToKernel(fileName, kind, 0, []int{0}, 0)
 		fmt.Printf("IO_FS_CREATE")
 	case "IO_FS_DELETE":
 		fileName := words[2]
@@ -757,10 +758,10 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 			Interface:      words[1],
 			TimeIO:         0,
 		}
-		sendFSDataToKernel(fileName, kind, "", "", "")
+		sendFSDataToKernel(fileName, kind, 0, []int{0}, 0)
 		fmt.Printf("IO_FS_DELETE")
 	case "IO_FS_TRUNCATE":
-		fileName := words[2]
+		/*fileName := words[2]
 		regTamano := words[3]
 		GLOBALrequestCPU = KernelRequest{
 			PcbUpdated:     *contextoEjecucion,
@@ -769,12 +770,22 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 			Interface:      words[1],
 			TimeIO:         0,
 		}
-		sendFSDataToKernel(fileName, kind, regTamano, "", "")
+		sendFSDataToKernel(fileName, kind, 0, []int{0}, 0)*/
 		fmt.Printf("IO_FS_TRUNCATE")
 	case "IO_FS_WRITE":
 		fileName := words[2]
+
 		regDirec := words[3]
+		valueAdress := verificarRegistro(regDirec, contextoEjecucion)
+
 		regTamano := words[4]
+		valueLength := verificarRegistro(regTamano, contextoEjecucion)
+
+		regPuntero := words[5]
+		valuePuntero := verificarRegistro(regPuntero, contextoEjecucion)
+
+		direcFisica := TranslateAddress(contextoEjecucion.Pid, valueAdress, GLOBALpageTam, valueLength)
+
 		GLOBALrequestCPU = KernelRequest{
 			PcbUpdated:     *contextoEjecucion,
 			MotivoDesalojo: "INTERRUPCION POR IO",
@@ -782,13 +793,21 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 			Interface:      words[1],
 			TimeIO:         0,
 		}
-		sendFSDataToKernel(fileName, kind, regTamano, regDirec, "")
+		sendFSDataToKernel(fileName, kind, valueLength, direcFisica, valuePuntero)
 		fmt.Printf("IO_FS_WRITE")
 	case "IO_FS_READ":
 		fileName := words[2]
+
 		regDirec := words[3]
+		valueAdress := verificarRegistro(regDirec, contextoEjecucion)
+
 		regTamano := words[4]
+		valueLength := verificarRegistro(regTamano, contextoEjecucion)
+
 		regPuntero := words[5]
+		valuePuntero := verificarRegistro(regPuntero, contextoEjecucion)
+
+		direcFisica := TranslateAddress(contextoEjecucion.Pid, valueAdress, GLOBALpageTam, valueLength)
 		GLOBALrequestCPU = KernelRequest{
 			PcbUpdated:     *contextoEjecucion,
 			MotivoDesalojo: "INTERRUPCION POR IO",
@@ -796,7 +815,7 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 			Interface:      words[1],
 			TimeIO:         0,
 		}
-		sendFSDataToKernel(fileName, kind, regTamano, regDirec, regPuntero)
+		sendFSDataToKernel(fileName, kind, valueLength, direcFisica, valuePuntero)
 		fmt.Printf("IO_FS_READ")
 	default:
 		return fmt.Errorf("tipo de instrucción no soportado")
@@ -1124,7 +1143,7 @@ func sendREGtoKernel(adress []int, length int) {
 	defer resp.Body.Close()
 }
 
-func sendFSDataToKernel(fileName string, instructionFS string, regTamano string, regDireccion string, regPuntero string) {
+func sendFSDataToKernel(fileName string, instructionFS string, regTamano int, regDireccion []int, regPuntero int) {
 	fsStructure := FSstructure{
 		FileName:      fileName,
 		FSInstruction: instructionFS,

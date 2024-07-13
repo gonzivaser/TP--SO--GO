@@ -184,16 +184,16 @@ var procesoEXEC Proceso // este proceso es el que se esta ejecutando
 // ---------FilaeNmae global-----------------------
 var fileName string
 var fsInstruction string
-var fsRegTam string
-var fsRegDirec string
-var fsRegPuntero string
+var fsRegTam int
+var fsRegDirec []int
+var fsRegPuntero int
 
 type FSstructure struct {
 	FileName      string `json:"filename"`
 	FSInstruction string `json:"fsinstruction"`
-	FSRegTam      string `json:"fsregtam"`
-	FSRegDirec    string `json:"fsregdirec"`
-	FSRegPuntero  string `json:"fsregpuntero"`
+	FSRegTam      int    `json:"fsregtam"`
+	FSRegDirec    []int  `json:"fsregdirec"`
+	FSRegPuntero  int    `json:"fsregpuntero"`
 }
 
 /*-------------------------------------------------FUNCIONES CREADAS----------------------------------------------*/
@@ -875,7 +875,7 @@ func SendREGtoIO(REGdireccion []int, lengthREG int, port int) error {
 	return nil
 }
 
-func SendFSDataToIO(filename string, instruction string, port int, regTam string, regDirec string, regPuntero string) error {
+func SendFSDataToIO(filename string, instruction string, port int, regTam int, regDirec []int, regPuntero int) error {
 	ioURL := fmt.Sprintf("http://localhost:%d/recieveFSDATA", port)
 	fsStructure := FSstructure{
 		FileName:      fileName,
