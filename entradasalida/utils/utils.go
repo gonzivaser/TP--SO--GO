@@ -112,10 +112,6 @@ type Bitmap struct {
 	bits [16]uint64 // 16 * 64 = 1024 bits
 }
 
-type Blocks struct {
-	blocks [1024]byte
-}
-
 /*--------------------------- ESTRUCTURA DEL METADATA -----------------------------*/
 var metaDataStructure []FileContent
 
@@ -728,6 +724,37 @@ func deleteInMetaDataStructure(fileName string) {
 /* ---------------------------------- FUNCIONES DE FS_TRUNCATE ------------------------------------------------------ */
 
 /* ---------------------------------- FUNCIONES DE FS_WRITE ------------------------------------------------------ */
+func IO_FS_WRITE_VERSIONGONZI(pathDialFS string, fileName string, adress []int, length int, regPuntero int) {
+	log.Printf("Leyendo el archivo %s en %s", fileName, pathDialFS)
+
+	// VERIFICO EXISTENCIA DE ARCHIVO
+	verificarExistenciaDeArchivo(pathDialFS, fileName)
+
+	// TENGO QUE ABRIR EL ARCHIVO DE BLOQUES.DAT
+	blocksFilePath := pathDialFS + "/bloques.dat"
+	blocksFile, err := os.Open(blocksFilePath)
+	if err != nil {
+		log.Fatalf("Error al abrir el archivo de bloques '%s': %v", blocksFilePath, err)
+	}
+	defer blocksFile.Close()
+
+	// BLOQUE A ESCRIBIR
+	bloqueInicialDelArchivo := searchInMetaDataStructure(fileName)
+	posicionInicialDeEscritura := (bloqueInicialDelArchivo * globals.ClientConfig.TamanioBloqueDialFS) + regPuntero
+
+	// ME MUEVO A LA POSICION INICIAL DE ESCRITURA
+	_, err = blocksFile.Seek(int64(posicionInicialDeEscritura), 0)
+	if err != nil {
+		log.Fatalf("Error al mover el cursor del archivo de bloques '%s': %v", blocksFilePath, err)
+	}
+
+	// VOY A ESCRIBIR LA CANTIDAD DE DATOS ASIGNADA POR EL LENGTH
+	contenidoAEscribir := make([]byte, length)
+	_, err = blocksFile.Write(contenidoAEscribir)
+	if err != nil {
+		log.Fatalf("Error al escribir el archivo de bloques '%s': %v", blocksFilePath, err)
+	}
+}
 
 func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, regPuntero int) {
 	log.Printf("Escribiendo en el archivo %s en %s", fileName, pathDialFS)
@@ -927,10 +954,6 @@ func (b *Bitmap) Remove(pos int) {
 }
 
 /* ------------------------------------- METODOS DE BLOQUES ------------------------------------------------------ */
-
-func NewBlocks() *Blocks {
-	return &Blocks{}
-}
 
 //fs pide posicion a memoria, si lo agarra y lo guarda en el archivo de bloques.dat
 // bloques basados por tamaños de byte, ej 4 bytes por bloque y si pongo hola que ocupa 7 bytes, ocupa un bloque
