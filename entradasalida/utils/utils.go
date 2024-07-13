@@ -112,6 +112,10 @@ type Bitmap struct {
 	bits [16]uint64 // 16 * 64 = 1024 bits
 }
 
+type Blocks struct {
+	blocks [1024]byte
+}
+
 /*--------------------------- ESTRUCTURA DEL METADATA -----------------------------*/
 var metaDataStructure []FileContent
 
@@ -454,7 +458,7 @@ func (interfaz *InterfazIO) FILE_SYSTEM(pid int) {
 		log.Printf("PID: %d - Operacion: IO_FS_TRUNCATE", pid)
 	case "IO_FS_READ":
 		IO_FS_READ(pathDialFS, fileName, fsRegDirec, fsRegTam, fsRegPuntero, pid)
-		log.Printf("PID: %d - Operacion: IO_FS_READ", pid)
+		log.Printf("PID: %d - Operacion: IO_FS_READ - Leer Archivo: %s - Tamaño a Leer: %d - Puntero Archivo: %d", pid, fileName, fsRegTam, fsRegPuntero)
 	}
 
 	log.Printf("La duración de la operación de FILE SYSTEM es de %d unidades de tiempo", unitWorkTimeFS)
@@ -696,12 +700,11 @@ func IO_FS_DELETE(pathDialFS string, fileName string) {
 
 	fmt.Println("Bitmap file updated successfully.")
 
-	deleteInMetaDataStructure(fileName)
-
 	// SIZE / BLOCKSIZE = CANTIDAD DE BLOQUES QUE OCUPA EL ARCHIVO
 	// INITIAL BLOCK + SIZE/BLOCKSIZE
 	// CANTIDAD DE BLOQUES QUE OCUPA EL ARCHIVO
 
+	deleteInMetaDataStructure(fileName)
 }
 
 func searchInMetaDataStructure(fileName string) int {
@@ -726,7 +729,7 @@ func deleteInMetaDataStructure(fileName string) {
 
 /* ---------------------------------- FUNCIONES DE FS_WRITE ------------------------------------------------------ */
 
-func IO_FS_WRITE(pathDialFS string, fileName string, regDirec []int, regTam int, regPuntero int) {
+func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, regPuntero int) {
 	log.Printf("Escribiendo en el archivo %s en %s", fileName, pathDialFS)
 
 	//filePath := pathDialFS + "/" + fileName
@@ -775,18 +778,15 @@ func IO_FS_WRITE(pathDialFS string, fileName string, regDirec []int, regTam int,
 	if err != nil {
 		log.Fatalf("Error al escribir el archivo de bitmap modificado '%s': %v", bitmapFilePath, err)
 	}
-
-	fmt.Println("Bitmap file updated successfully.")
-
 	// SIZE / BLOCKSIZE = CANTIDAD DE BLOQUES QUE OCUPA EL ARCHIVO
 	// INITIAL BLOCK + SIZE/BLOCKSIZE
 	// CANTIDAD DE BLOQUES QUE OCUPA EL ARCHIVO
 
+	fmt.Println("Bitmap file updated successfully.")
 }
 
-//--------------------------------------------------------------------------
-
 /* ---------------------------------- FUNCIONES DE FS_READ ------------------------------------------------------ */
+
 func IO_FS_READ(pathDialFS string, fileName string, address []int, length int, regPuntero int, pid int) {
 	log.Printf("Leyendo el archivo %s en %s", fileName, pathDialFS)
 
@@ -801,15 +801,9 @@ func IO_FS_READ(pathDialFS string, fileName string, address []int, length int, r
 	}
 	defer blocksFile.Close()
 
-	// TENGO QUE LEER EL CONTENIDO DEL BLOQUES.DAT
-	// TOMO INITIAL BLOCK DEL ARCHIVO, Y CON EL REGISTRO PUNTERO SUMO PARA SABER DESDE DONDE EMPEZAR A LEER
-	// LUEGO LEO LA CANTIDAD DE BYTES INDICADA POR LENGTH Y LOS ESCRIBO EN MEMORIA A PARTIR DE LA DIRECCION LOGICA INDICADA EN ADDRESS
-
 	// BLOQUE A LEER
 	bloqueInicialDelArchivo := searchInMetaDataStructure(fileName)
-
-	/*var bloqueInicialDeLectura = regPuntero + bloqueInicialDelArchivo
-	var posicionInicialDeLectura = bloqueInicialDeLectura * globals.ClientConfig.TamanioBloqueDialFS*/
+	posicionInicialDeLectura := (bloqueInicialDelArchivo * globals.ClientConfig.TamanioBloqueDialFS) + regPuntero
 
 	// ME MUEVO A LA POSICION INICIAL DE LECTURA
 	_, err = blocksFile.Seek(int64(posicionInicialDeLectura), 0)
@@ -888,6 +882,7 @@ func CreateBitmapFile(path string, blocksCount int, bitmapSize int) {
 }
 
 /* ------------------------------------- METODOS DEL BITMAP ------------------------------------------------------ */
+
 func NewBitmap() *Bitmap {
 	return &Bitmap{}
 }
@@ -929,6 +924,12 @@ func (b *Bitmap) Remove(pos int) {
 		return
 	}
 	b.bits[pos/64] &^= 1 << (pos % 64)
+}
+
+/* ------------------------------------- METODOS DE BLOQUES ------------------------------------------------------ */
+
+func NewBlocks() *Blocks {
+	return &Blocks{}
 }
 
 //fs pide posicion a memoria, si lo agarra y lo guarda en el archivo de bloques.dat
