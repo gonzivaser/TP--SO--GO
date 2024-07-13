@@ -112,19 +112,15 @@ type Bitmap struct {
 	bits [16]uint64 // 16 * 64 = 1024 bits
 }
 
-// ----------- Estructura que tiene la metadata de los archivos en el FS -----------
+/*--------------------------- ESTRUCTURA DEL METADATA -----------------------------*/
 var metaDataStructure []FileContent
 
-//--------------------------------------------------------------------------------
-
-// ----------------NOMBRE DEL ARCHIVO E INTRUCCION----------------
+/*--------------------------- NOMBRE DEL ARCHIVO E INSTRUCCION -----------------------------*/
 var fileName string
 var fsInstruction string
 var fsRegTam int
 var fsRegDirec []int
 var fsRegPuntero int
-
-//-------------------------------------------------------------------
 
 /*--------------------------------------------------- VAR GLOBALES ------------------------------------------------------*/
 
@@ -485,24 +481,7 @@ func EnsureIfFileExists(pathDialFS string, blocksSize int, blocksCount int, size
 	}
 }
 
-// ---------------------------------- FUNCIONES DE FS_CREATE------------------------------------------------------
-func checkFilesInDirectory(pathDialFS string) bool {
-	files, err := os.ReadDir(pathDialFS)
-	if err != nil {
-		log.Printf("Error reading directory: %v", err)
-		return false
-	}
-
-	for _, file := range files {
-		if !file.IsDir() && strings.HasSuffix(file.Name(), ".txt") {
-			log.Printf("Found .txt file in %s", pathDialFS)
-			return true
-		}
-	}
-
-	log.Printf("No .txt files found in %s", pathDialFS)
-	return false
-}
+/* ---------------------------------- FUNCIONES DE FS_CREATE ------------------------------------------------------ */
 
 func IO_FS_CREATE(pathDialFS string, fileName string) {
 	log.Printf("Creando archivo %s en %s", fileName, pathDialFS)
@@ -577,6 +556,24 @@ func IO_FS_CREATE(pathDialFS string, fileName string) {
 	fmt.Printf("Archivo '%s' creado y escrito exitosamente.\n", fileName)
 }
 
+func checkFilesInDirectory(pathDialFS string) bool {
+	files, err := os.ReadDir(pathDialFS)
+	if err != nil {
+		log.Printf("Error reading directory: %v", err)
+		return false
+	}
+
+	for _, file := range files {
+		if !file.IsDir() && strings.HasSuffix(file.Name(), ".txt") {
+			log.Printf("Found .txt file in %s", pathDialFS)
+			return true
+		}
+	}
+
+	log.Printf("No .txt files found in %s", pathDialFS)
+	return false
+}
+
 func readFile(pathFile string) FileContent {
 	readContent, err := os.ReadFile(pathFile)
 	if err != nil {
@@ -624,6 +621,7 @@ func createMetaDataStructure() {
 		}
 	}
 }
+
 func firstBitFree(bitmap *Bitmap) int {
 	fmt.Println("Searching for first free bit...")
 	for i := 0; i < 1024; i++ {
@@ -638,9 +636,8 @@ func firstBitFree(bitmap *Bitmap) int {
 	return -1
 }
 
-//----------------------------------------------------------------------------------------------------------------
+/* ---------------------------------- FUNCIONES DE FS_DELETE ------------------------------------------------------ */
 
-// ------------------- FUNCIONES DE FS_DELETE -------------------
 func IO_FS_DELETE(pathDialFS string, fileName string) {
 	log.Printf("Eliminando el archivo %s en %s", fileName, pathDialFS)
 
@@ -725,10 +722,10 @@ func deleteInMetaDataStructure(fileName string) {
 	}
 }
 
-// ------------------- FUNCIONES DE FS_TRUNCATE -------------------
-//--------------------------------------------------------------------------
+/* ---------------------------------- FUNCIONES DE FS_TRUNCATE ------------------------------------------------------ */
 
-// ------------------- FUNCIONES DE FS_WRITE ------------------------------
+/* ---------------------------------- FUNCIONES DE FS_WRITE ------------------------------------------------------ */
+
 func IO_FS_WRITE(pathDialFS string, fileName string, regDirec []int, regTam int, regPuntero int) {
 	log.Printf("Escribiendo en el archivo %s en %s", fileName, pathDialFS)
 
@@ -789,7 +786,7 @@ func IO_FS_WRITE(pathDialFS string, fileName string, regDirec []int, regTam int,
 
 //--------------------------------------------------------------------------
 
-// ------------------- FUNCIONES DE FS_READ ------------------------------
+/* ---------------------------------- FUNCIONES DE FS_READ ------------------------------------------------------ */
 func IO_FS_READ(pathDialFS string, fileName string, address []int, length int, regPuntero int, pid int) {
 	log.Printf("Leyendo el archivo %s en %s", fileName, pathDialFS)
 
@@ -848,9 +845,7 @@ func verificarExistenciaDeArchivo(path string, fileName string) {
 	}
 }
 
-//--------------------------------------------------------------------------
-
-//------------------ CREAR ARCHIVOS DE BLOQUES Y BITMAP ---------------------
+/* ---------------------------------- CREAR ARCHIVOS DE BLOQUES Y BITMAP ------------------------------------------------------ */
 
 func CreateBlockFile(path string, blocksSize int, blocksCount int, sizeFile int) {
 
@@ -867,10 +862,6 @@ func CreateBlockFile(path string, blocksSize int, blocksCount int, sizeFile int)
 	if err != nil {
 		log.Fatalf("Error al truncar el archivo '%s': %v", path, err)
 	}
-}
-
-func NewBitmap() *Bitmap {
-	return &Bitmap{}
 }
 
 func CreateBitmapFile(path string, blocksCount int, bitmapSize int) {
@@ -896,9 +887,11 @@ func CreateBitmapFile(path string, blocksCount int, bitmapSize int) {
 	}
 }
 
-//--------------------------------------------------------------------------
+/* ------------------------------------- METODOS DEL BITMAP ------------------------------------------------------ */
+func NewBitmap() *Bitmap {
+	return &Bitmap{}
+}
 
-// --------------------METODOS DEL BITMAP----------------------
 func (b *Bitmap) FromBytes(bytes []byte) error {
 	if len(bytes) != 128 {
 		return fmt.Errorf("invalid byte slice length: expected 128, got %d", len(bytes))
@@ -937,8 +930,6 @@ func (b *Bitmap) Remove(pos int) {
 	}
 	b.bits[pos/64] &^= 1 << (pos % 64)
 }
-
-//--------------------------------------------------------------------------
 
 //fs pide posicion a memoria, si lo agarra y lo guarda en el archivo de bloques.dat
 // bloques basados por tamaños de byte, ej 4 bytes por bloque y si pongo hola que ocupa 7 bytes, ocupa un bloque
