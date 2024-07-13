@@ -235,8 +235,9 @@ func SendPortOfInterfaceToKernel(nombreInterfaz string, config *globals.Config) 
 	return nil
 }
 
-func SendAdressSTDOUTToMemory(address BodyAdress) error {
-	memoriaURL := "http://localhost:8085/SendAdressSTDOUTToMemory"
+// STDOUT, FS_WRITE  leer en memoria y traer lo leido con "ReceiveContentFromMemory"
+func SendAdressToMemory(address BodyAdress) error {
+	memoriaURL := fmt.Sprintf("http://localhost:%d/SendAdressToMemory", config.PuertoMemoria)
 
 	adressResponseTest, err := json.Marshal(address)
 	if err != nil {
@@ -258,8 +259,9 @@ func SendAdressSTDOUTToMemory(address BodyAdress) error {
 	return nil
 }
 
-func SendInputSTDINToMemory(input *BodyRequestInput) error {
-	memoriaURL := "http://localhost:8085/SendInputSTDINToMemory"
+// STDIN, FS_READ  escribir en memoria
+func SendInputToMemory(input *BodyRequestInput) error {
+	memoriaURL := fmt.Sprintf("http://localhost:%d/SendInputToMemory", config.PuertoMemoria)
 
 	inputResponseTest, err := json.Marshal(input)
 	if err != nil {
@@ -269,29 +271,6 @@ func SendInputSTDINToMemory(input *BodyRequestInput) error {
 	log.Println("Enviando solicitud con contenido:", inputResponseTest)
 
 	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(inputResponseTest))
-	if err != nil {
-		log.Fatalf("Error al enviar la solicitud al módulo de memoria: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		log.Fatalf("Error en la respuesta del módulo de memoria: %v", resp.StatusCode)
-	}
-
-	return nil
-}
-
-func SendAdressOfIO_FS_READToMemory(adress AdressFS, config *globals.Config) error {
-	memoriaURL := fmt.Sprintf("http://localhost:%d/writeMemory", config.PuertoMemoria)
-
-	adressResponseTest, err := json.Marshal(adress)
-	if err != nil {
-		log.Fatalf("Error al serializar el address: %v", err)
-	}
-
-	log.Println("Enviando solicitud con contenido:", adressResponseTest)
-
-	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(adressResponseTest))
 	if err != nil {
 		log.Fatalf("Error al enviar la solicitud al módulo de memoria: %v", err)
 	}
@@ -335,9 +314,9 @@ func RecieveFSDataFromKernel(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Received fileName: %s", fsStructure.FileName)
 	log.Printf("Received fsInstruction: %s", fsStructure.FSInstruction)
-	log.Printf("Received fsRegistroTamano: %s", fsStructure.FSRegTam)
-	log.Printf("Received fsRegistroDireccion: %s", fsStructure.FSRegDirec)
-	log.Printf("Received fsRegistroPuntero: %s", fsStructure.FSRegPuntero)
+	log.Printf("Received fsRegistroTamano: %d", fsStructure.FSRegTam)
+	log.Printf("Received fsRegistroDireccion: %d", fsStructure.FSRegDirec)
+	log.Printf("Received fsRegistroPuntero: %d", fsStructure.FSRegPuntero)
 
 	fileName = fsStructure.FileName
 	fsInstruction = fsStructure.FSInstruction
@@ -382,7 +361,7 @@ func (Interfaz *InterfazIO) IO_STDOUT_WRITE(address []int, length int) {
 	Bodyadress.Length = length
 	Bodyadress.Name = os.Args[1]
 
-	err1 := SendAdressSTDOUTToMemory(Bodyadress)
+	err1 := SendAdressToMemory(Bodyadress)
 	if err1 != nil {
 		log.Fatalf("Error al leer desde la memoria: %v", err)
 	}
@@ -420,7 +399,7 @@ func (Interfaz *InterfazIO) IO_STDIN_READ(lengthREG int) {
 	BodyInput.Pid = GLOBALpid
 
 	// Guardar el texto en la memoria en la dirección especificada
-	err1 := SendInputSTDINToMemory(&BodyInput)
+	err1 := SendInputToMemory(&BodyInput)
 	if err1 != nil {
 		log.Fatalf("Error al escribir en la memoria: %v", err)
 	}
@@ -861,10 +840,10 @@ func IO_FS_READ(pathDialFS string, fileName string, address []int, length int, r
 	BodyadressFS.Pid = pid
 	BodyadressFS.Length = length
 
-	err1 := SendAdressOfIO_FS_READToMemory(BodyadressFS, globals.ClientConfig)
+	/*err1 := SendAdressToMemory(BodyadressFS)
 	if err1 != nil {
 		log.Fatalf("Error al leer desde la memoria: %v", err)
-	}
+	}*/
 }
 
 func verificarExistenciaDeArchivo(path string, fileName string) {

@@ -119,7 +119,7 @@ var IOPort int
 var CPUpid int
 var CPUpage int
 
-var GLOBALnameSTDOUT string
+var GLOBALnameIO string
 var interfacesGLOBAL []interfaz
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -527,7 +527,8 @@ func WriteMemory(pid int, addresses []int, data []byte) error {
 	return nil
 }
 
-func RecieveInputSTDINFromIO(w http.ResponseWriter, r *http.Request) {
+// STDIN, FSREAD
+func RecieveInputFromIO(w http.ResponseWriter, r *http.Request) {
 	var inputRecieved BodyRequestInput
 	err := json.NewDecoder(r.Body).Decode(&inputRecieved)
 
@@ -559,7 +560,8 @@ func RecieveInputSTDINFromIO(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Input recibido correctamente"))
 }
 
-func RecieveAdressSTDOUTFromIO(w http.ResponseWriter, r *http.Request) {
+// STDOUT, FSWRITE
+func RecieveAdressFromIO(w http.ResponseWriter, r *http.Request) {
 	var BodyRequestAdress BodyAdress
 	err := json.NewDecoder(r.Body).Decode(&BodyRequestAdress)
 
@@ -570,7 +572,7 @@ func RecieveAdressSTDOUTFromIO(w http.ResponseWriter, r *http.Request) {
 
 	addressGLOBAL = BodyRequestAdress.Address
 	lengthGLOBAL = BodyRequestAdress.Length
-	GLOBALnameSTDOUT = BodyRequestAdress.Name
+	GLOBALnameIO = BodyRequestAdress.Name
 
 	data, err1 := ReadMemory(IOpid, addressGLOBAL, lengthGLOBAL)
 	if err1 != nil {
@@ -605,10 +607,10 @@ func RecievePortOfInterfaceFromKernel(w http.ResponseWriter, r *http.Request) {
 
 func SendContentToIO(content string) error {
 	var interfazEncontrada interfaz // Asume que Interfaz es el tipo de tus interfaces
-	interfazEncontrada.Name = GLOBALnameSTDOUT
+	interfazEncontrada.Name = GLOBALnameIO
 
 	for _, interfaz := range interfacesGLOBAL {
-		if interfaz.Name == GLOBALnameSTDOUT {
+		if interfaz.Name == GLOBALnameIO {
 			interfazEncontrada = interfaz
 			break
 		}
