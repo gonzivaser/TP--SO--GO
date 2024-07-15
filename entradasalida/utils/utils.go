@@ -108,12 +108,6 @@ type AdressFS struct {
 	Length  int    `json:"size,omitempty"`
 }
 
-type AdressFSWrite struct {
-	Address []int `json:"address"`
-	Pid     int   `json:"pid"`
-	Length  int   `json:"size"`
-}
-
 type Bitmap struct {
 	bits [16]uint64 // 16 * 64 = 1024 bits
 }
@@ -714,12 +708,6 @@ func IO_FS_WRITE_VERSIONGONZI(pathDialFS string, fileName string, adress []int, 
 	// VERIFICO EXISTENCIA DE ARCHIVO
 	verificarExistenciaDeArchivo(pathDialFS, fileName)
 
-	/*
-		1) TENGO QUE HACER UN ENDPOINT DONDE MEMORIA ME MANDE LOS BYTES A ESCRIBIR EN LA DIRECCION LOGICA QUE ME
-		LLEGA POR PARAMETRO
-		2) RECIBIR LO QUE TENGO QUE ESCRIBIR EN EL ARCHIVO DE BLOQUESS.DAT
-	*/
-
 	// ENVIO A MEMORIA LA DIRECCION LOGICA Y EL TAMAÑO EN BYTES INDICADA POR EL REGISTRO LENGTH
 	var BodyadressFSWrite BodyAdress
 	BodyadressFSWrite.Address = adress
@@ -847,16 +835,15 @@ func IO_FS_READ(pathDialFS string, fileName string, address []int, length int, r
 
 	// TENGO QUE ESCRIBIR EL CONTENIDO LEIDO EN MEMORIA A PARTIR DE LA DIRECCION FISICA INDICADA EN ADDRESS
 	// Llamo a endpoint para escribir el contenido en memoria
-	var BodyadressFS AdressFS
-	BodyadressFS.Address = address
-	BodyadressFS.Content = contenidoLeidoDeArchivo
-	BodyadressFS.Pid = pid
-	BodyadressFS.Length = length
+	var BodyAdressFSRead BodyRequestInput
+	BodyAdressFSRead.Pid = pid
+	BodyAdressFSRead.Input = string(contenidoLeidoDeArchivo)
+	BodyAdressFSRead.Address = address
 
-	/*err1 := SendAdressToMemory(BodyadressFS)
+	err1 := SendInputToMemory(&BodyAdressFSRead)
 	if err1 != nil {
 		log.Fatalf("Error al leer desde la memoria: %v", err)
-	}*/
+	}
 }
 
 func verificarExistenciaDeArchivo(path string, fileName string) {
