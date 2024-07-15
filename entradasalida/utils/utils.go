@@ -717,6 +717,7 @@ func deleteInMetaDataStructure(fileName string) {
 /* ----------------------------------------- FUNCIONES DE FS_TRUNCATE ------------------------------------------------------ */
 
 /* ----------------------------------------- FUNCIONES DE FS_WRITE ------------------------------------------------------ */
+
 func IO_FS_WRITE_VERSIONGONZI(pathDialFS string, fileName string, adress []int, length int, regPuntero int) {
 	log.Printf("Leyendo el archivo %s en %s", fileName, pathDialFS)
 
