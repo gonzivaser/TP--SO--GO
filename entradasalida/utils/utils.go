@@ -266,6 +266,7 @@ func SendAdressToMemory(address BodyAdress) error {
 
 // STDIN, FS_READ  escribir en memoria
 func SendInputToMemory(input *BodyRequestInput) error {
+
 	memoriaURL := fmt.Sprintf("http://localhost:%d/SendInputToMemory", config.PuertoMemoria)
 
 	inputResponseTest, err := json.Marshal(input)
@@ -401,6 +402,7 @@ func (Interfaz *InterfazIO) IO_STDIN_READ(lengthREG int) {
 	BodyInput.Input = input
 	BodyInput.Address = GLOBALdireccionFisica
 	BodyInput.Pid = GLOBALpid
+	log.Printf("EL PID ESSSS: %d", BodyInput.Pid)
 
 	// Guardar el texto en la memoria en la dirección especificada
 	err1 := SendInputToMemory(&BodyInput)

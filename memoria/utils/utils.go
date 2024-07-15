@@ -541,6 +541,8 @@ func RecieveInputFromIO(w http.ResponseWriter, r *http.Request) {
 	IOaddress = inputRecieved.Address
 	IOpid = inputRecieved.Pid
 
+	log.Printf("Received data: %+v", IOpid)
+
 	var IOinputMemoria []byte = []byte(IOinput)
 
 	err2 := WriteMemory(IOpid, IOaddress, IOinputMemoria)
