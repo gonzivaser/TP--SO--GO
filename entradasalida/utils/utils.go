@@ -112,6 +112,17 @@ type Bitmap struct {
 	bits [16]uint64 // 16 * 64 = 1024 bits
 }
 
+type Block struct {
+	Data []byte // Datos del bloque
+}
+
+type BlockFile struct {
+	FilePath    string
+	BlocksSize  int
+	BlocksCount int
+	FreeBlocks  []bool // Un slice para rastrear si un bloque está libre
+}
+
 /*--------------------------- ESTRUCTURA DEL METADATA -----------------------------*/
 var metaDataStructure []FileContent
 
@@ -421,15 +432,19 @@ func (interfaz *InterfazIO) FILE_SYSTEM(pid int) {
 	switch fsInstruction {
 	case "IO_FS_CREATE":
 		IO_FS_CREATE(pathDialFS, fileName)
-		log.Printf("PID: %d - Operacion: IO_FS_CREATE", pid)
+		log.Printf("PID: %d - Crear Archivo: %s", pid, fileName)
+
 	case "IO_FS_DELETE":
 		IO_FS_DELETE(pathDialFS, fileName)
-		log.Printf("PID: %d - Operacion: IO_FS_DELETE", pid)
+		log.Printf("PID: %d - Eliminar Archivo: %s", pid, fileName)
+
 	case "IO_FS_WRITE":
 		IO_FS_WRITE(pathDialFS, fileName, fsRegDirec, fsRegTam, fsRegPuntero)
-		log.Printf("PID: %d - Operacion: IO_FS_DELETE", pid)
+		log.Printf("PID: %d - Operacion: IO_FS_WRITE - Escribir Archivo: %s - Tamaño a Escribir: %d - Puntero Archivo: %d", pid, fileName, fsRegTam, fsRegPuntero)
+
 	case "IO_FS_TRUNCATE":
 		log.Printf("PID: %d - Operacion: IO_FS_TRUNCATE", pid)
+
 	case "IO_FS_READ":
 		IO_FS_READ(pathDialFS, fileName, fsRegDirec, fsRegTam, fsRegPuntero, pid)
 		log.Printf("PID: %d - Operacion: IO_FS_READ - Leer Archivo: %s - Tamaño a Leer: %d - Puntero Archivo: %d", pid, fileName, fsRegTam, fsRegPuntero)
@@ -800,7 +815,7 @@ func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, r
 	fmt.Println("Bitmap file updated successfully.")
 }
 
-/* ---------------------------------- FUNCIONES DE FS_READ ------------------------------------------------------ */
+/* ------------------------------------------ FUNCIONES DE FS_READ ------------------------------------------------------ */
 
 func IO_FS_READ(pathDialFS string, fileName string, address []int, length int, regPuntero int, pid int) {
 	log.Printf("Leyendo el archivo %s en %s", fileName, pathDialFS)
@@ -855,7 +870,7 @@ func verificarExistenciaDeArchivo(path string, fileName string) {
 
 /* ---------------------------------- CREAR ARCHIVOS DE BLOQUES Y BITMAP ------------------------------------------------------ */
 
-func CreateBlockFile(path string, blocksSize int, blocksCount int, sizeFile int) {
+func CreateBlockFile(path string, blocksSize int, blocksCount int, sizeFile int) (*BlockFile, error) {
 
 	filePath := path + "/bloques.dat"
 
@@ -870,6 +885,13 @@ func CreateBlockFile(path string, blocksSize int, blocksCount int, sizeFile int)
 	if err != nil {
 		log.Fatalf("Error al truncar el archivo '%s': %v", path, err)
 	}
+
+	return &BlockFile{
+		FilePath:    filePath,
+		BlocksSize:  blocksSize,
+		BlocksCount: blocksCount,
+		FreeBlocks:  make([]bool, blocksCount),
+	}, nil
 }
 
 func CreateBitmapFile(path string, blocksCount int, bitmapSize int) {
@@ -897,10 +919,12 @@ func CreateBitmapFile(path string, blocksCount int, bitmapSize int) {
 
 /* ------------------------------------- METODOS DEL BITMAP ------------------------------------------------------ */
 
+// CREA Y DEVUELVE UN BITMAP VACIO
 func NewBitmap() *Bitmap {
 	return &Bitmap{}
 }
 
+// CONVIERTE UN SLICE DE BYTES EN UN BITMAP
 func (b *Bitmap) FromBytes(bytes []byte) error {
 	if len(bytes) != 128 {
 		return fmt.Errorf("invalid byte slice length: expected 128, got %d", len(bytes))
@@ -911,6 +935,7 @@ func (b *Bitmap) FromBytes(bytes []byte) error {
 	return nil
 }
 
+// OBTIENE EL VALOR DE LA POSICION ESPECIFICADA (1) o (0)
 func (b *Bitmap) Get(pos int) bool {
 	if pos < 0 || pos >= 1024 {
 		return false
@@ -918,6 +943,7 @@ func (b *Bitmap) Get(pos int) bool {
 	return (b.bits[pos/64] & (1 << (pos % 64))) != 0
 }
 
+// CONVIERTE EL BITMAP EN UN SLICE DE BYTES
 func (b *Bitmap) ToBytes() []byte {
 	bytes := make([]byte, 128) // 16 * 8 = 128 bytes
 	for i, v := range b.bits {
@@ -926,6 +952,7 @@ func (b *Bitmap) ToBytes() []byte {
 	return bytes
 }
 
+// SETEA EL VALOR DE LA POSICION ESPECIFICADA EN 1
 func (b *Bitmap) Set(pos int) {
 	if pos < 0 || pos >= 1024 {
 		return
@@ -933,6 +960,7 @@ func (b *Bitmap) Set(pos int) {
 	b.bits[pos/64] |= 1 << (pos % 64)
 }
 
+// SETEA EL VALOR DE LA POSICION ESPECIFICADA EN 0
 func (b *Bitmap) Remove(pos int) {
 	if pos < 0 || pos >= 1024 {
 		return
@@ -941,6 +969,10 @@ func (b *Bitmap) Remove(pos int) {
 }
 
 /* ------------------------------------- METODOS DE BLOQUES ------------------------------------------------------ */
+
+func NewBlock() *Block {
+	return &Block{}
+}
 
 //fs pide posicion a memoria, si lo agarra y lo guarda en el archivo de bloques.dat
 // bloques basados por tamaños de byte, ej 4 bytes por bloque y si pongo hola que ocupa 7 bytes, ocupa un bloque
