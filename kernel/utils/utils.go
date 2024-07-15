@@ -146,7 +146,6 @@ var (
 	nextPid      = 1
 	DirFisica    []int
 	LengthREG    int
-	IOpid        int
 	done         chan struct{}
 	//CPURequest   KernelRequest
 
@@ -744,7 +743,7 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 	}
 	if interfazEncontrada != (interfaz{}) && interfazEncontrada.Type == "STDOUT" || interfazEncontrada.Type == "STDIN" {
 		log.Printf("entre alk primer if con la interfaz: %+v", interfazEncontrada.Type)
-		SendREGtoIO(DirFisica, LengthREG, interfazEncontrada.Port) //envia los registros a IO
+		SendREGtoIO(DirFisica, LengthREG, interfazEncontrada.Port, pid) //envia los registros a IO
 		//envia el payload a IO
 		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
 
@@ -847,12 +846,12 @@ func RecieveFileNameFromCPU(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf("Registers received: %v", fileName)))
 }
 
-func SendREGtoIO(REGdireccion []int, lengthREG int, port int) error {
+func SendREGtoIO(REGdireccion []int, lengthREG int, port int, pid int) error {
 	ioURL := fmt.Sprintf("http://localhost:%d/recieveREG", port)
 	var BodyRegister BodyRegisters
 	BodyRegister.DirFisica = REGdireccion
 	BodyRegister.LengthREG = lengthREG
-	BodyRegister.IOpid = IOpid
+	BodyRegister.IOpid = pid
 
 	savedRegJSON, err := json.Marshal(BodyRegister)
 	if err != nil {
