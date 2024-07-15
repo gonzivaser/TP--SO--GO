@@ -145,7 +145,6 @@ var (
 	nextPid      = 1
 	DirFisica    []int
 	LengthREG    int
-	IOpid        int
 	done         chan struct{}
 	//CPURequest   KernelRequest
 
@@ -487,7 +486,7 @@ func handleSyscallIO(pcb PCB, timeIo int, ioInterface string, ioType string) {
 	}
 
 	mutex.Lock()
-	SendIOToEntradaSalida(ioInterface, timeIo)
+	SendIOToEntradaSalida(ioInterface, timeIo, pcb.Pid)
 	mutex.Unlock()
 
 	if len(colaBlocked) > 0 { // aca lo saco de la cola blocked y lo mando a ready
@@ -712,7 +711,7 @@ func RecievePortOfInterfaceFromIO(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf("Port received: %d", requestPort.Port)))
 }
 
-func SendIOToEntradaSalida(nombre string, io int) error {
+func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 	payload := Payload{
 		Nombre: nombre,
 		IO:     io,
@@ -726,7 +725,7 @@ func SendIOToEntradaSalida(nombre string, io int) error {
 		}
 	}
 	if interfazEncontrada != (interfaz{}) {
-		SendREGtoIO(DirFisica, LengthREG, interfazEncontrada.Port) //envia los registros a IO
+		SendREGtoIO(DirFisica, LengthREG, interfazEncontrada.Port, pid) //envia los registros a IO
 		//envia el payload a IO
 		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
 
@@ -767,12 +766,12 @@ func RecieveREGFromCPU(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf("Registers received: %v", bodyRegisters)))
 }
 
-func SendREGtoIO(REGdireccion []int, lengthREG int, port int) error {
+func SendREGtoIO(REGdireccion []int, lengthREG int, port int, pid int) error {
 	ioURL := fmt.Sprintf("http://localhost:%d/recieveREG", port)
 	var BodyRegister BodyRegisters
 	BodyRegister.DirFisica = REGdireccion
 	BodyRegister.LengthREG = lengthREG
-	BodyRegister.IOpid = IOpid
+	BodyRegister.IOpid = pid
 
 	savedRegJSON, err := json.Marshal(BodyRegister)
 	if err != nil {

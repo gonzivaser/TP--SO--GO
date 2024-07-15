@@ -992,7 +992,9 @@ func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 			}
 			frame = MemoryFrame
 			log.Printf("PID: %d - OBTENER MARCO - Página: %d - Marco: %d", pid, pageNumber, frame)
-			ReplaceTLBEntry(pid, pageNumber, MemoryFrame)
+			if globals.ClientConfig.NumberFellingTLB > 0 {
+				ReplaceTLBEntry(pid, pageNumber, MemoryFrame)
+			}
 		} else {
 			log.Printf("PID: %d - TLB HIT - Pagina: %d", pid, pageNumber)
 		}

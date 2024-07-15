@@ -317,7 +317,7 @@ func (Interfaz *InterfazIO) IO_STDIN_READ(lengthREG int) {
 	// Guardar el texto en la memoria en la dirección especificada
 	err1 := SendInputSTDINToMemory(&BodyInput)
 	if err1 != nil {
-		log.Fatalf("Error al escribir en la memoria: %v", err)
+		log.Fatalf("Error al escribir en la memoria: %v", err1)
 	}
 }
 
