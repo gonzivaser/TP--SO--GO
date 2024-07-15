@@ -367,7 +367,6 @@ func (Interfaz *InterfazIO) IO_STDOUT_WRITE(address []int, length int) {
 	}
 
 	time.Sleep(time.Duration(config.UnidadDeTiempo) * time.Millisecond)
-	// Imprimir el texto en la consola
 	fmt.Println(GLOBALmemoryContent)
 }
 
@@ -706,9 +705,9 @@ func deleteInMetaDataStructure(fileName string) {
 	}
 }
 
-/* ---------------------------------- FUNCIONES DE FS_TRUNCATE ------------------------------------------------------ */
+/* ----------------------------------------- FUNCIONES DE FS_TRUNCATE ------------------------------------------------------ */
 
-/* ---------------------------------- FUNCIONES DE FS_WRITE ------------------------------------------------------ */
+/* ----------------------------------------- FUNCIONES DE FS_WRITE ------------------------------------------------------ */
 func IO_FS_WRITE_VERSIONGONZI(pathDialFS string, fileName string, adress []int, length int, regPuntero int) {
 	log.Printf("Leyendo el archivo %s en %s", fileName, pathDialFS)
 
@@ -720,6 +719,17 @@ func IO_FS_WRITE_VERSIONGONZI(pathDialFS string, fileName string, adress []int, 
 		LLEGA POR PARAMETRO
 		2) RECIBIR LO QUE TENGO QUE ESCRIBIR EN EL ARCHIVO DE BLOQUESS.DAT
 	*/
+
+	// ENVIO A MEMORIA LA DIRECCION LOGICA Y EL TAMAÑO EN BYTES INDICADA POR EL REGISTRO LENGTH
+	var BodyadressFSWrite BodyAdress
+	BodyadressFSWrite.Address = adress
+	BodyadressFSWrite.Length = length
+	BodyadressFSWrite.Name = fileName
+
+	err := SendAdressToMemory(BodyadressFSWrite)
+	if err != nil {
+		log.Fatalf("Error al leer desde la memoria: %v", err)
+	}
 
 	// TENGO QUE ABRIR EL ARCHIVO DE BLOQUES.DAT
 	blocksFilePath := pathDialFS + "/bloques.dat"
@@ -740,7 +750,10 @@ func IO_FS_WRITE_VERSIONGONZI(pathDialFS string, fileName string, adress []int, 
 	}
 
 	// ESCRIBIR EN EL ARCHIVO DE BLOQUES
-
+	_, err = blocksFile.Write([]byte(GLOBALmemoryContent))
+	if err != nil {
+		log.Fatalf("Error al escribir en el archivo de bloques '%s': %v", blocksFilePath, err)
+	}
 }
 
 func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, regPuntero int) {
