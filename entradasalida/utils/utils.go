@@ -2,7 +2,6 @@ package utils
 
 import (
 	"bytes"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -109,7 +108,7 @@ type AdressFS struct {
 }
 
 type Bitmap struct {
-	bits [16]uint64 // 16 * 64 = 1024 bits
+	bits []int
 }
 
 type Block struct {
@@ -979,53 +978,61 @@ func CreateBitmapFile(path string, blocksCount int, bitmapSize int) {
 
 /* --------------------------------------------- METODOS DEL BITMAP ------------------------------------------------------ */
 
-// CREA Y DEVUELVE UN BITMAP VACIO
 func NewBitmap() *Bitmap {
-	return &Bitmap{}
+	return &Bitmap{
+		bits: make([]int, 1024),
+	}
 }
 
-// CONVIERTE UN SLICE DE BYTES EN UN BITMAP
 func (b *Bitmap) FromBytes(bytes []byte) error {
 	if len(bytes) != 128 {
 		return fmt.Errorf("invalid byte slice length: expected 128, got %d", len(bytes))
 	}
-	for i := 0; i < 16; i++ {
-		b.bits[i] = binary.LittleEndian.Uint64(bytes[i*8:])
+	for i, byte := range bytes {
+		for j := 0; j < 8; j++ {
+			if (byte & (1 << j)) != 0 {
+				b.bits[i*8+j] = 1
+			} else {
+				b.bits[i*8+j] = 0
+			}
+		}
 	}
 	return nil
 }
 
-// OBTIENE EL VALOR DE LA POSICION ESPECIFICADA (1) o (0)
 func (b *Bitmap) Get(pos int) bool {
 	if pos < 0 || pos >= 1024 {
 		return false
 	}
-	return (b.bits[pos/64] & (1 << (pos % 64))) != 0
+	return b.bits[pos] == 1
 }
 
-// CONVIERTE EL BITMAP EN UN SLICE DE BYTES
 func (b *Bitmap) ToBytes() []byte {
-	bytes := make([]byte, 128) // 16 * 8 = 128 bytes
-	for i, v := range b.bits {
-		binary.LittleEndian.PutUint64(bytes[i*8:], v)
+	bytes := make([]byte, 128)
+	for i := 0; i < 128; i++ {
+		var byte byte
+		for j := 0; j < 8; j++ {
+			if b.bits[i*8+j] == 1 {
+				byte |= 1 << j
+			}
+		}
+		bytes[i] = byte
 	}
 	return bytes
 }
 
-// SETEA EL VALOR DE LA POSICION ESPECIFICADA EN 1
 func (b *Bitmap) Set(pos int) {
 	if pos < 0 || pos >= 1024 {
 		return
 	}
-	b.bits[pos/64] |= 1 << (pos % 64)
+	b.bits[pos] = 1
 }
 
-// SETEA EL VALOR DE LA POSICION ESPECIFICADA EN 0
 func (b *Bitmap) Remove(pos int) {
 	if pos < 0 || pos >= 1024 {
 		return
 	}
-	b.bits[pos/64] &^= 1 << (pos % 64)
+	b.bits[pos] = 0
 }
 
 /* ------------------------------------- METODOS DE BLOQUES ------------------------------------------------------ */
