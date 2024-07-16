@@ -77,6 +77,7 @@ type MemoryRequest struct {
 	Address []int  `json:"address"`
 	Size    int    `json:"size,omitempty"` //Si es 0, se omite (Util para creacion y terminacion de procesos)
 	Data    []byte `json:"data,omitempty"` //Si es 0, se omite Util para creacion y terminacion de procesos)
+	Type    string `json:"type,omitetype"` //Si es 0, se omite Util para creacion y terminacion de procesos)
 }
 
 type BodyFrame struct {
@@ -118,7 +119,7 @@ var IOPort int
 var CPUpid int
 var CPUpage int
 
-var GLOBALnameSTDOUT string
+var GLOBALnameIO string
 var interfacesGLOBAL []interfaz
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -289,8 +290,8 @@ func TerminateProcessHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func TerminateProcess(pid int) error {
-	mu.Lock()
-	defer mu.Unlock()
+	/*mu.Lock()
+	defer mu.Unlock()*/
 
 	if _, exists := pageTable[pid]; !exists {
 		log.Printf("Proceso no encontrado")
@@ -343,8 +344,10 @@ func ResizeProcess(pid int, newSize int) error {
 	if newSize > currentSize { //Comparo el tamaño actual con el nuevo tamaño
 		freespace := counterMemoryFree()
 		if freespace < (newSize/pageSize)-currentSize { //Verifico si hay suficiente espacio en memoria despues de la ampliacion
-			log.Printf("Out of memory")
+			log.Printf("Out of Memory")
 			FinalizarProceso(pid)
+			var err1 error
+			return err1
 		}
 		for i := currentSize; i < newSize/pageSize; i++ { //Asigno nuevos marcos a la ampliacion
 			indiceLibre := proximoLugarLibre()
@@ -394,7 +397,11 @@ func ReadMemoryHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	sendDataToCPU(data)
+	if memReq.Type == "CPU" {
+		sendDataToCPU(data)
+	} else if memReq.Type == "IO" {
+		SendContentToIO(string(data))
+	}
 	w.Write(data)
 }
 
@@ -523,7 +530,8 @@ func WriteMemory(pid int, addresses []int, data []byte) error {
 	return nil
 }
 
-func RecieveInputSTDINFromIO(w http.ResponseWriter, r *http.Request) {
+// STDIN, FSREAD
+func RecieveInputFromIO(w http.ResponseWriter, r *http.Request) {
 	var inputRecieved BodyRequestInput
 	err := json.NewDecoder(r.Body).Decode(&inputRecieved)
 
@@ -535,6 +543,8 @@ func RecieveInputSTDINFromIO(w http.ResponseWriter, r *http.Request) {
 	IOinput = inputRecieved.Input
 	IOaddress = inputRecieved.Address
 	IOpid = inputRecieved.Pid
+
+	log.Printf("Received data: %+v", IOpid)
 
 	var IOinputMemoria []byte = []byte(IOinput)
 
@@ -555,7 +565,8 @@ func RecieveInputSTDINFromIO(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Input recibido correctamente"))
 }
 
-func RecieveAdressSTDOUTFromIO(w http.ResponseWriter, r *http.Request) {
+// STDOUT, FSWRITE
+func RecieveAdressFromIO(w http.ResponseWriter, r *http.Request) {
 	var BodyRequestAdress BodyAdress
 	err := json.NewDecoder(r.Body).Decode(&BodyRequestAdress)
 
@@ -566,7 +577,7 @@ func RecieveAdressSTDOUTFromIO(w http.ResponseWriter, r *http.Request) {
 
 	addressGLOBAL = BodyRequestAdress.Address
 	lengthGLOBAL = BodyRequestAdress.Length
-	GLOBALnameSTDOUT = BodyRequestAdress.Name
+	GLOBALnameIO = BodyRequestAdress.Name
 
 	data, err1 := ReadMemory(IOpid, addressGLOBAL, lengthGLOBAL)
 	if err1 != nil {
@@ -601,10 +612,10 @@ func RecievePortOfInterfaceFromKernel(w http.ResponseWriter, r *http.Request) {
 
 func SendContentToIO(content string) error {
 	var interfazEncontrada interfaz // Asume que Interfaz es el tipo de tus interfaces
-	interfazEncontrada.Name = GLOBALnameSTDOUT
+	interfazEncontrada.Name = GLOBALnameIO
 
 	for _, interfaz := range interfacesGLOBAL {
-		if interfaz.Name == GLOBALnameSTDOUT {
+		if interfaz.Name == GLOBALnameIO {
 			interfazEncontrada = interfaz
 			break
 		}
@@ -708,8 +719,7 @@ func SendPageTamToCPU(tamPage int) {
 }
 
 func FinalizarProceso(pid int) {
-	TerminateProcess(pid)
-	kernelURL := fmt.Sprintf("http://localhost:%d/process", globals.ClientConfig.PuertoKernel)
+	kernelURL := fmt.Sprintf("http://localhost:%d/process?pid=%d", globals.ClientConfig.PuertoKernel, pid)
 	req, err := http.NewRequest("DELETE", kernelURL, nil)
 	if err != nil {
 		log.Fatalf("Error al crear la solicitud: %v", err)

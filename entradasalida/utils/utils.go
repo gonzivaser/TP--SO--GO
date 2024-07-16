@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/sisoputnfrba/tp-golang/entradasalida/globals"
@@ -80,7 +82,8 @@ type InterfazIO struct {
 }
 
 type Payload struct {
-	IO int
+	IO  int
+	Pid int
 }
 
 /*--------------------------------------------------- VAR GLOBALES ------------------------------------------------------*/
@@ -119,6 +122,7 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	N := payload.IO
+	pidExecutionProcess := payload.Pid
 
 	interfaceName := os.Args[1]
 	log.Printf("Nombre de la interfaz: %s", interfaceName)
@@ -138,20 +142,21 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 
 	switch Interfaz.Config.Tipo {
 	case "GENERICA":
+		log.Printf("PID: %d - Operacion: IO_GEN_SLEEP", pidExecutionProcess)
 		duracion := Interfaz.IO_GEN_SLEEP(N)
 		log.Printf("La espera por %d unidades para la interfaz '%s' es de %v\n", N, Interfaz.Nombre, duracion)
 		time.Sleep(duracion)
 		log.Printf("Termino de esperar por la interfaz genérica '%s' es de %v\n", Interfaz.Nombre, duracion)
 
 	case "STDIN":
+		log.Printf("PID: %d - Operacion: IO_STDIN_READ", pidExecutionProcess)
 		Interfaz.IO_STDIN_READ(GLOBALlengthREG)
 		log.Printf("Termino de leer desde la interfaz '%s'\n", Interfaz.Nombre)
 
 	case "STDOUT":
-		Interfaz.IO_STDOUT_WRITE(GLOBALdireccionFisica, GLOBALlengthREG) //esto está re hardcodeado loco, no me juzguen
+		log.Printf("PID: %d - Operacion: IO_STDOUT_WRITE", pidExecutionProcess)
+		Interfaz.IO_STDOUT_WRITE(GLOBALdireccionFisica, GLOBALlengthREG)
 		log.Printf("Termino de escribir en la interfaz '%s'\n", Interfaz.Nombre)
-
-	case "DialFS":
 
 	default:
 		log.Fatalf("Tipo de interfaz desconocido: %s", Interfaz.Config.Tipo)
@@ -185,8 +190,9 @@ func SendPortOfInterfaceToKernel(nombreInterfaz string, config *globals.Config) 
 	return nil
 }
 
-func SendAdressSTDOUTToMemory(address BodyAdress) error {
-	memoriaURL := "http://localhost:8085/SendAdressSTDOUTToMemory"
+// STDOUT, FS_WRITE  leer en memoria y traer lo leido con "ReceiveContentFromMemory"
+func SendAdressToMemory(address BodyAdress) error {
+	memoriaURL := fmt.Sprintf("http://localhost:%d/SendAdressToMemory", config.PuertoMemoria)
 
 	adressResponseTest, err := json.Marshal(address)
 	if err != nil {
@@ -208,8 +214,10 @@ func SendAdressSTDOUTToMemory(address BodyAdress) error {
 	return nil
 }
 
-func SendInputSTDINToMemory(input *BodyRequestInput) error {
-	memoriaURL := "http://localhost:8085/SendInputSTDINToMemory"
+// STDIN, FS_READ  escribir en memoria
+func SendInputToMemory(input *BodyRequestInput) error {
+
+	memoriaURL := fmt.Sprintf("http://localhost:%d/SendInputToMemory", config.PuertoMemoria)
 
 	inputResponseTest, err := json.Marshal(input)
 	if err != nil {
@@ -284,13 +292,12 @@ func (Interfaz *InterfazIO) IO_STDOUT_WRITE(address []int, length int) {
 	Bodyadress.Length = length
 	Bodyadress.Name = os.Args[1]
 
-	err1 := SendAdressSTDOUTToMemory(Bodyadress)
+	err1 := SendAdressToMemory(Bodyadress)
 	if err1 != nil {
 		log.Fatalf("Error al leer desde la memoria: %v", err)
 	}
 
 	time.Sleep(time.Duration(config.UnidadDeTiempo) * time.Millisecond)
-	// Imprimir el texto en la consola
 	fmt.Println(GLOBALmemoryContent)
 }
 
@@ -298,26 +305,37 @@ func (Interfaz *InterfazIO) IO_STDOUT_WRITE(address []int, length int) {
 func (Interfaz *InterfazIO) IO_STDIN_READ(lengthREG int) {
 	var BodyInput BodyRequestInput
 	var input string
+	var inputMenorARegLongitud string
+
+	reader := bufio.NewReader(os.Stdin)
 
 	fmt.Print("Ingrese por teclado: ")
-	_, err := fmt.Scanln(&input)
+	input, err := reader.ReadString('\n')
 	if err != nil {
 		log.Fatalf("Error al leer desde stdin: %v", err)
 	}
+	input = strings.TrimSpace(input)
 
 	if len(input) > lengthREG {
 		input = input[:lengthREG]
 		log.Println("El texto ingresado es mayor al tamaño del registro, se truncará a: ", input)
+	} else if len(input) < lengthREG {
+		fmt.Print("El texto ingresado es menor, porfavor ingrese devuelta: ")
+		_, err := fmt.Scanln(&inputMenorARegLongitud)
+		if err != nil {
+			log.Fatalf("Error al leer desde stdin: %v", err)
+		}
 	}
 
 	BodyInput.Input = input
 	BodyInput.Address = GLOBALdireccionFisica
 	BodyInput.Pid = GLOBALpid
+	log.Printf("EL PID ESSSS: %d", BodyInput.Pid)
 
 	// Guardar el texto en la memoria en la dirección especificada
-	err1 := SendInputSTDINToMemory(&BodyInput)
+	err1 := SendInputToMemory(&BodyInput)
 	if err1 != nil {
-		log.Fatalf("Error al escribir en la memoria: %v", err1)
+		log.Fatalf("Error al escribir en la memoria: %v", err)
 	}
 }
 

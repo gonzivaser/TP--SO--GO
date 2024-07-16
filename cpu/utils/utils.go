@@ -977,6 +977,7 @@ func TranslateHandler(w http.ResponseWriter, r *http.Request) {
 // Función de traducción de direcciones
 func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 	var DireccionesFisicas []int
+	tamRestantePag := TamRestantePagina(DireccionLogica, TamPag)
 
 	for i := 0; i < TamData; i += TamPag {
 		pageNumber := int(math.Floor(float64(DireccionLogica) / float64(TamPag)))
@@ -1003,7 +1004,9 @@ func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 		DireccionesFisicas = append(DireccionesFisicas, physicalAddress)
 
 		// Actualizar la dirección lógica para la siguiente página
-		DireccionLogica += TamPag
+		if TamData > tamRestantePag {
+			DireccionLogica += tamRestantePag
+		}
 	}
 	paginas := make([]int, len(globalTLB))
 	for i, entry := range globalTLB {
@@ -1011,6 +1014,16 @@ func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 	}
 	fmt.Println("Páginas en la TLB:", paginas)
 	return DireccionesFisicas
+}
+
+func TamRestantePagina(dirLog, tamPag int) int {
+	// Calcular el offset dentro de la página actual
+	offsetEnPagina := dirLog % tamPag
+
+	// Calcular el tamaño restante en la página actual
+	tamRestante := tamPag - offsetEnPagina
+
+	return tamRestante
 }
 
 /*
