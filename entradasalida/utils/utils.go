@@ -141,7 +141,7 @@ var GLOBALdireccionFisica []int
 var GLOBALpid int
 var config *globals.Config
 
-/*---------------------------------------------------- FUNCIONES ------------------------------------------------------*/
+/*-------------------------------------------- INICIAR CONFIGURACION ------------------------------------------------------*/
 
 func LoadConfig(filename string) (*globals.Config, error) {
 	data, err := os.ReadFile(filename)
@@ -212,6 +212,8 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("Tipo de interfaz desconocido: %s", Interfaz.Config.Tipo)
 	}
 }
+
+/*-------------------------------------------------- ENDPOINTS ------------------------------------------------------*/
 
 func SendPortOfInterfaceToKernel(nombreInterfaz string, config *globals.Config) error {
 	kernelURL := fmt.Sprintf("http://localhost:%d/SendPortOfInterfaceToKernel", config.PuertoKernel)
@@ -630,7 +632,7 @@ func firstBitFree(bitmap *Bitmap) int {
 	return -1
 }
 
-/* ---------------------------------- FUNCIONES DE FS_DELETE ------------------------------------------------------ */
+/* ------------------------------------------- FUNCIONES DE FS_DELETE ------------------------------------------------------ */
 
 func IO_FS_DELETE(pathDialFS string, fileName string) {
 	log.Printf("Eliminando el archivo %s en %s", fileName, pathDialFS)
@@ -716,6 +718,7 @@ func deleteInMetaDataStructure(fileName string) {
 }
 
 /* ----------------------------------------- FUNCIONES DE FS_TRUNCATE ------------------------------------------------------ */
+
 func IO_FS_TRUNCATE(pathDialFS string, fileName string, length int) {
 	log.Printf("Truncando el archivo %s en %s", fileName, pathDialFS)
 
@@ -814,7 +817,7 @@ func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, r
 
 	// BLOQUE A ESCRIBIR
 	bloqueInicialDelArchivo := searchInMetaDataStructure(fileName)
-	posicionInicialDeEscritura := (bloqueInicialDelArchivo * globals.ClientConfig.TamanioBloqueDialFS) + regPuntero
+	posicionInicialDeEscritura := (bloqueInicialDelArchivo * config.TamanioBloqueDialFS) + regPuntero
 
 	// ME MUEVO A LA POSICION INICIAL DE ESCRITURA
 	_, err = blocksFile.Seek(int64(posicionInicialDeEscritura), 0)
@@ -845,7 +848,6 @@ func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, r
 	fmt.Println(string(fileContent[:bytesRead]))
 
 	log.Printf("Archivo %s escrito exitosamente", fileName)
-
 }
 
 /* ------------------------------------------ FUNCIONES DE FS_READ ------------------------------------------------------ */

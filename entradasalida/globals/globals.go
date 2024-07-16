@@ -10,7 +10,7 @@ type Config struct {
 	PuertoMemoria         int    `json:"port_memory"`
 	PathDialFS            string `json:"dialfs_path"`
 	TamanioBloqueDialFS   int    `json:"dialfs_block_size"`
-	CantidadBloquesDialFS int    `json:"dialfs_block_cou"`
+	CantidadBloquesDialFS int    `json:"dialfs_block_count"`
 }
 
 var ClientConfig *Config
