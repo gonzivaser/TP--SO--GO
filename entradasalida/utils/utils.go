@@ -353,6 +353,7 @@ func ReceiveContentFromMemory(w http.ResponseWriter, r *http.Request) {
 }
 
 /*---------------------------------------------- INTERFACES -------------------------------------------------------*/
+
 // INTERFAZ STDOUT (IO_STDOUT_WRITE)
 func (Interfaz *InterfazIO) IO_STDOUT_WRITE(address []int, length int) {
 	pathToConfig := os.Args[2]
@@ -479,7 +480,7 @@ func EnsureIfFileExists(pathDialFS string, blocksSize int, blocksCount int, size
 	}
 }
 
-/* ---------------------------------- FUNCIONES DE FS_CREATE ------------------------------------------------------ */
+/* -------------------------------------------- FUNCIONES DE FS_CREATE ------------------------------------------------------ */
 
 func IO_FS_CREATE(pathDialFS string, fileName string) {
 	log.Printf("Creando archivo %s en %s", fileName, pathDialFS)
@@ -494,8 +495,9 @@ func IO_FS_CREATE(pathDialFS string, fileName string) {
 	// Abrir el archivo de bitmap para lectura
 	bitmapFilePath := pathDialFS + "/bitmap.dat"
 
+	bitmap := readAndCopyBitMap(bitmapFilePath)
 	// LEER EL CONTENIDO DEL ARCHIVO DE BITMAP
-	bitmapBytes, err := os.ReadFile(bitmapFilePath)
+	/*bitmapBytes, err := os.ReadFile(bitmapFilePath)
 	if err != nil {
 		log.Fatalf("Error al leer el archivo de bitmap '%s': %v", bitmapFilePath, err)
 	}
@@ -505,7 +507,7 @@ func IO_FS_CREATE(pathDialFS string, fileName string) {
 	err = bitmap.FromBytes(bitmapBytes)
 	if err != nil {
 		log.Fatalf("Error al convertir bytes a bitmap: %v", err)
-	}
+	}*/
 
 	//Calcular el primer bit libre
 	firstFreeBlock := firstBitFree(bitmap)
@@ -513,27 +515,17 @@ func IO_FS_CREATE(pathDialFS string, fileName string) {
 	bitmap.Set(firstFreeBlock)
 
 	// Mostrar el contenido del bitmap
-	fmt.Println("Bitmap:")
-	for i := 0; i < 1024; i++ {
-		if bitmap.Get(i) {
-			fmt.Print("1")
-		} else {
-			fmt.Print("0")
-		}
-		if (i+1)%64 == 0 {
-			fmt.Println() // New line every 64 bits for readability
-		}
-	}
+	ShowBitmap(bitmap)
 
-	modifiedBitmapBytes := bitmap.ToBytes()
-
+	updateBitMap(bitmap, bitmapFilePath)
+	/*modifiedBitmapBytes := bitmap.ToBytes()
 	// Write the modified bitmap back to the file
 	err = os.WriteFile(bitmapFilePath, modifiedBitmapBytes, 0644)
 	if err != nil {
 		log.Fatalf("Error al escribir el archivo de bitmap modificado '%s': %v", bitmapFilePath, err)
 	}
+		fmt.Println("Bitmap file updated successfully.")*/
 
-	fmt.Println("Bitmap file updated successfully.")
 	fileContent := FileContent{
 		InitialBlock: firstFreeBlock,
 		Size:         0,
@@ -721,103 +713,24 @@ func deleteInMetaDataStructure(fileName string) {
 /* ----------------------------------------- FUNCIONES DE FS_TRUNCATE ------------------------------------------------------ */
 
 func IO_FS_TRUNCATE_VERSIONGONZI(pathDialFS string, fileName string, length int) {
-	// PRIMERO VERIFICO EXISTENCIA DE ARCHIVO
-	verificarExistenciaDeArchivo(pathDialFS, fileName)
+	//verificarExistenciaDeArchivo(pathDialFS, fileName) no hace falta
 
-	// GUARDO EL FILE EN UNA VARIABLE
 	filePath := pathDialFS + "/" + fileName
-	file, err := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+	file, err := os.OpenFile(filePath, os.O_RDWR, 0644)
 	if err != nil {
 		log.Fatalf("Error al abrir el archivo '%s': %v", filePath, err)
 	}
+	defer file.Close()
 
-	// AHORA QUIERO SABER EL TAMAÑO ACTUAL DEL ARCHIVO
-	var fileActualData FileContent
-	fileActualData, err = dataFileInMetaDataStructure(fileName)
+	fileActualData, err := dataFileInMetaDataStructure(fileName)
 	if err != nil {
 		log.Printf("Error: %v", err)
 		return
 	}
 
-	// SI EL TAMAÑO A TRUNCAR ES IGUAL AL TAMAÑO ACTUAL DEL ARCHIVO, NO HAGO NADA
-	if length == fileActualData.Size {
-		return
-	}
+	// HACER ELSEIF PARA LOS OTROS CASOS
 
-	// SI EL TAMAÑO A TRUNCAR ES MAYOR AL TAMAÑO ACTUAL DEL ARCHIVO
-	if length > fileActualData.Size {
-		// CALCULO LA CANTIDAD DE BLOQUES NECESARIOS
-		cantBloquesNecesarios := length / config.TamanioBloqueDialFS
-		//CantidadDeBloquesAAgregar := cantBloquesNecesarios - (fileActualData.Size / config.TamanioBloqueDialFS)
-
-		// AHORA VERIFICO SI HAY BLOQUES CONTIGUOS LIBRES
-		if lookForContiguousBlocks(cantBloquesNecesarios, fileActualData.InitialBlock, pathDialFS) {
-			log.Printf("Los bloques solicitados están libres")
-
-			// LOS OCUPO EN EL BITMAP
-			// Abrir el archivo de bitmap para lectura
-			bitmapFilePath := pathDialFS + "/bitmap.dat"
-
-			// LEER EL CONTENIDO DEL ARCHIVO DE BITMAP
-			bitmapBytes, err := os.ReadFile(bitmapFilePath)
-			if err != nil {
-				log.Fatalf("Error al leer el archivo de bitmap '%s': %v", bitmapFilePath, err)
-			}
-
-			// Crear un nuevo Bitmap y llenarlo con los datos leídos
-			bitmap := NewBitmap()
-			err = bitmap.FromBytes(bitmapBytes)
-			if err != nil {
-				log.Fatalf("Error al convertir bytes a bitmap: %v", err)
-			}
-
-			// OCUPAR LOS BLOQUES EN EL BITMAP
-			for i := fileActualData.InitialBlock; i < fileActualData.InitialBlock+cantBloquesNecesarios; i++ {
-				bitmap.Set(i)
-
-				// Mostrar el contenido del bitmap
-				fmt.Println("Bitmap:")
-				for i := 0; i < 1024; i++ {
-					if bitmap.Get(i) {
-						fmt.Print("1")
-					} else {
-						fmt.Print("0")
-					}
-					if (i+1)%64 == 0 {
-						fmt.Println() // New line every 64 bits for readability
-					}
-				}
-
-				modifiedBitmapBytes := bitmap.ToBytes()
-
-				// Write the modified bitmap back to the file
-				err = os.WriteFile(bitmapFilePath, modifiedBitmapBytes, 0644)
-				if err != nil {
-					log.Fatalf("Error al escribir el archivo de bitmap modificado '%s': %v", bitmapFilePath, err)
-				}
-
-				fmt.Println("Bitmap file updated successfully.")
-				fileContent := FileContent{
-					InitialBlock: fileActualData.InitialBlock,
-					Size:         length,
-				}
-				contentBytes, err := json.Marshal(fileContent)
-				if err != nil {
-					log.Fatalf("Error al convertir FileContent a bytes: %v", err)
-				}
-
-				// Write FileContent to the file
-				_, err = file.Write(contentBytes)
-				if err != nil {
-					log.Fatalf("Error al escribir el contenido en el archivo '%s': %v", filePath, err)
-				}
-
-				file.Close()
-			}
-
-		}
-	}
-
+	// SI EL REGISTRO TAMAÑO ES == AL TAMAÑO DEL ARCHIVO, NO HAGO NADA
 }
 
 func IO_FS_TRUNCATE(pathDialFS string, fileName string, length int) {
@@ -1005,7 +918,7 @@ func verificarExistenciaDeArchivo(path string, fileName string) {
 	}
 }
 
-/* ---------------------------------- CREAR ARCHIVOS DE BLOQUES Y BITMAP ------------------------------------------------------ */
+/* ------------------------------------- CREAR ARCHIVOS DE BLOQUES Y BITMAP ------------------------------------------------------ */
 
 func CreateBlockFile(path string, blocksSize int, blocksCount int, sizeFile int) (*BlockFile, error) {
 
@@ -1054,7 +967,7 @@ func CreateBitmapFile(path string, blocksCount int, bitmapSize int) {
 	}
 }
 
-/* ------------------------------------- METODOS DEL BITMAP ------------------------------------------------------ */
+/* --------------------------------------------- METODOS DEL BITMAP ------------------------------------------------------ */
 
 // CREA Y DEVUELVE UN BITMAP VACIO
 func NewBitmap() *Bitmap {
@@ -1109,6 +1022,46 @@ func (b *Bitmap) Remove(pos int) {
 
 func NewBlock() *Block {
 	return &Block{}
+}
+
+func ShowBitmap(bitmap *Bitmap) {
+	fmt.Println("Bitmap:")
+	for i := 0; i < 1024; i++ {
+		if bitmap.Get(i) {
+			fmt.Print("1")
+		} else {
+			fmt.Print("0")
+		}
+		if (i+1)%64 == 0 {
+			fmt.Println() // New line every 64 bits for readability
+		}
+	}
+}
+
+func readAndCopyBitMap(bitmapFilePath string) *Bitmap {
+	bitmapBytes, err := os.ReadFile(bitmapFilePath)
+	if err != nil {
+		log.Fatalf("Error al leer el archivo de bitmap '%s': %v", bitmapFilePath, err)
+	}
+
+	bitmap := NewBitmap()
+	err = bitmap.FromBytes(bitmapBytes)
+	if err != nil {
+		log.Fatalf("Error al convertir bytes a bitmap: %v", err)
+	}
+
+	return bitmap
+}
+
+func updateBitMap(bitmap *Bitmap, bitmapFilePath string) {
+	modifiedBitmapBytes := bitmap.ToBytes()
+
+	err := os.WriteFile(bitmapFilePath, modifiedBitmapBytes, 0644)
+	if err != nil {
+		log.Fatalf("Error al escribir el archivo de bitmap modificado '%s': %v", bitmapFilePath, err)
+	}
+
+	fmt.Println("Bitmap file updated successfully.")
 }
 
 //fs pide posicion a memoria, si lo agarra y lo guarda en el archivo de bloques.dat
