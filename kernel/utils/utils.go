@@ -147,6 +147,10 @@ var (
 	LengthREG    int
 	IOpid        int
 	done         chan struct{}
+	pauseChan    chan struct{}
+	resumeChan   chan struct{}
+	kernelPaused bool
+	pauseMutex   sync.RWMutex
 	//CPURequest   KernelRequest
 
 )
@@ -185,6 +189,37 @@ var procesoEXEC Proceso // este proceso es el que se esta ejecutando
 
 /*-------------------------------------------------FUNCIONES CREADAS----------------------------------------------*/
 
+func PausarKernel() {
+	pauseMutex.Lock()
+	defer pauseMutex.Unlock()
+	if !kernelPaused {
+		kernelPaused = true
+		close(pauseChan)
+		pauseChan = make(chan struct{})
+	}
+}
+
+func ReanudarKernel() {
+	pauseMutex.Lock()
+	defer pauseMutex.Unlock()
+	if kernelPaused {
+		kernelPaused = false
+		close(resumeChan)
+		resumeChan = make(chan struct{})
+	}
+}
+
+func waitIfPaused() {
+	pauseMutex.RLock()
+	if !kernelPaused {
+		pauseMutex.RUnlock()
+		return
+	}
+	pauseMutex.RUnlock()
+
+	<-resumeChan
+}
+
 func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 
 	if globals.ClientConfig.AlgoritmoPlanificacion != "FIFO" {
@@ -198,6 +233,9 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Printf("Recibido syscall: %+v", CPURequest)
+
+	waitIfPaused()
+
 	if len(colaExecution) > 0 { // aca lo saco de la cola exec
 		mutexExecution.Lock()
 		colaExecution = append(colaExecution[:0], colaExecution[1:]...)
@@ -281,8 +319,7 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//log.Printf("Received data: %+v", request)
-
+	waitIfPaused()
 	// Create PCB
 	pcb := createPCB()
 	log.Printf("Se crea el proceso %v en NEW", pcb.Pid) // log obligatorio
@@ -300,6 +337,8 @@ func init() {
 	readyChannel = make(chan PCB, 1)
 	log.Printf("Configuración %v", globals.ClientConfig.Multiprogramacion)
 	multiProgramacion = make(chan int, globals.ClientConfig.Multiprogramacion)
+	pauseChan = make(chan struct{})
+	resumeChan = make(chan struct{})
 
 	go handelMultiProg()
 
@@ -498,15 +537,16 @@ func handleSyscallIO(pcb PCB, timeIo int, ioInterface string, ioType string) {
 	SendIOToEntradaSalida(ioInterface, timeIo)
 	mutex.Unlock()
 
-	if len(colaBlocked) > 0 { // aca lo saco de la cola blocked y lo mando a ready
+	waitIfPaused()
+	if len(colaBlocked) > 0 { // aca lo saco de la cola blocked
 		mutexBlocked.Lock()
 		colaBlocked[ioInterface] = append(colaBlocked[ioInterface][:0], colaBlocked[ioInterface][1:]...)
 		mutexBlocked.Unlock()
 
+		enqueueReadyProcess(pcb)
 	}
 	log.Printf("Proceso %+v volvió de con. Quantum: %d", pcb.Pid, pcb.Quantum)
 
-	enqueueReadyProcess(pcb)
 }
 
 func InterfazExiste(nombre string, ioType string) bool {
@@ -1008,13 +1048,13 @@ func EstadoProceso(w http.ResponseWriter, r *http.Request) {
 }
 
 func IniciarPlanificacion(w http.ResponseWriter, r *http.Request) {
+	ReanudarKernel()
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Planificación iniciada"))
 }
 
 func DetenerPlanificacion(w http.ResponseWriter, r *http.Request) {
+	PausarKernel()
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Planificación detenida"))
 }
 
 func findPID(pid int) string {
