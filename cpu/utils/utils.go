@@ -761,8 +761,9 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 		sendFSDataToKernel(fileName, kind, 0, []int{0}, 0)
 		fmt.Printf("IO_FS_DELETE")
 	case "IO_FS_TRUNCATE":
-		/*fileName := words[2]
+		fileName := words[2]
 		regTamano := words[3]
+		valueLength := verificarRegistro(regTamano, contextoEjecucion)
 		GLOBALrequestCPU = KernelRequest{
 			PcbUpdated:     *contextoEjecucion,
 			MotivoDesalojo: "INTERRUPCION POR IO",
@@ -770,7 +771,7 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 			Interface:      words[1],
 			TimeIO:         0,
 		}
-		sendFSDataToKernel(fileName, kind, 0, []int{0}, 0)*/
+		sendFSDataToKernel(fileName, kind, valueLength, []int{0}, 0)
 		fmt.Printf("IO_FS_TRUNCATE")
 	case "IO_FS_WRITE":
 		fileName := words[2]

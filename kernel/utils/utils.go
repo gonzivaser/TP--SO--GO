@@ -852,7 +852,7 @@ func SendREGtoIO(REGdireccion []int, lengthREG int, port int, pid int) error {
 	BodyRegister.DirFisica = REGdireccion
 	BodyRegister.LengthREG = lengthREG
 	BodyRegister.IOpid = pid
-	log.Printf("EL PID ESSS:: %d", BodyRegister.IOpid)
+	//log.Printf("EL PID ESSS:: %d", BodyRegister.IOpid)
 
 	savedRegJSON, err := json.Marshal(BodyRegister)
 	if err != nil {
