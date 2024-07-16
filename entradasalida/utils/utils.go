@@ -443,7 +443,7 @@ func (interfaz *InterfazIO) FILE_SYSTEM(pid int) {
 		log.Printf("PID: %d - Eliminar Archivo: %s", pid, fileName)
 
 	case "IO_FS_WRITE":
-		IO_FS_WRITE(pathDialFS, fileName, fsRegDirec, fsRegTam, fsRegPuntero)
+		IO_FS_WRITE(pathDialFS, fileName, fsRegDirec, fsRegTam, 8)
 		log.Printf("PID: %d - Operacion: IO_FS_WRITE - Escribir Archivo: %s - Tamaño a Escribir: %d - Puntero Archivo: %d", pid, fileName, fsRegTam, fsRegPuntero)
 
 	case "IO_FS_TRUNCATE":
@@ -495,39 +495,28 @@ func IO_FS_CREATE(pathDialFS string, fileName string) {
 	bitmapFilePath := pathDialFS + "/bitmap.dat"
 
 	bitmap := readAndCopyBitMap(bitmapFilePath)
-	// LEER EL CONTENIDO DEL ARCHIVO DE BITMAP
-	/*bitmapBytes, err := os.ReadFile(bitmapFilePath)
-	if err != nil {
-		log.Fatalf("Error al leer el archivo de bitmap '%s': %v", bitmapFilePath, err)
-	}
-
-	// Crear un nuevo Bitmap y llenarlo con los datos leídos
-	bitmap := NewBitmap()
-	err = bitmap.FromBytes(bitmapBytes)
-	if err != nil {
-		log.Fatalf("Error al convertir bytes a bitmap: %v", err)
-	}*/
 
 	//Calcular el primer bit libre
 	firstFreeBlock := firstBitFree(bitmap)
+	fileSize := 0
 
 	bitmap.Set(firstFreeBlock)
 
 	// Mostrar el contenido del bitmap
-	ShowBitmap(bitmap)
+	showBitmap(bitmap)
 
 	updateBitMap(bitmap, bitmapFilePath)
-	/*modifiedBitmapBytes := bitmap.ToBytes()
-	// Write the modified bitmap back to the file
-	err = os.WriteFile(bitmapFilePath, modifiedBitmapBytes, 0644)
-	if err != nil {
-		log.Fatalf("Error al escribir el archivo de bitmap modificado '%s': %v", bitmapFilePath, err)
-	}
-		fmt.Println("Bitmap file updated successfully.")*/
 
+	updateMetaDataFile(pathDialFS, fileName, firstFreeBlock, fileSize)
+
+	fmt.Printf("Archivo '%s' creado y escrito exitosamente.\n", fileName)
+}
+
+func updateMetaDataFile(pathDialFS string, fileName string, initialBlock int, fileSize int) {
+	filePath := pathDialFS + "/" + fileName
 	fileContent := FileContent{
-		InitialBlock: firstFreeBlock,
-		Size:         0,
+		InitialBlock: initialBlock,
+		Size:         fileSize,
 	}
 	contentBytes, err := json.Marshal(fileContent)
 	if err != nil {
@@ -535,14 +524,16 @@ func IO_FS_CREATE(pathDialFS string, fileName string) {
 	}
 
 	// Write FileContent to the file
+	file, err := os.OpenFile(filePath, os.O_RDWR, 0644)
+	if err != nil {
+		log.Fatalf("Error al crear el archivo '%s': %v", pathDialFS, err)
+	}
 	_, err = file.Write(contentBytes)
 	if err != nil {
 		log.Fatalf("Error al escribir el contenido en el archivo '%s': %v", filePath, err)
 	}
 
 	file.Close()
-
-	fmt.Printf("Archivo '%s' creado y escrito exitosamente.\n", fileName)
 }
 
 func checkFilesInDirectory(pathDialFS string) bool {
@@ -643,50 +634,29 @@ func IO_FS_DELETE(pathDialFS string, fileName string) {
 
 	// UNA VEZ REMOVIDO EL ARCHIVO, TENGO QUE ACTUALIZAR BITMAP Y ARCHIVO DE BLOQUES
 	// Abrir el archivo de bitmap para lectura
-	bitMapPosition := searchInMetaDataStructure(fileName)
+	var fileData FileContent
+	fileData, err = dataFileInMetaDataStructure(fileName)
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return
+	}
+
+	var blocksToDelete int
+
+	if fileData.Size > 0 {
+		blocksToDelete = fileData.Size / config.TamanioBloqueDialFS
+	} else {
+		blocksToDelete = 1
+	}
 
 	bitmapFilePath := pathDialFS + "/bitmap.dat"
+	bitmap := readAndCopyBitMap(bitmapFilePath)
 
-	// LEER EL CONTENIDO DEL ARCHIVO DE BITMAP
-	bitmapBytes, err := os.ReadFile(bitmapFilePath)
-	if err != nil {
-		log.Fatalf("Error al leer el archivo de bitmap '%s': %v", bitmapFilePath, err)
-	}
+	removeBlocks(bitmap, fileData.InitialBlock, blocksToDelete, blocksToDelete)
 
-	// Crear un nuevo Bitmap y llenarlo con los datos leídos
-	bitmap := NewBitmap()
-	err = bitmap.FromBytes(bitmapBytes)
-	if err != nil {
-		log.Fatalf("Error al convertir bytes a bitmap: %v", err)
-	}
+	showBitmap(bitmap)
 
-	bitmap.Remove(bitMapPosition)
-
-	fmt.Println("Bitmap Modified:")
-	for i := 0; i < 1024; i++ {
-		if bitmap.Get(i) {
-			fmt.Print("1")
-		} else {
-			fmt.Print("0")
-		}
-		if (i+1)%64 == 0 {
-			fmt.Println() // New line every 64 bits for readability
-		}
-	}
-
-	modifiedBitmapBytes := bitmap.ToBytes()
-
-	// Write the modified bitmap back to the file
-	err = os.WriteFile(bitmapFilePath, modifiedBitmapBytes, 0644)
-	if err != nil {
-		log.Fatalf("Error al escribir el archivo de bitmap modificado '%s': %v", bitmapFilePath, err)
-	}
-
-	fmt.Println("Bitmap file updated successfully.")
-
-	// SIZE / BLOCKSIZE = CANTIDAD DE BLOQUES QUE OCUPA EL ARCHIVO
-	// INITIAL BLOCK + SIZE/BLOCKSIZE
-	// CANTIDAD DE BLOQUES QUE OCUPA EL ARCHIVO
+	updateBitMap(bitmap, bitmapFilePath)
 
 	deleteInMetaDataStructure(fileName)
 }
@@ -711,27 +681,6 @@ func deleteInMetaDataStructure(fileName string) {
 
 /* ----------------------------------------- FUNCIONES DE FS_TRUNCATE ------------------------------------------------------ */
 
-func IO_FS_TRUNCATE_VERSIONGONZI(pathDialFS string, fileName string, length int) {
-	//verificarExistenciaDeArchivo(pathDialFS, fileName) no hace falta
-
-	filePath := pathDialFS + "/" + fileName
-	file, err := os.OpenFile(filePath, os.O_RDWR, 0644)
-	if err != nil {
-		log.Fatalf("Error al abrir el archivo '%s': %v", filePath, err)
-	}
-	defer file.Close()
-
-	/*fileActualData, err := dataFileInMetaDataStructure(fileName)
-	if err != nil {
-		log.Printf("Error: %v", err)
-		return
-	}*/
-
-	// HACER ELSEIF PARA LOS OTROS CASOS
-
-	// SI EL REGISTRO TAMAÑO ES == AL TAMAÑO DEL ARCHIVO, NO HAGO NADA
-}
-
 func IO_FS_TRUNCATE(pathDialFS string, fileName string, length int) {
 	log.Printf("Truncando el archivo %s en %s", fileName, pathDialFS)
 
@@ -746,25 +695,53 @@ func IO_FS_TRUNCATE(pathDialFS string, fileName string, length int) {
 		log.Printf("Error: %v", err)
 		return
 	}
-
+	bitmapFilePath := pathDialFS + "/bitmap.dat"
+	bitmap := readAndCopyBitMap(bitmapFilePath)
 	cantBloques := length / config.TamanioBloqueDialFS
-	areFree := lookForContiguousBlocks(cantBloques, fileData.InitialBlock, pathDialFS)
-	if areFree {
-		log.Printf("Los bloques solicitados están libres")
-	} else {
-		log.Printf("Los bloques solicitados no están libres")
 
-	}
-	/*if length > fileData.Size {
+	if length > fileData.Size {
 		log.Printf("El tamaño a truncar es mayor al tamaño actual del archivo")
-		cantBloques := length / globals.ClientConfig.TamanioBloqueDialFS
 		areFree := lookForContiguousBlocks(cantBloques, fileData.InitialBlock, pathDialFS)
 		if areFree {
 			log.Printf("Los bloques solicitados están libres")
+			assignBlocks(bitmap, fileData.InitialBlock, cantBloques)
+			showBitmap(bitmap)
+			updateBitMap(bitmap, bitmapFilePath)
+			updateMetaDataFile(pathDialFS, fileName, fileData.InitialBlock, length)
+		} else {
+			log.Printf("Los bloques solicitados no están libres")
+			//TRUNCAR
 		}
 	} else if length < fileData.Size {
 		log.Printf("El tamaño a truncar es menor al tamaño actual del archivo")
-	}*/
+		totalBlocks := fileData.Size / config.TamanioBloqueDialFS
+		removeBlocks(bitmap, fileData.InitialBlock, totalBlocks, cantBloques)
+		showBitmap(bitmap)
+		updateBitMap(bitmap, bitmapFilePath)
+		updateMetaDataFile(pathDialFS, fileName, fileData.InitialBlock, length)
+	} else if length == fileData.Size {
+		log.Printf("El tamaño a truncar es igual al tamaño actual del archivo")
+	}
+}
+
+func assignBlocks(bitmap *Bitmap, initialBlock int, cantBloques int) {
+	for i := initialBlock + 1; i < initialBlock+cantBloques; i++ {
+		bitmap.Set(i)
+	}
+}
+
+func removeBlocks(bitmap *Bitmap, initialBlock int, totalBlocks int, blocksToRemove int) {
+	if blocksToRemove >= totalBlocks {
+		// Remove all blocks if we're removing all or more than total
+		for i := initialBlock; i < initialBlock+totalBlocks; i++ {
+			bitmap.Remove(i)
+		}
+	} else {
+		// Remove only the last 'blocksToRemove' blocks
+		for i := initialBlock + totalBlocks - blocksToRemove; i < initialBlock+totalBlocks; i++ {
+			bitmap.Remove(i)
+		}
+	}
 }
 
 func dataFileInMetaDataStructure(fileName string) (FileContent, error) {
@@ -815,25 +792,30 @@ func lookForContiguousBlocks(cantBloques int, initialBlock int, pathDialFS strin
 /* ----------------------------------------- FUNCIONES DE FS_WRITE ------------------------------------------------------ */
 
 func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, regPuntero int) {
+	log.Printf("Escribiendo en el archivo %s en %s", fileName, pathDialFS)
+
 	log.Printf("Leyendo el archivo %s en %s", fileName, pathDialFS)
 
 	// VERIFICO EXISTENCIA DE ARCHIVO
 	verificarExistenciaDeArchivo(pathDialFS, fileName)
 
 	// ENVIO A MEMORIA LA DIRECCION LOGICA Y EL TAMAÑO EN BYTES INDICADA POR EL REGISTRO LENGTH
-	var BodyadressFSWrite BodyAdress
-	BodyadressFSWrite.Address = adress
-	BodyadressFSWrite.Length = length
-	BodyadressFSWrite.Name = fileName
+	/*var BodyadressFSWrite BodyAdress
+	  BodyadressFSWrite.Address = adress
+	  BodyadressFSWrite.Length = length
+	  BodyadressFSWrite.Name = fileName
 
-	err := SendAdressToMemory(BodyadressFSWrite)
-	if err != nil {
-		log.Fatalf("Error al leer desde la memoria: %v", err)
-	}
+	  /err := SendAdressToMemory(BodyadressFSWrite)
+	  if err != nil {
+	      log.Fatalf("Error al leer desde la memoria: %v", err)
+	  }*/
+
+	// VERIFICO EXISTENCIA DE ARCHIVO
+	verificarExistenciaDeArchivo(pathDialFS, fileName)
 
 	// TENGO QUE ABRIR EL ARCHIVO DE BLOQUES.DAT
-	blocksFilePath := pathDialFS + "/bloques.dat"
-	blocksFile, err := os.Open(blocksFilePath)
+	blocksFilePath := filepath.Join(pathDialFS, "bloques.dat")
+	blocksFile, err := os.OpenFile(blocksFilePath, os.O_RDWR, 0644)
 	if err != nil {
 		log.Fatalf("Error al abrir el archivo de bloques '%s': %v", blocksFilePath, err)
 	}
@@ -850,21 +832,25 @@ func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, r
 	}
 
 	// ESCRIBIR EN EL ARCHIVO DE BLOQUES
-	_, err = blocksFile.Write([]byte(GLOBALmemoryContent))
+	// Aquí deberías escribir los datos reales en lugar de "hola"
+	// Por ejemplo, podrías usar los datos de 'adress' y 'length'
+	dataToWrite := []byte("45") // Reemplazar esto con los datos reales--->GLOBALmemoryContent
+	_, err = blocksFile.Write(dataToWrite)
 	if err != nil {
 		log.Fatalf("Error al escribir en el archivo de bloques '%s': %v", blocksFilePath, err)
 	}
 
+	// Mover el cursor al inicio del bloque para leer el contenido
 	_, err = blocksFile.Seek(int64(bloqueInicialDelArchivo*config.TamanioBloqueDialFS), 0)
 	if err != nil {
-		return
+		log.Fatalf("Error al mover el cursor para leer: %v", err)
 	}
 
 	// Leer el contenido del archivo
-	fileContent := make([]byte, globals.ClientConfig.TamanioBloqueDialFS) // Asumiendo que el archivo ocupa un bloque
+	fileContent := make([]byte, config.TamanioBloqueDialFS) // Asumiendo que el archivo ocupa un bloque
 	bytesRead, err := blocksFile.Read(fileContent)
 	if err != nil && err != io.EOF {
-		return
+		log.Fatalf("Error al leer el contenido del archivo: %v", err)
 	}
 
 	// Mostrar el contenido del archivo
@@ -980,13 +966,14 @@ func CreateBitmapFile(path string, blocksCount int, bitmapSize int) {
 
 func NewBitmap() *Bitmap {
 	return &Bitmap{
-		bits: make([]int, 1024),
+		bits: make([]int, config.CantidadBloquesDialFS),
 	}
 }
 
 func (b *Bitmap) FromBytes(bytes []byte) error {
-	if len(bytes) != 128 {
-		return fmt.Errorf("invalid byte slice length: expected 128, got %d", len(bytes))
+	necesaryBytes := config.CantidadBloquesDialFS / 8
+	if len(bytes) != necesaryBytes {
+		return fmt.Errorf("invalid byte slice length: expected necesaryBytes, got %d", len(bytes))
 	}
 	for i, byte := range bytes {
 		for j := 0; j < 8; j++ {
@@ -1001,15 +988,16 @@ func (b *Bitmap) FromBytes(bytes []byte) error {
 }
 
 func (b *Bitmap) Get(pos int) bool {
-	if pos < 0 || pos >= 1024 {
+	if pos < 0 || pos >= config.CantidadBloquesDialFS {
 		return false
 	}
 	return b.bits[pos] == 1
 }
 
 func (b *Bitmap) ToBytes() []byte {
-	bytes := make([]byte, 128)
-	for i := 0; i < 128; i++ {
+	necesaryBytes := config.CantidadBloquesDialFS / 8
+	bytes := make([]byte, necesaryBytes)
+	for i := 0; i < necesaryBytes; i++ {
 		var byte byte
 		for j := 0; j < 8; j++ {
 			if b.bits[i*8+j] == 1 {
@@ -1022,14 +1010,14 @@ func (b *Bitmap) ToBytes() []byte {
 }
 
 func (b *Bitmap) Set(pos int) {
-	if pos < 0 || pos >= 1024 {
+	if pos < 0 || pos >= config.CantidadBloquesDialFS {
 		return
 	}
 	b.bits[pos] = 1
 }
 
 func (b *Bitmap) Remove(pos int) {
-	if pos < 0 || pos >= 1024 {
+	if pos < 0 || pos >= config.CantidadBloquesDialFS {
 		return
 	}
 	b.bits[pos] = 0
@@ -1037,9 +1025,9 @@ func (b *Bitmap) Remove(pos int) {
 
 /* ------------------------------------- METODOS DE BLOQUES ------------------------------------------------------ */
 
-func ShowBitmap(bitmap *Bitmap) {
+func showBitmap(bitmap *Bitmap) {
 	fmt.Println("Bitmap:")
-	for i := 0; i < 1024; i++ {
+	for i := 0; i < config.CantidadBloquesDialFS; i++ {
 		if bitmap.Get(i) {
 			fmt.Print("1")
 		} else {
@@ -1099,3 +1087,41 @@ func updateBitMap(bitmap *Bitmap, bitmapFilePath string) {
 LISTA GLOBAL DE ARCHIVOS ABIERTOS
 LISTA GLOBAL DE ARCHIVOS ABIERTOS POR PROCESO
 */
+
+/*currentBlocks := global.GetCurrentBlocks(global.Estructura_truncate.FileName)
+  freeContiguousBlocks := global.GetFreeContiguousBlocks(global.Estructura_truncate.FileName)
+  neededBlocks := global.GetNeededBlocks(global.Estructura_truncate)
+  totalFreeBlocks := global.GetTotalFreeBlocks()
+
+  if currentBlocks == neededBlocks {
+      global.UpdateSize(global.Estructura_truncate.FileName, global.Estructura_truncate.Tamanio, neededBlocks)
+      global.Logger.Log(fmt.Sprintf("No es necesario truncar pero actualicé el size: %+v", global.Estructura_truncate), log.DEBUG)
+
+  } else if !(totalFreeBlocks >= neededBlocks-currentBlocks) {
+      global.Logger.Log(fmt.Sprintf("No es posible agrandar el archivo: %+v", global.Estructura_truncate), log.ERROR)
+
+  } else if currentBlocks > neededBlocks {
+      global.Logger.Log(fmt.Sprintf("Trunco a menos %+v", global.Estructura_truncate), log.DEBUG)
+
+      global.UpdateSize(global.Estructura_truncate.FileName, global.Estructura_truncate.Tamanio, neededBlocks)
+      global.PrintBitmap()
+      global.UpdateBitmap(0, filestruct.Initial_block+neededBlocks, currentBlocks-neededBlocks)
+      global.PrintBitmap()
+
+  } else if neededBlocks-currentBlocks <= freeContiguousBlocks {
+      global.Logger.Log(fmt.Sprintf("Trunco a más %+v", global.Estructura_truncate), log.DEBUG)
+
+      global.UpdateSize(global.Estructura_truncate.FileName, global.Estructura_truncate.Tamanio, neededBlocks)
+      global.PrintBitmap()
+      global.UpdateBitmap(1, filestruct.Initial_block+currentBlocks, neededBlocks-currentBlocks)
+      global.PrintBitmap()
+
+  } else {
+      global.Logger.Log(fmt.Sprintf("Es necesario compactar: %+v", global.Estructura_truncate), log.DEBUG)
+
+      // actualizar bitamp y archivos metadata
+      compactar(global.Estructura_truncate.FileName, totalFreeBlocks)
+
+      global.PrintBloques()
+
+  }*/
