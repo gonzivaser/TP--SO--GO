@@ -447,6 +447,7 @@ func (interfaz *InterfazIO) FILE_SYSTEM(pid int) {
 		log.Printf("PID: %d - Operacion: IO_FS_WRITE - Escribir Archivo: %s - Tamaño a Escribir: %d - Puntero Archivo: %d", pid, fileName, fsRegTam, fsRegPuntero)
 
 	case "IO_FS_TRUNCATE":
+		IO_FS_TRUNCATE_VERSIONGONZI(pathDialFS, fileName, fsRegTam)
 		log.Printf("PID: %d - Operacion: IO_FS_TRUNCATE", pid)
 
 	case "IO_FS_READ":
@@ -719,12 +720,113 @@ func deleteInMetaDataStructure(fileName string) {
 
 /* ----------------------------------------- FUNCIONES DE FS_TRUNCATE ------------------------------------------------------ */
 
+func IO_FS_TRUNCATE_VERSIONGONZI(pathDialFS string, fileName string, length int) {
+	// PRIMERO VERIFICO EXISTENCIA DE ARCHIVO
+	verificarExistenciaDeArchivo(pathDialFS, fileName)
+
+	// GUARDO EL FILE EN UNA VARIABLE
+	filePath := pathDialFS + "/" + fileName
+	file, err := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+	if err != nil {
+		log.Fatalf("Error al abrir el archivo '%s': %v", filePath, err)
+	}
+
+	// AHORA QUIERO SABER EL TAMAÑO ACTUAL DEL ARCHIVO
+	var fileActualData FileContent
+	fileActualData, err = dataFileInMetaDataStructure(fileName)
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return
+	}
+
+	// SI EL TAMAÑO A TRUNCAR ES IGUAL AL TAMAÑO ACTUAL DEL ARCHIVO, NO HAGO NADA
+	if length == fileActualData.Size {
+		return
+	}
+
+	// SI EL TAMAÑO A TRUNCAR ES MAYOR AL TAMAÑO ACTUAL DEL ARCHIVO
+	if length > fileActualData.Size {
+		// CALCULO LA CANTIDAD DE BLOQUES NECESARIOS
+		cantBloquesNecesarios := length / config.TamanioBloqueDialFS
+		//CantidadDeBloquesAAgregar := cantBloquesNecesarios - (fileActualData.Size / config.TamanioBloqueDialFS)
+
+		// AHORA VERIFICO SI HAY BLOQUES CONTIGUOS LIBRES
+		if lookForContiguousBlocks(cantBloquesNecesarios, fileActualData.InitialBlock, pathDialFS) {
+			log.Printf("Los bloques solicitados están libres")
+
+			// LOS OCUPO EN EL BITMAP
+			// Abrir el archivo de bitmap para lectura
+			bitmapFilePath := pathDialFS + "/bitmap.dat"
+
+			// LEER EL CONTENIDO DEL ARCHIVO DE BITMAP
+			bitmapBytes, err := os.ReadFile(bitmapFilePath)
+			if err != nil {
+				log.Fatalf("Error al leer el archivo de bitmap '%s': %v", bitmapFilePath, err)
+			}
+
+			// Crear un nuevo Bitmap y llenarlo con los datos leídos
+			bitmap := NewBitmap()
+			err = bitmap.FromBytes(bitmapBytes)
+			if err != nil {
+				log.Fatalf("Error al convertir bytes a bitmap: %v", err)
+			}
+
+			// OCUPAR LOS BLOQUES EN EL BITMAP
+			for i := fileActualData.InitialBlock; i < fileActualData.InitialBlock+cantBloquesNecesarios; i++ {
+				bitmap.Set(i)
+
+				// Mostrar el contenido del bitmap
+				fmt.Println("Bitmap:")
+				for i := 0; i < 1024; i++ {
+					if bitmap.Get(i) {
+						fmt.Print("1")
+					} else {
+						fmt.Print("0")
+					}
+					if (i+1)%64 == 0 {
+						fmt.Println() // New line every 64 bits for readability
+					}
+				}
+
+				modifiedBitmapBytes := bitmap.ToBytes()
+
+				// Write the modified bitmap back to the file
+				err = os.WriteFile(bitmapFilePath, modifiedBitmapBytes, 0644)
+				if err != nil {
+					log.Fatalf("Error al escribir el archivo de bitmap modificado '%s': %v", bitmapFilePath, err)
+				}
+
+				fmt.Println("Bitmap file updated successfully.")
+				fileContent := FileContent{
+					InitialBlock: fileActualData.InitialBlock,
+					Size:         length,
+				}
+				contentBytes, err := json.Marshal(fileContent)
+				if err != nil {
+					log.Fatalf("Error al convertir FileContent a bytes: %v", err)
+				}
+
+				// Write FileContent to the file
+				_, err = file.Write(contentBytes)
+				if err != nil {
+					log.Fatalf("Error al escribir el contenido en el archivo '%s': %v", filePath, err)
+				}
+
+				file.Close()
+			}
+
+		}
+	}
+
+}
+
 func IO_FS_TRUNCATE(pathDialFS string, fileName string, length int) {
 	log.Printf("Truncando el archivo %s en %s", fileName, pathDialFS)
 
 	// VERIFICO EXISTENCIA DE ARCHIVO
 	verificarExistenciaDeArchivo(pathDialFS, fileName)
-	//saco la cantidad de bloques que necesito
+
+	// SACO LA CANTIDAD DE BLOQUES NECESARIOS
 	var fileData FileContent
 	fileData, err := dataFileInMetaDataStructure(fileName)
 	if err != nil {
@@ -831,7 +933,7 @@ func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, r
 		log.Fatalf("Error al escribir en el archivo de bloques '%s': %v", blocksFilePath, err)
 	}
 
-	_, err = blocksFile.Seek(int64(bloqueInicialDelArchivo*globals.ClientConfig.TamanioBloqueDialFS), 0)
+	_, err = blocksFile.Seek(int64(bloqueInicialDelArchivo*config.TamanioBloqueDialFS), 0)
 	if err != nil {
 		return
 	}
@@ -868,7 +970,7 @@ func IO_FS_READ(pathDialFS string, fileName string, address []int, length int, r
 
 	// BLOQUE A LEER
 	bloqueInicialDelArchivo := searchInMetaDataStructure(fileName)
-	posicionInicialDeLectura := (bloqueInicialDelArchivo * globals.ClientConfig.TamanioBloqueDialFS) + regPuntero
+	posicionInicialDeLectura := (bloqueInicialDelArchivo * config.TamanioBloqueDialFS) + regPuntero
 
 	// ME MUEVO A LA POSICION INICIAL DE LECTURA
 	_, err = blocksFile.Seek(int64(posicionInicialDeLectura), 0)
