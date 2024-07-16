@@ -448,7 +448,7 @@ func (interfaz *InterfazIO) FILE_SYSTEM(pid int) {
 		log.Printf("PID: %d - Operacion: IO_FS_WRITE - Escribir Archivo: %s - Tamaño a Escribir: %d - Puntero Archivo: %d", pid, fileName, fsRegTam, fsRegPuntero)
 
 	case "IO_FS_TRUNCATE":
-		IO_FS_TRUNCATE_VERSIONGONZI(pathDialFS, fileName, fsRegTam)
+		IO_FS_TRUNCATE(pathDialFS, fileName, 128)
 		log.Printf("PID: %d - Operacion: IO_FS_TRUNCATE", pid)
 
 	case "IO_FS_READ":
@@ -722,11 +722,11 @@ func IO_FS_TRUNCATE_VERSIONGONZI(pathDialFS string, fileName string, length int)
 	}
 	defer file.Close()
 
-	fileActualData, err := dataFileInMetaDataStructure(fileName)
+	/*fileActualData, err := dataFileInMetaDataStructure(fileName)
 	if err != nil {
 		log.Printf("Error: %v", err)
 		return
-	}
+	}*/
 
 	// HACER ELSEIF PARA LOS OTROS CASOS
 
@@ -747,7 +747,16 @@ func IO_FS_TRUNCATE(pathDialFS string, fileName string, length int) {
 		log.Printf("Error: %v", err)
 		return
 	}
-	if length > fileData.Size {
+
+	cantBloques := length / config.TamanioBloqueDialFS
+	areFree := lookForContiguousBlocks(cantBloques, fileData.InitialBlock, pathDialFS)
+	if areFree {
+		log.Printf("Los bloques solicitados están libres")
+	} else {
+		log.Printf("Los bloques solicitados no están libres")
+
+	}
+	/*if length > fileData.Size {
 		log.Printf("El tamaño a truncar es mayor al tamaño actual del archivo")
 		cantBloques := length / globals.ClientConfig.TamanioBloqueDialFS
 		areFree := lookForContiguousBlocks(cantBloques, fileData.InitialBlock, pathDialFS)
@@ -756,7 +765,7 @@ func IO_FS_TRUNCATE(pathDialFS string, fileName string, length int) {
 		}
 	} else if length < fileData.Size {
 		log.Printf("El tamaño a truncar es menor al tamaño actual del archivo")
-	}
+	}*/
 }
 
 func dataFileInMetaDataStructure(fileName string) (FileContent, error) {
@@ -769,6 +778,7 @@ func dataFileInMetaDataStructure(fileName string) (FileContent, error) {
 }
 
 func lookForContiguousBlocks(cantBloques int, initialBlock int, pathDialFS string) bool {
+	log.Printf("Buscando %d bloques contiguos desde el bloque %d", cantBloques, initialBlock)
 	// Abrir el archivo de bitmap para lectura
 	bitmapFilePath := pathDialFS + "/bitmap.dat"
 
@@ -792,14 +802,14 @@ func lookForContiguousBlocks(cantBloques int, initialBlock int, pathDialFS strin
 	}
 
 	// Verificar si todos los bloques en el rango están libres
-	for i := initialBlock; i < initialBlock+cantBloques; i++ {
+	for i := initialBlock + 1; i < initialBlock+cantBloques; i++ {
 		if bitmap.Get(i) {
 			fmt.Printf("Bloque %d está ocupado\n", i)
 			return false
 		}
 	}
 
-	fmt.Printf("Todos los bloques desde %d hasta %d están libres\n", initialBlock, initialBlock+cantBloques-1)
+	fmt.Printf("Todos los bloques desde %d hasta %d están libres\n", initialBlock+1, initialBlock+cantBloques)
 	return true
 }
 
@@ -1019,10 +1029,6 @@ func (b *Bitmap) Remove(pos int) {
 }
 
 /* ------------------------------------- METODOS DE BLOQUES ------------------------------------------------------ */
-
-func NewBlock() *Block {
-	return &Block{}
-}
 
 func ShowBitmap(bitmap *Bitmap) {
 	fmt.Println("Bitmap:")
