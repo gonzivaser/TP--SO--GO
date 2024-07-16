@@ -343,7 +343,8 @@ func ResizeProcess(pid int, newSize int) error {
 	if newSize > currentSize { //Comparo el tamaño actual con el nuevo tamaño
 		freespace := counterMemoryFree()
 		if freespace < (newSize/pageSize)-currentSize { //Verifico si hay suficiente espacio en memoria despues de la ampliacion
-			log.Printf("Memoria insuficiente para la ampliación")
+			log.Printf("Out of memory")
+			FinalizarProceso(pid)
 		}
 		for i := currentSize; i < newSize/pageSize; i++ { //Asigno nuevos marcos a la ampliacion
 			indiceLibre := proximoLugarLibre()
@@ -702,6 +703,20 @@ func SendPageTamToCPU(tamPage int) {
 	resp, err := http.Post(CPUurl, "application/json", bytes.NewBuffer(PageTamResponseTest))
 	if err != nil {
 		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
+	}
+	defer resp.Body.Close()
+}
+
+func FinalizarProceso(pid int) {
+	TerminateProcess(pid)
+	kernelURL := fmt.Sprintf("http://localhost:%d/process", globals.ClientConfig.PuertoKernel)
+	req, err := http.NewRequest("DELETE", kernelURL, nil)
+	if err != nil {
+		log.Fatalf("Error al crear la solicitud: %v", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Fatalf("Error al enviar la solicitud al módulo de kernel: %v", err)
 	}
 	defer resp.Body.Close()
 }
