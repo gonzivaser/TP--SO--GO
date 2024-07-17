@@ -710,7 +710,7 @@ func IO_FS_TRUNCATE(pathDialFS string, fileName string, length int) {
 			updateMetaDataFile(pathDialFS, fileName, fileData.InitialBlock, length)
 		} else {
 			log.Printf("Los bloques solicitados no están libres")
-			//TRUNCAR
+			truncateBitmap(bitmap, fileData.InitialBlock, cantBloques, bitmapFilePath, pathDialFS, fileName, fileData.Size)
 		}
 	} else if length < fileData.Size {
 		log.Printf("El tamaño a truncar es menor al tamaño actual del archivo")
@@ -787,6 +787,22 @@ func lookForContiguousBlocks(cantBloques int, initialBlock int, pathDialFS strin
 
 	fmt.Printf("Todos los bloques desde %d hasta %d están libres\n", initialBlock+1, initialBlock+cantBloques)
 	return true
+}
+
+func truncateBitmap(bitmap *Bitmap, initialBlock int, cantBloques int, bitmapFilePath string, pathDialFS string, fileName string, fileSize int) {
+	//eliminamos los bloques que tiene asignado el archivo
+
+	var blocksToDelete int
+	if fileSize > 0 {
+		blocksToDelete = fileSize / config.TamanioBloqueDialFS
+	} else {
+		blocksToDelete = 1
+	}
+	removeBlocks(bitmap, initialBlock, blocksToDelete, blocksToDelete)
+	showBitmap(bitmap)
+
+	//funcion para mover los bits
+
 }
 
 /* ----------------------------------------- FUNCIONES DE FS_WRITE ------------------------------------------------------ */
