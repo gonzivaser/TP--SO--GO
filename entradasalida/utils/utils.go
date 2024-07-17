@@ -447,7 +447,7 @@ func (interfaz *InterfazIO) FILE_SYSTEM(pid int) {
 		log.Printf("PID: %d - Operacion: IO_FS_WRITE - Escribir Archivo: %s - Tamaño a Escribir: %d - Puntero Archivo: %d", pid, fileName, fsRegTam, fsRegPuntero)
 
 	case "IO_FS_TRUNCATE":
-		IO_FS_TRUNCATE(pathDialFS, fileName, 128)
+		IO_FS_TRUNCATE(pathDialFS, fileName, 256)
 		log.Printf("PID: %d - Operacion: IO_FS_TRUNCATE", pid)
 
 	case "IO_FS_READ":
@@ -711,6 +711,12 @@ func IO_FS_TRUNCATE(pathDialFS string, fileName string, length int) {
 		} else {
 			log.Printf("Los bloques solicitados no están libres")
 			truncateBitmap(bitmap, fileData.InitialBlock, cantBloques, bitmapFilePath, pathDialFS, fileName, fileData.Size)
+			firstFreeBlock := firstBitFree(bitmap)
+			assignBlocks(bitmap, firstFreeBlock, cantBloques)
+			showBitmap(bitmap)
+			updateBitMap(bitmap, bitmapFilePath)
+			log.Printf("firstFreeBlock: %d", firstFreeBlock)
+			updateMetaDataFile(pathDialFS, fileName, firstFreeBlock, length)
 		}
 	} else if length < fileData.Size {
 		log.Printf("El tamaño a truncar es menor al tamaño actual del archivo")
@@ -725,7 +731,7 @@ func IO_FS_TRUNCATE(pathDialFS string, fileName string, length int) {
 }
 
 func assignBlocks(bitmap *Bitmap, initialBlock int, cantBloques int) {
-	for i := initialBlock + 1; i < initialBlock+cantBloques; i++ {
+	for i := initialBlock; i < initialBlock+cantBloques; i++ {
 		bitmap.Set(i)
 	}
 }
@@ -800,9 +806,47 @@ func truncateBitmap(bitmap *Bitmap, initialBlock int, cantBloques int, bitmapFil
 	}
 	removeBlocks(bitmap, initialBlock, blocksToDelete, blocksToDelete)
 	showBitmap(bitmap)
+	deleteInMetaDataStructure(fileName)
 
-	//funcion para mover los bits
+	for _, fileContent := range metaDataStructure {
+		blocksPerFile := getBlocksFile(fileContent.FileName)
+		fmt.Printf("File: %s, tiene estos bloques: %d\n", fileContent.FileName, blocksPerFile)
+		newInitialBlock := moveZeros(bitmap, fileContent.InitialBlock, blocksPerFile, bitmapFilePath)
+		updateMetaDataFile(pathDialFS, fileContent.FileName, newInitialBlock, fileContent.Size)
+	}
 
+}
+
+func moveZeros(bitmap *Bitmap, initialBlock int, cantBloques int, bitmapFilePath string) int {
+	snakeSize := 0
+	newInitialBlock := initialBlock
+	for i := 0; i < initialBlock+cantBloques; i++ {
+		if !bitmap.Get(i) {
+			snakeSize++
+		} else {
+			if snakeSize > 0 {
+				bitmap.Remove(i)
+				bitmap.Set(i - snakeSize)
+				if i-snakeSize < newInitialBlock {
+					newInitialBlock = i - snakeSize
+				}
+			}
+		}
+	}
+	log.Printf("snakeSize: %d", snakeSize)
+	showBitmap(bitmap)
+	updateBitMap(bitmap, bitmapFilePath)
+
+	return newInitialBlock
+}
+
+func getBlocksFile(fileName string) int {
+	for _, fileContent := range metaDataStructure {
+		if fileContent.FileName == fileName {
+			return fileContent.InitialBlock + (fileContent.Size / config.TamanioBloqueDialFS) - 1
+		}
+	}
+	return -1
 }
 
 /* ----------------------------------------- FUNCIONES DE FS_WRITE ------------------------------------------------------ */
