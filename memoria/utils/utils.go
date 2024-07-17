@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/sisoputnfrba/tp-golang/memoria/globals"
 )
@@ -211,6 +212,7 @@ func GetInstruction(w http.ResponseWriter, r *http.Request) {
 // Creacion de procesos
 func CreateProcessHandler(w http.ResponseWriter, r *http.Request) {
 	var process Process
+	time.Sleep(time.Duration(globals.ClientConfig.DelayResponse) * time.Millisecond)
 	if err := json.NewDecoder(r.Body).Decode(&process); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -276,6 +278,7 @@ func contains(slice []int, element int) bool {
 
 func TerminateProcessHandler(w http.ResponseWriter, r *http.Request) {
 	var process Process
+	time.Sleep(time.Duration(globals.ClientConfig.DelayResponse) * time.Millisecond)
 	if err := json.NewDecoder(r.Body).Decode(&process); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -312,6 +315,7 @@ func TerminateProcess(pid int) error {
 
 func ResizeProcessHandler(w http.ResponseWriter, r *http.Request) {
 	var process Process
+	time.Sleep(time.Duration(globals.ClientConfig.DelayResponse) * time.Millisecond)
 	if err := json.NewDecoder(r.Body).Decode(&process); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -387,6 +391,7 @@ func counterMemoryFree() int {
 
 func ReadMemoryHandler(w http.ResponseWriter, r *http.Request) {
 	var memReq MemoryRequest
+	time.Sleep(time.Duration(globals.ClientConfig.DelayResponse) * time.Millisecond)
 	if err := json.NewDecoder(r.Body).Decode(&memReq); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -472,6 +477,7 @@ func sendDataToCPU(content []byte) error {
 
 func WriteMemoryHandler(w http.ResponseWriter, r *http.Request) {
 	var memReq MemoryRequest
+	time.Sleep(time.Duration(globals.ClientConfig.DelayResponse) * time.Millisecond)
 	if err := json.NewDecoder(r.Body).Decode(&memReq); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -485,7 +491,7 @@ func WriteMemoryHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func WriteMemory(pid int, addresses []int, data []byte) error {
+/*func WriteMemory(pid int, addresses []int, data []byte) error {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -528,11 +534,27 @@ func WriteMemory(pid int, addresses []int, data []byte) error {
 	}
 	fmt.Println(memory)
 	return nil
+}*/
+
+func WriteMemory(pid int, addresses []int, data []byte) error {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if _, exists := pageTable[pid]; !exists {
+		return fmt.Errorf("Process with PID %d not found", pid)
+	}
+	i := 0
+	for _, address := range addresses {
+		memory[address] = data[i]
+		i++
+	}
+	return nil
 }
 
 // STDIN, FSREAD
 func RecieveInputFromIO(w http.ResponseWriter, r *http.Request) {
 	var inputRecieved BodyRequestInput
+	time.Sleep(time.Duration(globals.ClientConfig.DelayResponse) * time.Millisecond)
 	err := json.NewDecoder(r.Body).Decode(&inputRecieved)
 
 	if err != nil {
@@ -568,6 +590,7 @@ func RecieveInputFromIO(w http.ResponseWriter, r *http.Request) {
 // STDOUT, FSWRITE
 func RecieveAdressFromIO(w http.ResponseWriter, r *http.Request) {
 	var BodyRequestAdress BodyAdress
+	time.Sleep(time.Duration(globals.ClientConfig.DelayResponse) * time.Millisecond)
 	err := json.NewDecoder(r.Body).Decode(&BodyRequestAdress)
 
 	if err != nil {

@@ -975,7 +975,7 @@ func TranslateHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Función de traducción de direcciones
-func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
+/*func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 	var DireccionesFisicas []int
 	tamRestantePag := TamRestantePagina(DireccionLogica, TamPag)
 
@@ -1007,6 +1007,41 @@ func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 		if TamData > tamRestantePag {
 			DireccionLogica += tamRestantePag
 		}
+	}
+	paginas := make([]int, len(globalTLB))
+	for i, entry := range globalTLB {
+		paginas[i] = entry.Pagina
+	}
+	fmt.Println("Páginas en la TLB:", paginas)
+	return DireccionesFisicas
+}*/
+func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
+	var DireccionesFisicas []int
+
+	for i := 0; i < TamData; i++ {
+		pageNumber := int(math.Floor(float64(DireccionLogica) / float64(TamPag)))
+		pageOffset := DireccionLogica - (pageNumber * TamPag)
+
+		frame, found := CheckTLB(pid, pageNumber)
+		if !found {
+			log.Printf("PID: %d - TLB MISS - Página: %d", pid, pageNumber)
+			err := FetchFrameFromMemory(pid, pageNumber)
+			if err != nil {
+				fmt.Println("Error al obtener el marco desde la memoria")
+				return nil // O manejar el error de manera adecuada
+			}
+			frame = MemoryFrame
+			log.Printf("PID: %d - OBTENER MARCO - Página: %d - Marco: %d", pid, pageNumber, frame)
+			if globals.ClientConfig.NumberFellingTLB > 0 {
+				ReplaceTLBEntry(pid, pageNumber, MemoryFrame)
+			}
+		} else {
+			log.Printf("PID: %d - TLB HIT - Pagina: %d", pid, pageNumber)
+		}
+		DireccionFisica := frame*TamPag + pageOffset
+		DireccionesFisicas = append(DireccionesFisicas, DireccionFisica)
+
+		DireccionLogica++
 	}
 	paginas := make([]int, len(globalTLB))
 	for i, entry := range globalTLB {
