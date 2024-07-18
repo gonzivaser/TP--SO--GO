@@ -277,17 +277,23 @@ func contains(slice []int, element int) bool {
 }
 
 func TerminateProcessHandler(w http.ResponseWriter, r *http.Request) {
-	var process Process
-	time.Sleep(time.Duration(globals.ClientConfig.DelayResponse) * time.Millisecond)
-	if err := json.NewDecoder(r.Body).Decode(&process); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	pidStr := r.URL.Query().Get("pid")
+	if pidStr == "" {
+		http.Error(w, "PID no especificado", http.StatusBadRequest)
+		return
+	}
+	pid, err := strconv.Atoi(pidStr)
+	if err != nil {
+		http.Error(w, "PID debe ser un número", http.StatusBadRequest)
 		return
 	}
 
-	if err := TerminateProcess(process.PID); err != nil {
+	if err := TerminateProcess(pid); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	fmt.Println(pageTable)
+	fmt.Println(memory)
 
 	w.WriteHeader(http.StatusOK)
 }
