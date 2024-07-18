@@ -8,6 +8,5 @@
     "quantum": 750,
     "resources": ["REC1"],
     "resource_instances": [1],
-
     "multiprogramming": 10 
 }

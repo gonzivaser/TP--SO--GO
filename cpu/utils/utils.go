@@ -311,7 +311,6 @@ func Execute(instruction string, line []string, contextoDeEjecucion *PCB) error 
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "IO_STDIN_READ":
-		log.Printf("Instruccion IO_STDIN_READ:   %v", instruction)
 		err := IO(instruction, words, contextoDeEjecucion)
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
@@ -352,9 +351,9 @@ func Execute(instruction string, line []string, contextoDeEjecucion *PCB) error 
 		err := CheckSignal(nil, nil, contextoDeEjecucion.Pid, instruction, words[1])
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
+
 		}
 	case "IO_FS_CREATE":
-
 		err := IO(instruction, words, contextoDeEjecucion)
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
@@ -379,7 +378,6 @@ func Execute(instruction string, line []string, contextoDeEjecucion *PCB) error 
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
-
 	case "EXIT":
 		err := TerminarProceso(&contextoDeEjecucion.CpuReg, "FINALIZADO")
 		if err != nil {
@@ -1098,12 +1096,10 @@ func TranslateHandler(w http.ResponseWriter, r *http.Request) {
 				return nil // O manejar el error de manera adecuada
 			}
 			frame = MemoryFrame
-
 			log.Printf("PID: %d - OBTENER MARCO - Página: %d - Marco: %d", pid, pageNumber, frame)
 			if globals.ClientConfig.NumberFellingTLB > 0 {
 				ReplaceTLBEntry(pid, pageNumber, MemoryFrame)
 			}
-
 		} else {
 			log.Printf("PID: %d - TLB HIT - Pagina: %d", pid, pageNumber)
 		}
@@ -1112,11 +1108,9 @@ func TranslateHandler(w http.ResponseWriter, r *http.Request) {
 		DireccionesFisicas = append(DireccionesFisicas, physicalAddress)
 
 		// Actualizar la dirección lógica para la siguiente página
-
 		if TamData > tamRestantePag {
 			DireccionLogica += tamRestantePag
 		}
-
 	}
 	paginas := make([]int, len(globalTLB))
 	for i, entry := range globalTLB {
