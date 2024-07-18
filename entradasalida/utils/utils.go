@@ -111,7 +111,9 @@ type AdressFS struct {
 }
 
 type Bitmap struct {
-	bits []int
+	bits       []int
+	blockCount int
+	blockSize  int
 }
 
 type Block struct {
@@ -207,10 +209,8 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 		Interfaz.IO_STDOUT_WRITE(GLOBALdireccionFisica, GLOBALlengthREG)
 		log.Printf("Termino de escribir en la interfaz '%s'\n", Interfaz.Nombre)
 
-
 	case "DialFS":
 		Interfaz.FILE_SYSTEM(pidExecutionProcess)
-
 
 	default:
 		log.Fatalf("Tipo de interfaz desconocido: %s", Interfaz.Config.Tipo)
@@ -392,7 +392,6 @@ func (Interfaz *InterfazIO) IO_STDIN_READ(lengthREG int) {
 
 	reader := bufio.NewReader(os.Stdin)
 
-
 	fmt.Print("Ingrese por teclado: ")
 	input, err := reader.ReadString('\n')
 	if err != nil {
@@ -460,11 +459,11 @@ func (interfaz *InterfazIO) FILE_SYSTEM(pid int) {
 		log.Printf("PID: %d - Eliminar Archivo: %s", pid, fileName)
 
 	case "IO_FS_WRITE":
-		IO_FS_WRITE(pathDialFS, fileName, fsRegDirec, fsRegTam, 8)
+		IO_FS_WRITE(pathDialFS, fileName, fsRegDirec, fsRegTam, fsRegPuntero)
 		log.Printf("PID: %d - Operacion: IO_FS_WRITE - Escribir Archivo: %s - Tamaño a Escribir: %d - Puntero Archivo: %d", pid, fileName, fsRegTam, fsRegPuntero)
 
 	case "IO_FS_TRUNCATE":
-		IO_FS_TRUNCATE(pathDialFS, fileName, 256)
+		IO_FS_TRUNCATE(pathDialFS, fileName, fsRegTam)
 		log.Printf("PID: %d - Operacion: IO_FS_TRUNCATE", pid)
 
 	case "IO_FS_READ":
@@ -504,7 +503,7 @@ func IO_FS_CREATE(pathDialFS string, fileName string) {
 	filePath := pathDialFS + "/" + fileName
 	file, err := os.Create(filePath)
 	if err != nil {
-		log.Fatalf("Error al crear el archivo '%s': %v", pathDialFS, err)
+		log.Printf("Error al crear el archivo '%s': %v", pathDialFS, err)
 	}
 	defer file.Close()
 
@@ -515,18 +514,23 @@ func IO_FS_CREATE(pathDialFS string, fileName string) {
 
 	//Calcular el primer bit libre
 	firstFreeBlock := firstBitFree(bitmap)
-	fileSize := 0
 
-	bitmap.Set(firstFreeBlock)
+	if firstFreeBlock == -1 {
+		log.Printf("No hay bloques libres disponibles")
+	} else {
+		fileSize := 0
 
-	// Mostrar el contenido del bitmap
-	showBitmap(bitmap)
+		bitmap.Set(firstFreeBlock)
 
-	updateBitMap(bitmap, bitmapFilePath)
+		// Mostrar el contenido del bitmap
+		showBitmap(bitmap)
 
-	updateMetaDataFile(pathDialFS, fileName, firstFreeBlock, fileSize)
+		updateBitMap(bitmap, bitmapFilePath)
 
-	fmt.Printf("Archivo '%s' creado y escrito exitosamente.\n", fileName)
+		updateMetaDataFile(pathDialFS, fileName, firstFreeBlock, fileSize)
+
+		fmt.Printf("Archivo '%s' creado y escrito exitosamente.\n", fileName)
+	}
 }
 
 func updateMetaDataFile(pathDialFS string, fileName string, initialBlock int, fileSize int) {
@@ -715,6 +719,7 @@ func IO_FS_TRUNCATE(pathDialFS string, fileName string, length int) {
 	bitmapFilePath := pathDialFS + "/bitmap.dat"
 	bitmap := readAndCopyBitMap(bitmapFilePath)
 	cantBloques := length / config.TamanioBloqueDialFS
+	totalFreeBlocks := getTotalFreeBlocks(bitmap)
 
 	if length > fileData.Size {
 		log.Printf("El tamaño a truncar es mayor al tamaño actual del archivo")
@@ -744,6 +749,9 @@ func IO_FS_TRUNCATE(pathDialFS string, fileName string, length int) {
 		updateMetaDataFile(pathDialFS, fileName, fileData.InitialBlock, length)
 	} else if length == fileData.Size {
 		log.Printf("El tamaño a truncar es igual al tamaño actual del archivo")
+	} else {
+		log.Printf("Error al truncar el archivo, bloques disponibles %d", totalFreeBlocks)
+
 	}
 }
 
@@ -751,6 +759,16 @@ func assignBlocks(bitmap *Bitmap, initialBlock int, cantBloques int) {
 	for i := initialBlock; i < initialBlock+cantBloques; i++ {
 		bitmap.Set(i)
 	}
+}
+
+func getTotalFreeBlocks(bitmap *Bitmap) int {
+	totalFreeBlocks := 0
+	for i := 0; i < config.CantidadBloquesDialFS; i++ {
+		if !bitmap.Get(i) {
+			totalFreeBlocks++
+		}
+	}
+	return totalFreeBlocks
 }
 
 func removeBlocks(bitmap *Bitmap, initialBlock int, totalBlocks int, blocksToRemove int) {
@@ -822,7 +840,6 @@ func truncateBitmap(bitmap *Bitmap, initialBlock int, cantBloques int, bitmapFil
 		blocksToDelete = 1
 	}
 	removeBlocks(bitmap, initialBlock, blocksToDelete, blocksToDelete)
-	showBitmap(bitmap)
 	deleteInMetaDataStructure(fileName)
 
 	for _, fileContent := range metaDataStructure {
@@ -851,7 +868,6 @@ func moveZeros(bitmap *Bitmap, initialBlock int, cantBloques int, bitmapFilePath
 		}
 	}
 	log.Printf("snakeSize: %d", snakeSize)
-	showBitmap(bitmap)
 	updateBitMap(bitmap, bitmapFilePath)
 
 	return newInitialBlock
@@ -871,21 +887,19 @@ func getBlocksFile(fileName string) int {
 func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, regPuntero int) {
 	log.Printf("Escribiendo en el archivo %s en %s", fileName, pathDialFS)
 
-	log.Printf("Leyendo el archivo %s en %s", fileName, pathDialFS)
-
 	// VERIFICO EXISTENCIA DE ARCHIVO
 	verificarExistenciaDeArchivo(pathDialFS, fileName)
 
 	// ENVIO A MEMORIA LA DIRECCION LOGICA Y EL TAMAÑO EN BYTES INDICADA POR EL REGISTRO LENGTH
-	/*var BodyadressFSWrite BodyAdress
-	  BodyadressFSWrite.Address = adress
-	  BodyadressFSWrite.Length = length
-	  BodyadressFSWrite.Name = fileName
+	var BodyadressFSWrite BodyAdress
+	BodyadressFSWrite.Address = adress
+	BodyadressFSWrite.Length = length
+	BodyadressFSWrite.Name = os.Args[1]
 
-	  /err := SendAdressToMemory(BodyadressFSWrite)
-	  if err != nil {
-	      log.Fatalf("Error al leer desde la memoria: %v", err)
-	  }*/
+	err := SendAdressToMemory(BodyadressFSWrite)
+	if err != nil {
+		log.Fatalf("Error al leer desde la memoria: %v", err)
+	}
 
 	// VERIFICO EXISTENCIA DE ARCHIVO
 	verificarExistenciaDeArchivo(pathDialFS, fileName)
@@ -911,7 +925,7 @@ func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, r
 	// ESCRIBIR EN EL ARCHIVO DE BLOQUES
 	// Aquí deberías escribir los datos reales en lugar de "hola"
 	// Por ejemplo, podrías usar los datos de 'adress' y 'length'
-	dataToWrite := []byte("45") // Reemplazar esto con los datos reales--->GLOBALmemoryContent
+	dataToWrite := []byte(GLOBALmemoryContent) // Reemplazar esto con los datos reales--->GLOBALmemoryContent
 	_, err = blocksFile.Write(dataToWrite)
 	if err != nil {
 		log.Fatalf("Error al escribir en el archivo de bloques '%s': %v", blocksFilePath, err)
@@ -1043,58 +1057,57 @@ func CreateBitmapFile(path string, blocksCount int, bitmapSize int) {
 
 func NewBitmap() *Bitmap {
 	return &Bitmap{
-		bits: make([]int, config.CantidadBloquesDialFS),
+		bits:       make([]int, config.CantidadBloquesDialFS),
+		blockCount: config.CantidadBloquesDialFS,
+		blockSize:  config.TamanioBloqueDialFS,
 	}
 }
 
 func (b *Bitmap) FromBytes(bytes []byte) error {
-	necesaryBytes := config.CantidadBloquesDialFS / 8
-	if len(bytes) != necesaryBytes {
-		return fmt.Errorf("invalid byte slice length: expected necesaryBytes, got %d", len(bytes))
+	expectedBytes := (b.blockCount * b.blockSize) / 8
+	if len(bytes) != expectedBytes {
+		return fmt.Errorf("invalid byte slice length: expected %d bytes, got %d", expectedBytes, len(bytes))
 	}
-	for i, byte := range bytes {
-		for j := 0; j < 8; j++ {
-			if (byte & (1 << j)) != 0 {
-				b.bits[i*8+j] = 1
-			} else {
-				b.bits[i*8+j] = 0
-			}
+
+	b.bits = make([]int, b.blockCount)
+	for i := 0; i < b.blockCount; i++ {
+		byteIndex := (i * b.blockSize) / 8
+		bitOffset := (i * b.blockSize) % 8
+		if bytes[byteIndex]&(1<<bitOffset) != 0 {
+			b.bits[i] = 1
 		}
 	}
 	return nil
 }
 
+func (b *Bitmap) ToBytes() []byte {
+	bytes := make([]byte, (b.blockCount*b.blockSize)/8)
+	for i := 0; i < b.blockCount; i++ {
+		if b.bits[i] == 1 {
+			byteIndex := (i * b.blockSize) / 8
+			bitOffset := (i * b.blockSize) % 8
+			bytes[byteIndex] |= 1 << bitOffset
+		}
+	}
+	return bytes
+}
+
 func (b *Bitmap) Get(pos int) bool {
-	if pos < 0 || pos >= config.CantidadBloquesDialFS {
+	if pos < 0 || pos >= b.blockCount {
 		return false
 	}
 	return b.bits[pos] == 1
 }
 
-func (b *Bitmap) ToBytes() []byte {
-	necesaryBytes := config.CantidadBloquesDialFS / 8
-	bytes := make([]byte, necesaryBytes)
-	for i := 0; i < necesaryBytes; i++ {
-		var byte byte
-		for j := 0; j < 8; j++ {
-			if b.bits[i*8+j] == 1 {
-				byte |= 1 << j
-			}
-		}
-		bytes[i] = byte
-	}
-	return bytes
-}
-
 func (b *Bitmap) Set(pos int) {
-	if pos < 0 || pos >= config.CantidadBloquesDialFS {
+	if pos < 0 || pos >= b.blockCount {
 		return
 	}
 	b.bits[pos] = 1
 }
 
 func (b *Bitmap) Remove(pos int) {
-	if pos < 0 || pos >= config.CantidadBloquesDialFS {
+	if pos < 0 || pos >= b.blockCount {
 		return
 	}
 	b.bits[pos] = 0
