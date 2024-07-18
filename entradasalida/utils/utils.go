@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -8,7 +9,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+
 	"path/filepath"
+
 	"strings"
 	"time"
 
@@ -204,8 +207,10 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 		Interfaz.IO_STDOUT_WRITE(GLOBALdireccionFisica, GLOBALlengthREG)
 		log.Printf("Termino de escribir en la interfaz '%s'\n", Interfaz.Nombre)
 
+
 	case "DialFS":
 		Interfaz.FILE_SYSTEM(pidExecutionProcess)
+
 
 	default:
 		log.Fatalf("Tipo de interfaz desconocido: %s", Interfaz.Config.Tipo)
@@ -382,23 +387,35 @@ func (Interfaz *InterfazIO) IO_STDOUT_WRITE(address []int, length int) {
 func (Interfaz *InterfazIO) IO_STDIN_READ(lengthREG int) {
 	var BodyInput BodyRequestInput
 	var input string
-	var inputMenorARegLongitud string
+
+	//var inputMenorARegLongitud string
+
+	reader := bufio.NewReader(os.Stdin)
+
 
 	fmt.Print("Ingrese por teclado: ")
-	_, err := fmt.Scanln(&input)
+	input, err := reader.ReadString('\n')
 	if err != nil {
 		log.Fatalf("Error al leer desde stdin: %v", err)
 	}
+	input = strings.TrimSpace(input)
 
 	if len(input) > lengthREG {
 		input = input[:lengthREG]
 		log.Println("El texto ingresado es mayor al tamaño del registro, se truncará a: ", input)
 	} else if len(input) < lengthREG {
 		fmt.Print("El texto ingresado es menor, porfavor ingrese devuelta: ")
-		_, err := fmt.Scanln(&inputMenorARegLongitud)
+
+		complemento, err := reader.ReadString('\n')
 		if err != nil {
 			log.Fatalf("Error al leer desde stdin: %v", err)
 		}
+		complemento = strings.TrimSpace(complemento)
+		input += complemento
+		if len(input) > lengthREG {
+			input = input[:lengthREG]
+		}
+
 	}
 
 	BodyInput.Input = input
