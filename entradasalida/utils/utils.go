@@ -207,10 +207,8 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 		Interfaz.IO_STDOUT_WRITE(GLOBALdireccionFisica, GLOBALlengthREG)
 		log.Printf("Termino de escribir en la interfaz '%s'\n", Interfaz.Nombre)
 
-
 	case "DialFS":
 		Interfaz.FILE_SYSTEM(pidExecutionProcess)
-
 
 	default:
 		log.Fatalf("Tipo de interfaz desconocido: %s", Interfaz.Config.Tipo)
@@ -392,7 +390,6 @@ func (Interfaz *InterfazIO) IO_STDIN_READ(lengthREG int) {
 
 	reader := bufio.NewReader(os.Stdin)
 
-
 	fmt.Print("Ingrese por teclado: ")
 	input, err := reader.ReadString('\n')
 	if err != nil {
@@ -460,11 +457,11 @@ func (interfaz *InterfazIO) FILE_SYSTEM(pid int) {
 		log.Printf("PID: %d - Eliminar Archivo: %s", pid, fileName)
 
 	case "IO_FS_WRITE":
-		IO_FS_WRITE(pathDialFS, fileName, fsRegDirec, fsRegTam, 8)
+		IO_FS_WRITE(pathDialFS, fileName, fsRegDirec, fsRegTam, fsRegPuntero)
 		log.Printf("PID: %d - Operacion: IO_FS_WRITE - Escribir Archivo: %s - Tamaño a Escribir: %d - Puntero Archivo: %d", pid, fileName, fsRegTam, fsRegPuntero)
 
 	case "IO_FS_TRUNCATE":
-		IO_FS_TRUNCATE(pathDialFS, fileName, 256)
+		IO_FS_TRUNCATE(pathDialFS, fileName, fsRegTam)
 		log.Printf("PID: %d - Operacion: IO_FS_TRUNCATE", pid)
 
 	case "IO_FS_READ":
