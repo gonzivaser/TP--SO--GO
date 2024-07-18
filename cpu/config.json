@@ -3,6 +3,6 @@
     "ip_memory": "127.0.0.1",
     "port_memory": 8085,
     "port_kernel": 8080,
-    "number_felling_tlb": 4,
+    "number_felling_tlb": 0,
     "algorithm_tlb": "FIFO"
 }

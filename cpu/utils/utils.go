@@ -110,6 +110,7 @@ type MemoryReadRequest struct {
 	Address []int  `json:"address"`
 	Size    int    `json:"size,omitempty"` //Si es 0, se omite (Util para creacion y terminacion de procesos)
 	Data    []byte `json:"data,omitempty"` //Si es 0, se omite Util para creacion y terminacion de procesos)
+	Type    string `json:"type"`
 }
 
 /*------------------------------------------------- VAR GLOBALES --------------------------------------------------------*/
@@ -549,8 +550,6 @@ func MOV_IN(words []string, contextoEjecucion *PCB) error {
 	REGdireccion := words[2]
 	valueDireccion := verificarRegistro(REGdireccion, contextoEjecucion)
 
-	direcciones := TranslateAddress(contextoEjecucion.Pid, valueDireccion, GLOBALpageTam, valueDireccion)
-
 	REGdatos := words[1]
 
 	// Verificar el tipo de dato del registro en RegisterCPU
@@ -564,30 +563,24 @@ func MOV_IN(words []string, contextoEjecucion *PCB) error {
 		return fmt.Errorf("registro no soportado: %s", REGdatos)
 	}
 
+	direcciones := TranslateAddress(contextoEjecucion.Pid, valueDireccion, GLOBALpageTam, tamREGdatos)
+
 	err1 := LeerMemoria(contextoEjecucion.Pid, direcciones, tamREGdatos)
 	if err1 != nil {
 		return fmt.Errorf("error leyendo memoria: %s", err1)
 	}
-	log.Printf("PID: %d - Acción: LEER - Dirección Física: %d - Valor: %s", contextoEjecucion.Pid, direcciones[0], GLOBALdataMOV_IN)
-	buf := bytes.NewReader(GLOBALdataMOV_IN)
+	log.Printf("PID: %d - Acción: LEER - Dirección Física: %v - Valor: %s", contextoEjecucion.Pid, direcciones, GLOBALdataMOV_IN)
+	//buf := bytes.NewReader(GLOBALdataMOV_IN)
 	if tamREGdatos == 1 {
-		var result uint8
-		err2 := binary.Read(buf, binary.BigEndian, &result)
-		if err2 != nil {
-			return fmt.Errorf("error en conversion de byte a entero: %s", err2)
-		}
-
-		err3 := SetCampo(&contextoEjecucion.CpuReg, REGdatos, uint32(result))
+		result := stringToUint8(string(GLOBALdataMOV_IN))
+		log.Printf("result ESSSS:%d", result)
+		err3 := SetCampo(&contextoEjecucion.CpuReg, REGdatos, result)
 		if err3 != nil {
 			return fmt.Errorf("error en execute: %s", err3)
 		}
 	} else {
-		var result uint32
-		err2 := binary.Read(buf, binary.BigEndian, &result)
-		if err2 != nil {
-			return fmt.Errorf("error en conversion de byte a entero: %s", err2)
-		}
-
+		result := stringToInteger(string(GLOBALdataMOV_IN))
+		log.Printf("result ESSSS:%d", result)
 		err3 := SetCampo(&contextoEjecucion.CpuReg, REGdatos, result)
 		if err3 != nil {
 			return fmt.Errorf("error en execute: %s", err3)
@@ -599,21 +592,53 @@ func MOV_IN(words []string, contextoEjecucion *PCB) error {
 	return nil
 }
 
+func stringToInteger(s string) uint32 {
+	var result uint32 = 0
+	for i, char := range s {
+		// Convertimos cada carácter a su valor ASCII y lo desplazamos
+		result |= uint32(char) << (8 * (3 - i))
+		if i == 3 {
+			break // Solo usamos los primeros 4 caracteres
+		}
+	}
+	return result
+}
+
+func stringToUint8(s string) uint8 {
+	if len(s) == 0 {
+		return 0
+	}
+	// Tomamos solo el primer carácter del string
+	return uint8(s[0])
+}
+func uint32ToString(num uint32) string {
+	bytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(bytes, num)
+	return string(bytes)
+}
+
 func MOV_OUT(words []string, contextoEjecucion *PCB) error {
 	REGdireccion := words[1]
 	valueDireccion := verificarRegistro(REGdireccion, contextoEjecucion)
-	direcciones := TranslateAddress(contextoEjecucion.Pid, valueDireccion, GLOBALpageTam, len(string(valueDireccion)))
 
 	REGdatos := words[2]
 	valueDatos := verificarRegistro(REGdatos, contextoEjecucion)
 
-	valueDatosBytes := []byte(strconv.Itoa(valueDatos)) // Convert int to []byte
-
+	var valueDatosBytes []byte
+	switch REGdatos {
+	case "PC", "EAX", "EBX", "ECX", "EDX", "SI", "DI":
+		valueDatosBytes = []byte(uint32ToString(uint32(valueDatos)))
+	case "AX", "BX", "CX", "DX":
+		valueDatosBytes = []byte{uint8(valueDatos)}
+	default:
+		return fmt.Errorf("registro no soportado: %s", REGdatos)
+	}
+	direcciones := TranslateAddress(contextoEjecucion.Pid, valueDireccion, GLOBALpageTam, len(valueDatosBytes))
 	err := EscribirMemoria(contextoEjecucion.Pid, direcciones, valueDatosBytes)
 	if err != nil {
 		return err
 	}
-	log.Printf("PID: %d - Acción: ESCRIBIR - Dirección Física: %d - Valor: %d", contextoEjecucion.Pid, direcciones[0], valueDatos)
+	log.Printf("PID: %d - Acción: ESCRIBIR - Dirección Física: %v - Valor: %d", contextoEjecucion.Pid, direcciones, valueDatos)
 	return nil
 }
 
@@ -630,14 +655,14 @@ func COPY_STRING(words []string, contextoEjecucion *PCB) error {
 	if err1 != nil {
 		return err1
 	}
-	log.Printf("PID: %d - Acción: LEER - Dirección Física: %d - Valor: %s", contextoEjecucion.Pid, direccionesSI[0], GLOBALdataMOV_IN)
+	log.Printf("PID: %d - Acción: LEER - Dirección Física: %v - Valor: %s", contextoEjecucion.Pid, direccionesSI, GLOBALdataMOV_IN)
 	valorDI := verificarRegistro("DI", contextoEjecucion)
 	direccionesDI := TranslateAddress(contextoEjecucion.Pid, valorDI, GLOBALpageTam, tam)
 	err2 := EscribirMemoria(contextoEjecucion.Pid, direccionesDI, GLOBALdataMOV_IN)
 	if err2 != nil {
 		return err2
 	}
-	log.Printf("PID: %d - Acción: ESCRIBIR - Dirección Física: %d - Valor: %d", contextoEjecucion.Pid, direccionesDI[0], GLOBALdataMOV_IN)
+	log.Printf("PID: %d - Acción: ESCRIBIR - Dirección Física: %v - Valor: %d", contextoEjecucion.Pid, direccionesDI, GLOBALdataMOV_IN)
 	//fmt.Println(GLOBALdataMOV_IN)
 	return nil
 }
@@ -648,7 +673,9 @@ func LeerMemoria(pid int, direccion []int, size int) error {
 		PID:     pid,
 		Address: direccion,
 		Size:    size,
+		Type:    "CPU",
 	}
+
 	reqJSON, err := json.Marshal(req)
 	if err != nil {
 		return err

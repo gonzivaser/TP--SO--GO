@@ -53,7 +53,7 @@ var pageSize int
 var memorySize int
 
 // Mapa de memoria ocupada/libre
-var memoryMap []bool // True si la direccion de memoria esta ocupada, False si esta libre
+var memoryMap []bool // True si el FRAME esta ocupado, False si esta libre
 
 // Espacio de memoria
 var memory []byte
@@ -78,7 +78,7 @@ type MemoryRequest struct {
 	Address []int  `json:"address"`
 	Size    int    `json:"size,omitempty"` //Si es 0, se omite (Util para creacion y terminacion de procesos)
 	Data    []byte `json:"data,omitempty"` //Si es 0, se omite Util para creacion y terminacion de procesos)
-	Type    string `json:"type,omitetype"` //Si es 0, se omite Util para creacion y terminacion de procesos)
+	Type    string `json:"type"`           //Si es 0, se omite Util para creacion y terminacion de procesos)
 }
 
 type BodyFrame struct {
@@ -410,7 +410,7 @@ func ReadMemoryHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-func ReadMemory(pid int, addresses []int, size int) ([]byte, error) {
+/*func ReadMemory(pid int, addresses []int, size int) ([]byte, error) {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -443,6 +443,24 @@ func ReadMemory(pid int, addresses []int, size int) ([]byte, error) {
 	}
 
 	return result[:size], nil
+}*/
+
+func ReadMemory(pid int, addresses []int, size int) ([]byte, error) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if _, exists := pageTable[pid]; !exists {
+		return nil, fmt.Errorf("Process with PID %d not found", pid)
+	}
+
+	var result []byte
+	for _, address := range addresses {
+		if address < 0 || address >= len(memory) {
+			return nil, fmt.Errorf("memory access out of bounds at address %d", address)
+		}
+		result = append(result, memory[address])
+	}
+	return result, nil
 }
 
 func min(a, b int) int {
@@ -544,10 +562,18 @@ func WriteMemory(pid int, addresses []int, data []byte) error {
 		return fmt.Errorf("Process with PID %d not found", pid)
 	}
 	i := 0
-	for _, address := range addresses {
-		memory[address] = data[i]
-		i++
+	if len(data) >= len(addresses) {
+		for _, address := range addresses {
+			memory[address] = data[i]
+			i++
+		}
+	} else {
+		for _, dato := range data {
+			memory[addresses[i]] = dato
+			i++
+		}
 	}
+	fmt.Println(memory)
 	return nil
 }
 
@@ -581,7 +607,6 @@ func RecieveInputFromIO(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//16*i + 16*(i+1)
-	fmt.Println(memory)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Input recibido correctamente"))
