@@ -199,7 +199,7 @@ func InstructionCycle(contextoDeEjecucion PCB) {
 		Execute(instruction, line, &contextoDeEjecucion)
 		log.Printf("PID: %d - Ejecutando: %s - %s”.", contextoDeEjecucion.Pid, instruction, line)
 
-		time.Sleep(1 * time.Second)
+		//time.Sleep(1 * time.Second)
 
 		// responseInterrupt.Interrupt ---> ese de clock y finalizacion
 		// interrupt ---> ese de io y wait
@@ -412,111 +412,86 @@ func SetCampo(r *RegisterCPU, campo string, valor interface{}) error {
 }
 
 func Suma(registerCPU *RegisterCPU, s1, s2 string) error {
-	// Suma al Registro Destino el Registro Origen y deja el resultado en el Registro Destino.
-	// Los registros pueden ser AX, BX, CX, DX.
-	// Los registros son de 8 bits, por lo que el resultado de la suma debe ser truncado a 8 bits.
-	// Si el resultado de la suma es mayor a 255, el registro destino debe quedar en 255.
-	// Si el resultado de la suma es menor a 0, el registro destino debe quedar en 0.
-
-	// Obtener el valor reflect.Value de la estructura Persona
 	valorRef := reflect.ValueOf(registerCPU)
 
-	// Obtener el valor reflect.Value del campo destino
 	campoDestinoRef := valorRef.Elem().FieldByName(s1)
 
-	// Verificar si el campo destino existe
 	if !campoDestinoRef.IsValid() {
 		return fmt.Errorf("campo destino '%s' no encontrado en la estructura", s1)
 	}
 
-	// Obtener el tipo de dato del campo destino
 	tipoCampoDestino := campoDestinoRef.Type()
 
-	// Obtener el valor reflect.Value del campo origen
 	campoOrigenRef := valorRef.Elem().FieldByName(s2)
 
-	// Verificar si el campo origen existe
 	if !campoOrigenRef.IsValid() {
 		return fmt.Errorf("campo origen '%s' no encontrado en la estructura", s2)
 	}
 
-	// Obtener el tipo de dato del campo origen
 	tipoCampoOrigen := campoOrigenRef.Type()
-
-	// Verificar que ambos campos sean del mismo tipo
 	if tipoCampoDestino != tipoCampoOrigen {
 		return fmt.Errorf("los campos '%s' y '%s' no son del mismo tipo", s1, s2)
 	}
 
-	// Realizar la suma entre los valores de los campos
 	switch tipoCampoDestino.Kind() {
 	case reflect.Uint8:
 		valorDestino := campoDestinoRef.Uint()
 		valorOrigen := campoOrigenRef.Uint()
 		suma := valorDestino + valorOrigen
-
-		// Truncar el resultado a 8 bits
 		if suma > 255 {
 			suma = 255
 		}
-
-		// Asignar el resultado de la suma al campo destino
+		campoDestinoRef.SetUint(suma)
+	case reflect.Uint32:
+		valorDestino := campoDestinoRef.Uint()
+		valorOrigen := campoOrigenRef.Uint()
+		suma := valorDestino + valorOrigen
+		if suma > 4294967295 { // Máximo valor para uint32
+			suma = 4294967295
+		}
 		campoDestinoRef.SetUint(suma)
 	}
 	return nil
 }
 
 func Resta(registerCPU *RegisterCPU, s1, s2 string) error {
-	// Suma al Registro Destino el Registro Origen y deja el resultado en el Registro Destino.
-	// Los registros pueden ser AX, BX, CX, DX.
-	// Los registros son de 8 bits, por lo que el resultado de la suma debe ser truncado a 8 bits.
-	// Si el resultado de la suma es mayor a 255, el registro destino debe quedar en 255.
-	// Si el resultado de la suma es menor a 0, el registro destino debe quedar en 0.
-
-	// Obtener el valor reflect.Value de la estructura Persona
 	valorRef := reflect.ValueOf(registerCPU)
 
-	// Obtener el valor reflect.Value del campo destino
 	campoDestinoRef := valorRef.Elem().FieldByName(s1)
-
-	// Verificar si el campo destino existe
 	if !campoDestinoRef.IsValid() {
 		return fmt.Errorf("campo destino '%s' no encontrado en la estructura", s1)
 	}
 
-	// Obtener el tipo de dato del campo destino
 	tipoCampoDestino := campoDestinoRef.Type()
 
-	// Obtener el valor reflect.Value del campo origen
 	campoOrigenRef := valorRef.Elem().FieldByName(s2)
-
-	// Verificar si el campo origen existe
 	if !campoOrigenRef.IsValid() {
 		return fmt.Errorf("campo origen '%s' no encontrado en la estructura", s2)
 	}
 
-	// Obtener el tipo de dato del campo origen
 	tipoCampoOrigen := campoOrigenRef.Type()
-
-	// Verificar que ambos campos sean del mismo tipo
 	if tipoCampoDestino != tipoCampoOrigen {
 		return fmt.Errorf("los campos '%s' y '%s' no son del mismo tipo", s1, s2)
 	}
 
-	// Realizar la suma entre los valores de los campos
 	switch tipoCampoDestino.Kind() {
 	case reflect.Uint8:
 		valorDestino := campoDestinoRef.Uint()
 		valorOrigen := campoOrigenRef.Uint()
 		resta := valorDestino - valorOrigen
-
-		// Truncar el resultado a 8 bits
 		if resta <= 0 {
 			resta = 0
 		}
-
-		// Asignar el resultado de la resta al campo destino
 		campoDestinoRef.SetUint(resta)
+	case reflect.Uint32:
+		valorDestino := campoDestinoRef.Uint()
+		valorOrigen := campoOrigenRef.Uint()
+		if valorDestino < valorOrigen {
+			campoDestinoRef.SetUint(0)
+		} else {
+			resta := valorDestino - valorOrigen
+			campoDestinoRef.SetUint(resta)
+		}
 	}
 	return nil
 }
@@ -662,7 +637,7 @@ func COPY_STRING(words []string, contextoEjecucion *PCB) error {
 	if err2 != nil {
 		return err2
 	}
-	log.Printf("PID: %d - Acción: ESCRIBIR - Dirección Física: %v - Valor: %d", contextoEjecucion.Pid, direccionesDI, GLOBALdataMOV_IN)
+	log.Printf("PID: %d - Acción: ESCRIBIR - Dirección Física: %v - Valor: %s", contextoEjecucion.Pid, direccionesDI, GLOBALdataMOV_IN)
 	//fmt.Println(GLOBALdataMOV_IN)
 	return nil
 }
@@ -1051,14 +1026,14 @@ func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 
 		frame, found := CheckTLB(pid, pageNumber)
 		if !found {
-			log.Printf("PID: %d - TLB MISS - Página: %d", pid, pageNumber)
+			//log.Printf("PID: %d - TLB MISS - Página: %d", pid, pageNumber)
 			err := FetchFrameFromMemory(pid, pageNumber)
 			if err != nil {
 				fmt.Println("Error al obtener el marco desde la memoria")
 				return nil // O manejar el error de manera adecuada
 			}
 			frame = MemoryFrame
-			log.Printf("PID: %d - OBTENER MARCO - Página: %d - Marco: %d", pid, pageNumber, frame)
+			//log.Printf("PID: %d - OBTENER MARCO - Página: %d - Marco: %d", pid, pageNumber, frame)
 			if globals.ClientConfig.NumberFellingTLB > 0 {
 				ReplaceTLBEntry(pid, pageNumber, MemoryFrame)
 			}
@@ -1113,7 +1088,7 @@ func FetchFrameFromMemory(pid, pageNumber int) error {
 		log.Fatalf("Error al serializar el Input: %v", err)
 	}
 
-	log.Println("Enviando solicitud con contenido:", pageTableJSON)
+	//log.Println("Enviando solicitud con contenido:", pageTableJSON)
 
 	resp, err := http.Post(memoryURL, "application/json", bytes.NewBuffer(pageTableJSON))
 	if err != nil {
@@ -1150,7 +1125,7 @@ func sendResizeMemory(tam int) {
 		log.Fatalf("Error al serializar el Input: %v", err)
 	}
 
-	log.Println("Enviando solicitud con contenido:", bodyResizeJSON)
+	//log.Println("Enviando solicitud con contenido:", bodyResizeJSON)
 	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(bodyResizeJSON))
 	if err != nil {
 		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
