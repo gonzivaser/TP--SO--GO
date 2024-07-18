@@ -853,6 +853,7 @@ func SendREGtoIO(REGdireccion []int, lengthREG int, port int, pid int) error {
 	BodyRegister.LengthREG = lengthREG
 	BodyRegister.IOpid = pid
 
+
 	savedRegJSON, err := json.Marshal(BodyRegister)
 	if err != nil {
 		return fmt.Errorf("error al serializar los datos JSON: %v", err)

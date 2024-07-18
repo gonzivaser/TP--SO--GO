@@ -113,6 +113,14 @@ type MemoryReadRequest struct {
 	Type    string `json:"type"`
 }
 
+type FSstructure struct {
+	FileName      string `json:"filename"`
+	FSInstruction string `json:"fsinstruction"`
+	FSRegTam      int    `json:"fsregtam"`
+	FSRegDirec    []int  `json:"fsregdirec"`
+	FSRegPuntero  int    `json:"fsregpuntero"`
+}
+
 /*------------------------------------------------- VAR GLOBALES --------------------------------------------------------*/
 
 var globalTLB []TLBEntry
@@ -303,6 +311,7 @@ func Execute(instruction string, line []string, contextoDeEjecucion *PCB) error 
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "IO_STDIN_READ":
+		log.Printf("Instruccion IO_STDIN_READ:   %v", instruction)
 		err := IO(instruction, words, contextoDeEjecucion)
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
@@ -343,8 +352,34 @@ func Execute(instruction string, line []string, contextoDeEjecucion *PCB) error 
 		err := CheckSignal(nil, nil, contextoDeEjecucion.Pid, instruction, words[1])
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
-
 		}
+	case "IO_FS_CREATE":
+
+		err := IO(instruction, words, contextoDeEjecucion)
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	case "IO_FS_DELETE":
+		err := IO(instruction, words, contextoDeEjecucion)
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	case "IO_FS_TRUNCATE":
+		err := IO(instruction, words, contextoDeEjecucion)
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	case "IO_FS_WRITE":
+		err := IO(instruction, words, contextoDeEjecucion)
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	case "IO_FS_READ":
+		err := IO(instruction, words, contextoDeEjecucion)
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+
 	case "EXIT":
 		err := TerminarProceso(&contextoDeEjecucion.CpuReg, "FINALIZADO")
 		if err != nil {
@@ -758,17 +793,86 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 			TimeIO:         0,
 		}
 	case "IO_FS_CREATE":
-		fmt.Println("IO_FS_CREATE")
+		fileName := words[2]
+		GLOBALrequestCPU = KernelRequest{
+			PcbUpdated:     *contextoEjecucion,
+			MotivoDesalojo: "INTERRUPCION POR IO",
+			IoType:         "DialFS",
+			Interface:      words[1],
+			TimeIO:         0,
+		}
+
+		sendFSDataToKernel(fileName, kind, 0, []int{0}, 0)
+		fmt.Printf("IO_FS_CREATE")
 	case "IO_FS_DELETE":
-		fmt.Println("IO_FS_DELETE")
-	case "IO_FS_SEEK":
-		fmt.Println("IO_FS_SEEK")
+		fileName := words[2]
+		GLOBALrequestCPU = KernelRequest{
+			PcbUpdated:     *contextoEjecucion,
+			MotivoDesalojo: "INTERRUPCION POR IO",
+			IoType:         "DialFS",
+			Interface:      words[1],
+			TimeIO:         0,
+		}
+		sendFSDataToKernel(fileName, kind, 0, []int{0}, 0)
+		fmt.Printf("IO_FS_DELETE")
 	case "IO_FS_TRUNCATE":
-		fmt.Println("IO_FS_TRUNCATE")
+		fileName := words[2]
+		regTamano := words[3]
+		valueLength := verificarRegistro(regTamano, contextoEjecucion)
+		GLOBALrequestCPU = KernelRequest{
+			PcbUpdated:     *contextoEjecucion,
+			MotivoDesalojo: "INTERRUPCION POR IO",
+			IoType:         "DialFS",
+			Interface:      words[1],
+			TimeIO:         0,
+		}
+		sendFSDataToKernel(fileName, kind, valueLength, []int{0}, 0)
+		fmt.Printf("IO_FS_TRUNCATE")
 	case "IO_FS_WRITE":
-		fmt.Println("IO_FS_WRITE")
+		fileName := words[2]
+
+		regDirec := words[3]
+		valueAdress := verificarRegistro(regDirec, contextoEjecucion)
+
+		regTamano := words[4]
+		valueLength := verificarRegistro(regTamano, contextoEjecucion)
+
+		regPuntero := words[5]
+		valuePuntero := verificarRegistro(regPuntero, contextoEjecucion)
+
+		direcFisica := TranslateAddress(contextoEjecucion.Pid, valueAdress, GLOBALpageTam, valueLength)
+
+		GLOBALrequestCPU = KernelRequest{
+			PcbUpdated:     *contextoEjecucion,
+			MotivoDesalojo: "INTERRUPCION POR IO",
+			IoType:         "DialFS",
+			Interface:      words[1],
+			TimeIO:         0,
+		}
+		sendFSDataToKernel(fileName, kind, valueLength, direcFisica, valuePuntero)
+		fmt.Printf("IO_FS_WRITE")
 	case "IO_FS_READ":
-		fmt.Println("IO_FS_READ")
+		fileName := words[2]
+
+		regDirec := words[3]
+		valueAdress := verificarRegistro(regDirec, contextoEjecucion)
+
+		regTamano := words[4]
+		valueLength := verificarRegistro(regTamano, contextoEjecucion)
+
+		regPuntero := words[5]
+		valuePuntero := verificarRegistro(regPuntero, contextoEjecucion)
+
+		direcFisica := TranslateAddress(contextoEjecucion.Pid, valueAdress, GLOBALpageTam, valueLength)
+		GLOBALrequestCPU = KernelRequest{
+			PcbUpdated:     *contextoEjecucion,
+			MotivoDesalojo: "INTERRUPCION POR IO",
+			IoType:         "DialFS",
+			Interface:      words[1],
+			TimeIO:         0,
+		}
+		sendFSDataToKernel(fileName, kind, valueLength, direcFisica, valuePuntero)
+		fmt.Printf("IO_FS_READ")
 	default:
 		return fmt.Errorf("tipo de instrucción no soportado")
 	}
@@ -994,10 +1098,12 @@ func TranslateHandler(w http.ResponseWriter, r *http.Request) {
 				return nil // O manejar el error de manera adecuada
 			}
 			frame = MemoryFrame
+
 			log.Printf("PID: %d - OBTENER MARCO - Página: %d - Marco: %d", pid, pageNumber, frame)
 			if globals.ClientConfig.NumberFellingTLB > 0 {
 				ReplaceTLBEntry(pid, pageNumber, MemoryFrame)
 			}
+
 		} else {
 			log.Printf("PID: %d - TLB HIT - Pagina: %d", pid, pageNumber)
 		}
@@ -1006,9 +1112,11 @@ func TranslateHandler(w http.ResponseWriter, r *http.Request) {
 		DireccionesFisicas = append(DireccionesFisicas, physicalAddress)
 
 		// Actualizar la dirección lógica para la siguiente página
+
 		if TamData > tamRestantePag {
 			DireccionLogica += tamRestantePag
 		}
+
 	}
 	paginas := make([]int, len(globalTLB))
 	for i, entry := range globalTLB {
@@ -1146,6 +1254,28 @@ func sendREGtoKernel(adress []int, length int) {
 	}
 
 	resp, err := http.Post(kernelURL, "application/json", bytes.NewBuffer(BodyRegistersJSON))
+	if err != nil {
+		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
+	}
+	defer resp.Body.Close()
+}
+
+func sendFSDataToKernel(fileName string, instructionFS string, regTamano int, regDireccion []int, regPuntero int) {
+	fsStructure := FSstructure{
+		FileName:      fileName,
+		FSInstruction: instructionFS,
+		FSRegTam:      regTamano,
+		FSRegDirec:    regDireccion,
+		FSRegPuntero:  regPuntero,
+	}
+	kernelURL := fmt.Sprintf("http://localhost:%d/recieveFSDATA", globals.ClientConfig.PortKernel)
+
+	fsStructureJSON, err := json.Marshal(fsStructure)
+	if err != nil {
+		log.Fatalf("Error al serializar el Input: %v", err)
+	}
+
+	resp, err := http.Post(kernelURL, "application/json", bytes.NewBuffer(fsStructureJSON))
 	if err != nil {
 		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
 	}

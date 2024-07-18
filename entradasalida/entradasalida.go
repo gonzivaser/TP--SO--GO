@@ -24,8 +24,10 @@ func main() {
 	}
 	utils.SendPortOfInterfaceToKernel(interfaceName, config)
 	Puerto := config.Puerto
+
 	//http.HandleFunc("GET /input", utils.Prueba)
 	http.HandleFunc("POST /recieveREG", utils.RecieveREG)
+	http.HandleFunc("POST /recieveFSDATA", utils.RecieveFSDataFromKernel)
 	http.HandleFunc("/interfaz", utils.Iniciar)
 	http.HandleFunc("/receiveContentFromMemory", utils.ReceiveContentFromMemory)
 

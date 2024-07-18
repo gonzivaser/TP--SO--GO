@@ -78,7 +78,9 @@ type MemoryRequest struct {
 	Address []int  `json:"address"`
 	Size    int    `json:"size,omitempty"` //Si es 0, se omite (Util para creacion y terminacion de procesos)
 	Data    []byte `json:"data,omitempty"` //Si es 0, se omite Util para creacion y terminacion de procesos)
+
 	Type    string `json:"type"`           //Si es 0, se omite Util para creacion y terminacion de procesos)
+
 }
 
 type BodyFrame struct {
@@ -354,10 +356,12 @@ func ResizeProcess(pid int, newSize int) error {
 	if newSize > currentSize { //Comparo el tamaño actual con el nuevo tamaño
 		freespace := counterMemoryFree()
 		if freespace < (newSize/pageSize)-currentSize { //Verifico si hay suficiente espacio en memoria despues de la ampliacion
+
 			log.Printf("Out of Memory")
 			FinalizarProceso(pid)
 			var err1 error
 			return err1
+
 		}
 		for i := currentSize; i < newSize/pageSize; i++ { //Asigno nuevos marcos a la ampliacion
 			indiceLibre := proximoLugarLibre()
@@ -416,149 +420,7 @@ func ReadMemoryHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-/*func ReadMemory(pid int, addresses []int, size int) ([]byte, error) {
-	mu.Lock()
-	defer mu.Unlock()
 
-	if _, exists := pageTable[pid]; !exists {
-		return nil, fmt.Errorf("Process with PID %d not found", pid)
-	}
-
-	var result []byte
-	remainingSize := size
-
-	for _, address := range addresses {
-		if address < 0 || address >= len(memory) {
-			return nil, fmt.Errorf("memory access out of bounds at address %d", address)
-		}
-
-		// Calculate how much we can read from this address
-		readSize := min(remainingSize, pageSize-(address%pageSize))
-
-		// Read the data
-		result = append(result, memory[address:address+readSize]...)
-
-		remainingSize -= readSize
-		if remainingSize <= 0 {
-			break
-		}
-	}
-
-	if len(result) < size {
-		return nil, fmt.Errorf("unable to read %d bytes, only %d bytes available", size, len(result))
-	}
-
-	return result[:size], nil
-}*/
-
-func ReadMemory(pid int, addresses []int, size int) ([]byte, error) {
-	mu.Lock()
-	defer mu.Unlock()
-
-	if _, exists := pageTable[pid]; !exists {
-		return nil, fmt.Errorf("Process with PID %d not found", pid)
-	}
-
-	var result []byte
-	for _, address := range addresses {
-		if address < 0 || address >= len(memory) {
-			return nil, fmt.Errorf("memory access out of bounds at address %d", address)
-		}
-		result = append(result, memory[address])
-	}
-	return result, nil
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-// address : address+size
-func sendDataToCPU(content []byte) error {
-	CPUurl := fmt.Sprintf("http://localhost:%d/receiveDataFromMemory", globals.ClientConfig.PuertoCPU)
-	ContentResponseTest, err := json.Marshal(content)
-	if err != nil {
-		log.Fatalf("Error al serializar el Input: %v", err)
-	}
-
-	log.Println("Enviando solicitud con contenido:", ContentResponseTest)
-
-	resp, err := http.Post(CPUurl, "application/json", bytes.NewBuffer(ContentResponseTest))
-	if err != nil {
-		log.Fatalf("Error al enviar la solicitud al módulo de memoria: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		log.Fatalf("Error en la respuesta del módulo de memoria: %v", resp.StatusCode)
-	}
-
-	return nil
-}
-
-func WriteMemoryHandler(w http.ResponseWriter, r *http.Request) {
-	var memReq MemoryRequest
-	time.Sleep(time.Duration(globals.ClientConfig.DelayResponse) * time.Millisecond)
-	if err := json.NewDecoder(r.Body).Decode(&memReq); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if err := WriteMemory(memReq.PID, memReq.Address, memReq.Data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-}
-
-/*func WriteMemory(pid int, addresses []int, data []byte) error {
-	mu.Lock()
-	defer mu.Unlock()
-
-	pages, exists := pageTable[pid]
-	if !exists {
-		return fmt.Errorf("Process with PID %d not found", pid)
-	}
-
-	dataIndex := 0
-	for _, address := range addresses {
-		// Verificar que la dirección pertenece al proceso
-		pageIndex := address / pageSize
-		if pageIndex >= len(pages) {
-			return fmt.Errorf("address %d does not belong to process %d", address, pid)
-		}
-
-		frame := pages[pageIndex]
-		offsetInFrame := address % pageSize
-
-		// Calcular cuánto podemos escribir en este frame
-		bytesToWrite := min(len(data)-dataIndex, pageSize-offsetInFrame)
-
-		// Verificar que no excedemos el límite de la memoria
-		if frame*pageSize+offsetInFrame+bytesToWrite > len(memory) {
-			return fmt.Errorf("memory access out of bounds")
-		}
-
-		// Escribir los datos
-		copy(memory[frame*pageSize+offsetInFrame:], data[dataIndex:dataIndex+bytesToWrite])
-
-		dataIndex += bytesToWrite
-
-		if dataIndex >= len(data) {
-			break
-		}
-	}
-
-	if dataIndex < len(data) {
-		return fmt.Errorf("not all data could be written. Only %d out of %d bytes written", dataIndex, len(data))
-	}
-	fmt.Println(memory)
-	return nil
-}*/
 
 func WriteMemory(pid int, addresses []int, data []byte) error {
 	mu.Lock()
@@ -580,6 +442,7 @@ func WriteMemory(pid int, addresses []int, data []byte) error {
 		}
 	}
 	fmt.Println(memory)
+
 	return nil
 }
 
