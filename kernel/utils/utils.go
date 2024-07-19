@@ -632,23 +632,33 @@ func startQuantum(quantum int, proceso *PCB) {
 	log.Printf("PID %d - Quantum iniciado %d", proceso.Pid, quantum)
 
 	done = make(chan struct{})
-	ticker := time.NewTicker(time.Millisecond)
-	defer ticker.Stop()
+	timer := time.NewTimer(time.Duration(quantum) * time.Millisecond)
+	start := time.Now()
+
 	for {
 		select {
-		case <-ticker.C:
-			quantum -= 10
-			procesoEXEC.PCB.Quantum = quantum
-			if quantum == 0 {
-				if err := SendInterrupt(proceso.Pid, "CLOCK"); err != nil {
-					log.Printf("Error sending interrupt to CPU: %v", err)
-				}
-
-				return
+		case <-timer.C:
+			elapsed := time.Since(start)
+			log.Printf("PID %d - Quantum terminado. Tiempo real transcurrido: %v", proceso.Pid, elapsed)
+			if err := SendInterrupt(proceso.Pid, "CLOCK"); err != nil {
+				log.Printf("Error sending interrupt to CPU: %v", err)
 			}
-		case <-done:
-			log.Printf("PID %d - Proceso desalojado antes de que el quantum termine. Quantum restante %d", proceso.Pid, quantum)
 			return
+		case <-done:
+			if !timer.Stop() {
+				<-timer.C
+			}
+			elapsed := time.Since(start)
+			remainingQuantum := quantum - int(elapsed.Milliseconds())
+			if remainingQuantum < 0 {
+				remainingQuantum = 0
+			}
+			log.Printf("PID %d - Proceso desalojado antes de que el quantum termine. Quantum restante %d", proceso.Pid, remainingQuantum)
+			procesoEXEC.PCB.Quantum = remainingQuantum
+			return
+		default:
+			// Evitar bloqueo del select
+			time.Sleep(time.Millisecond)
 		}
 	}
 }
@@ -898,7 +908,7 @@ func SendInterrupt(pid int, motivo string) error {
 		log.Printf("Error al serializar el valor de hayQuantum: %v", err)
 		return err
 	}
-
+	log.Printf("Mandando interrupción a la CPU")
 	resp, err := http.Post(cpuURL, "application/json", bytes.NewBuffer(hayQuantumBytes))
 	if err != nil {
 		log.Printf("Error al enviar la solicitud al módulo de cpu: %v", err)
