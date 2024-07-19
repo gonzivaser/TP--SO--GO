@@ -93,6 +93,7 @@ type BodyFrame struct {
 	Frame int `json:"frame"`
 }
 type bodyRegisters struct {
+	Pid       int   `json:"iopid"`
 	DirFisica []int `json:"dirFisica"`
 	LengthREG int   `json:"lengthREG"`
 }
@@ -766,7 +767,7 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 		valueLength1 := verificarRegistro(lengthREG, contextoEjecucion)
 
 		direcciones := TranslateAddress(contextoEjecucion.Pid, valueAdress1, GLOBALpageTam, valueLength1)
-		sendREGtoKernel(direcciones, valueLength1)
+		sendREGtoKernel(direcciones, valueLength1, contextoEjecucion.Pid)
 		GLOBALrequestCPU = KernelRequest{
 			PcbUpdated:     *contextoEjecucion,
 			MotivoDesalojo: "INTERRUPCION POR IO",
@@ -782,7 +783,7 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 		valueLength := verificarRegistro(lengthREG, contextoEjecucion)
 
 		direcciones := TranslateAddress(contextoEjecucion.Pid, valueAdress, GLOBALpageTam, valueLength)
-		sendREGtoKernel(direcciones, valueLength)
+		sendREGtoKernel(direcciones, valueLength, contextoEjecucion.Pid)
 		GLOBALrequestCPU = KernelRequest{
 			PcbUpdated:     *contextoEjecucion,
 			MotivoDesalojo: "INTERRUPCION POR IO",
@@ -1236,9 +1237,10 @@ func sendResizeMemory(tam int) {
 
 }
 
-func sendREGtoKernel(adress []int, length int) {
+func sendREGtoKernel(adress []int, length int, pid int) {
 	kernelURL := fmt.Sprintf("http://localhost:%d/recieveREG", globals.ClientConfig.PortKernel)
 	var BodyRegisters bodyRegisters
+	BodyRegisters.Pid = pid
 	BodyRegisters.DirFisica = adress
 	BodyRegisters.LengthREG = length
 

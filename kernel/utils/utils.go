@@ -126,9 +126,9 @@ type interfaz struct {
 }
 
 type BodyRegisters struct {
+	IOpid     int   `json:"iopid"`
 	DirFisica []int `json:"dirFisica"`
 	LengthREG int   `json:"lengthREG"`
-	IOpid     int   `json:"iopid"`
 }
 
 type Process struct {
@@ -137,6 +137,14 @@ type Process struct {
 }
 
 var interfaces []interfaz
+
+type ProcessData struct {
+	Pid             int
+	LengthREG       int
+	DireccionFisica []int
+}
+
+var processDataMap sync.Map
 
 /*---------------------------------------------------VAR GLOBALES------------------------------------------------*/
 
@@ -335,6 +343,14 @@ func init() {
 	} else {
 		log.Fatal("ClientConfig is not initialized")
 	}
+}
+
+func getProcessData(pid int) (ProcessData, bool) {
+	data, ok := processDataMap.Load(pid)
+	if !ok {
+		return ProcessData{}, false
+	}
+	return data.(ProcessData), true
 }
 
 func IniciarPlanificacionDeProcesos(request BodyRequest, pcb PCB) {
@@ -743,7 +759,13 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 	}
 	if interfazEncontrada != (interfaz{}) && interfazEncontrada.Type == "STDOUT" || interfazEncontrada.Type == "STDIN" {
 		log.Printf("entre alk primer if con la interfaz: %+v", interfazEncontrada.Type)
-		SendREGtoIO(DirFisica, LengthREG, interfazEncontrada.Port, pid) //envia los registros a IO
+		processData, ok := getProcessData(pid)
+		if !ok {
+			log.Printf("No se encontraron datos para el PID: %d", payload.Pid)
+			// Manejar el caso donde no hay datos para el PID
+		}
+
+		SendREGtoIO(processData.DireccionFisica, processData.LengthREG, interfazEncontrada.Port, pid) //envia los registros a IO
 		//envia el payload a IO
 		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
 
@@ -820,8 +842,12 @@ func RecieveREGFromCPU(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
 		return
 	}
-	DirFisica = bodyRegisters.DirFisica
-	LengthREG = bodyRegisters.LengthREG
+	processData := ProcessData{
+		Pid:             bodyRegisters.IOpid,
+		LengthREG:       bodyRegisters.LengthREG,
+		DireccionFisica: bodyRegisters.DirFisica,
+	}
+	processDataMap.Store(processData.Pid, processData)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("Registers received: %v", bodyRegisters)))
@@ -852,7 +878,6 @@ func SendREGtoIO(REGdireccion []int, lengthREG int, port int, pid int) error {
 	BodyRegister.DirFisica = REGdireccion
 	BodyRegister.LengthREG = lengthREG
 	BodyRegister.IOpid = pid
-
 
 	savedRegJSON, err := json.Marshal(BodyRegister)
 	if err != nil {

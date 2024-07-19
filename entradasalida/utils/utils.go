@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 
 	"path/filepath"
 
@@ -40,6 +41,15 @@ func IniciarConfiguracion(filePath string) *globals.Config {
 
 	return config
 }
+
+// datos unicos de cada proceso
+type ProcessData struct {
+	Pid             int
+	LengthREG       int
+	DireccionFisica []int
+}
+
+var processDataMap sync.Map
 
 /*---------------------------------------------------- STRUCTS ------------------------------------------------------*/
 type BodyRequestPort struct {
@@ -148,10 +158,7 @@ var fsRegPuntero int
 
 /*--------------------------------------------------- VAR GLOBALES ------------------------------------------------------*/
 
-var GLOBALlengthREG int
 var GLOBALmemoryContent string
-var GLOBALdireccionFisica []int
-var GLOBALpid int
 var config *globals.Config
 
 /*-------------------------------------------- INICIAR CONFIGURACION ------------------------------------------------------*/
@@ -187,6 +194,12 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 	interfaceName := os.Args[1]
 	log.Printf("Nombre de la interfaz: %s", interfaceName)
 
+	processData, ok := getProcessData(payload.Pid)
+	if !ok {
+		log.Printf("No se encontraron datos para el PID: %d", payload.Pid)
+		// Manejar el caso donde no hay datos para el PID
+	}
+
 	pathToConfig := os.Args[2]
 	log.Printf("Path al archivo de configuración: %s", pathToConfig)
 
@@ -210,12 +223,12 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 
 	case "STDIN":
 		log.Printf("PID: %d - Operacion: IO_STDIN_READ", pidExecutionProcess)
-		Interfaz.IO_STDIN_READ(GLOBALlengthREG)
+		Interfaz.IO_STDIN_READ(processData.DireccionFisica, processData.LengthREG, pidExecutionProcess)
 		log.Printf("Termino de leer desde la interfaz '%s'\n", Interfaz.Nombre)
 
 	case "STDOUT":
 		log.Printf("PID: %d - Operacion: IO_STDOUT_WRITE", pidExecutionProcess)
-		Interfaz.IO_STDOUT_WRITE(GLOBALdireccionFisica, GLOBALlengthREG)
+		Interfaz.IO_STDOUT_WRITE(processData.DireccionFisica, processData.LengthREG, pidExecutionProcess)
 		log.Printf("Termino de escribir en la interfaz '%s'\n", Interfaz.Nombre)
 
 	case "DialFS":
@@ -231,17 +244,18 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 func SendPortOfInterfaceToKernel(nombreInterfaz string, config *globals.Config) error {
 	kernelURL := fmt.Sprintf("http://localhost:%d/SendPortOfInterfaceToKernel", config.PuertoKernel)
 
-	port := BodyRequestPort{
+	interfaceData := BodyRequestPort{
 		Nombre: nombreInterfaz,
 		Port:   config.Puerto,
 		Type:   config.Tipo,
 	}
-	portJSON, err := json.Marshal(port)
+
+	interfaceDataJSON, err := json.Marshal(interfaceData)
 	if err != nil {
 		log.Fatalf("Error al codificar el puerto a JSON: %v", err)
 	}
 
-	resp, err := http.Post(kernelURL, "application/json", bytes.NewBuffer(portJSON))
+	resp, err := http.Post(kernelURL, "application/json", bytes.NewBuffer(interfaceDataJSON))
 	if err != nil {
 		return fmt.Errorf("error al enviar la solicitud al módulo kernel: %v", err)
 	}
@@ -263,8 +277,6 @@ func SendAdressToMemory(ReadRequest MemoryRequest) error {
 	if err != nil {
 		log.Fatalf("Error al serializar el address: %v", err)
 	}
-
-	log.Println("Enviando solicitud con contenido:", adressResponseTest)
 
 	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(adressResponseTest))
 	if err != nil {
@@ -289,8 +301,6 @@ func SendInputToMemory(input *BodyRequestInput) error {
 		log.Fatalf("Error al serializar el Input: %v", err)
 	}
 
-	log.Println("Enviando solicitud con contenido:", inputResponseTest)
-
 	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(inputResponseTest))
 	if err != nil {
 		log.Fatalf("Error al enviar la solicitud al módulo de memoria: %v", err)
@@ -313,12 +323,14 @@ func RecieveREG(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	GLOBALlengthREG = requestRegister.Length
-	GLOBALdireccionFisica = requestRegister.Address
-	GLOBALpid = requestRegister.Pid
+	processData := ProcessData{
+		Pid:             requestRegister.Pid,
+		LengthREG:       requestRegister.Length,
+		DireccionFisica: requestRegister.Address,
+	}
+	processDataMap.Store(requestRegister.Pid, processData)
 
-	log.Printf("Recieved Register:%v", GLOBALdireccionFisica)
-	log.Printf("Received data: %d", GLOBALlengthREG)
+	log.Printf("Received Register for PID %d: %v", requestRegister.Pid, processData)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("length received: %d", requestRegister.Length)))
@@ -359,16 +371,25 @@ func ReceiveContentFromMemory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	GLOBALmemoryContent = content.Content
-	log.Printf("Received data: %s", GLOBALmemoryContent)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Content received correctly"))
 }
 
+/*----------------------------------------- FUNCIONES AUXILIARES --------------------------------------------------*/
+
+func getProcessData(pid int) (ProcessData, bool) {
+	data, ok := processDataMap.Load(pid)
+	if !ok {
+		return ProcessData{}, false
+	}
+	return data.(ProcessData), true
+}
+
 /*---------------------------------------------- INTERFACES -------------------------------------------------------*/
 
 // INTERFAZ STDOUT (IO_STDOUT_WRITE)
-func (Interfaz *InterfazIO) IO_STDOUT_WRITE(address []int, length int) {
+func (Interfaz *InterfazIO) IO_STDOUT_WRITE(address []int, length int, pid int) {
 	pathToConfig := os.Args[2]
 	log.Printf("Path al archivo de configuración: %s", pathToConfig)
 
@@ -379,7 +400,7 @@ func (Interfaz *InterfazIO) IO_STDOUT_WRITE(address []int, length int) {
 
 	//var Bodyadress BodyAdress
 	req := MemoryRequest{
-		PID:     GLOBALpid,
+		PID:     pid,
 		Address: address,
 		Size:    length,
 		Type:    "IO",
@@ -396,7 +417,7 @@ func (Interfaz *InterfazIO) IO_STDOUT_WRITE(address []int, length int) {
 }
 
 // INTERFAZ STDIN (IO_STDIN_READ)
-func (Interfaz *InterfazIO) IO_STDIN_READ(lengthREG int) {
+func (Interfaz *InterfazIO) IO_STDIN_READ(address []int, lengthREG int, pid int) {
 	var BodyInput BodyRequestInput
 	var input string
 
@@ -430,8 +451,8 @@ func (Interfaz *InterfazIO) IO_STDIN_READ(lengthREG int) {
 	}
 
 	BodyInput.Input = input
-	BodyInput.Address = GLOBALdireccionFisica
-	BodyInput.Pid = GLOBALpid
+	BodyInput.Address = address
+	BodyInput.Pid = pid
 	log.Printf("EL PID ESSSS: %d", BodyInput.Pid)
 
 	// Guardar el texto en la memoria en la dirección especificada
