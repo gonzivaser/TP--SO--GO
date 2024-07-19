@@ -27,9 +27,8 @@ func main() {
 	http.HandleFunc("POST /resizeProcess", utils.ResizeProcessHandler)
 	http.HandleFunc("POST /readMemory", utils.ReadMemoryHandler)
 	http.HandleFunc("POST /writeMemory", utils.WriteMemoryHandler)
-	http.HandleFunc("POST /getFramefromCPU", utils.GetPageFromCPU)       //Recive la pagina desde "MMU" para devolver el frame
-	http.HandleFunc("POST /SendInputToMemory", utils.RecieveInputFromIO) // Escribir en memoria el input de un proceso
-	http.HandleFunc("POST /SendAdressToMemory", utils.RecieveAdressFromIO)
+	http.HandleFunc("POST /getFramefromCPU", utils.GetPageFromCPU)                               //Recive la pagina desde "MMU" para devolver el frame
+	http.HandleFunc("POST /SendInputToMemory", utils.RecieveInputFromIO)                         // Escribir en memoria el input de un proceso
 	http.HandleFunc("POST /SendPortOfInterfaceToMemory", utils.RecievePortOfInterfaceFromKernel) // Recive el puerto de la interfaz para despues saber a que interfaz mandar
 
 	http.ListenAndServe(":"+strconv.Itoa(puerto), nil)

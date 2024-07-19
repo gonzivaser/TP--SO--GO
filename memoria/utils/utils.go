@@ -78,7 +78,8 @@ type MemoryRequest struct {
 	Address []int  `json:"address"`
 	Size    int    `json:"size,omitempty"` //Si es 0, se omite (Util para creacion y terminacion de procesos)
 	Data    []byte `json:"data,omitempty"` //Si es 0, se omite Util para creacion y terminacion de procesos)
-	Type    string `json:"type"`           //Si es 0, se omite Util para creacion y terminacion de procesos)
+	Type    string `json:"type"`
+	Port    int    `json:"port,omitempty"`
 }
 
 type BodyFrame struct {
@@ -405,7 +406,7 @@ func ReadMemoryHandler(w http.ResponseWriter, r *http.Request) {
 	if memReq.Type == "CPU" {
 		sendDataToCPU(data)
 	} else if memReq.Type == "IO" {
-		SendContentToIO(string(data))
+		SendContentToIO(string(data), memReq.Port)
 	}
 	w.Write(data)
 }
@@ -613,7 +614,7 @@ func RecieveInputFromIO(w http.ResponseWriter, r *http.Request) {
 }
 
 // STDOUT, FSWRITE
-func RecieveAdressFromIO(w http.ResponseWriter, r *http.Request) {
+/*func RecieveAdressFromIO(w http.ResponseWriter, r *http.Request) {
 	var BodyRequestAdress BodyAdress
 	time.Sleep(time.Duration(globals.ClientConfig.DelayResponse) * time.Millisecond)
 	err := json.NewDecoder(r.Body).Decode(&BodyRequestAdress)
@@ -638,7 +639,7 @@ func RecieveAdressFromIO(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("address recibido correctamente"))
-}
+}*/
 
 func RecievePortOfInterfaceFromKernel(w http.ResponseWriter, r *http.Request) {
 	var requestPort BodyRequestPort
@@ -658,19 +659,10 @@ func RecievePortOfInterfaceFromKernel(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf("Port received: %d", requestPort.Port)))
 }
 
-func SendContentToIO(content string) error {
-	var interfazEncontrada interfaz // Asume que Interfaz es el tipo de tus interfaces
-	interfazEncontrada.Name = GLOBALnameIO
-
-	for _, interfaz := range interfacesGLOBAL {
-		if interfaz.Name == GLOBALnameIO {
-			interfazEncontrada = interfaz
-			break
-		}
-	}
+func SendContentToIO(content string, Puerto int) error {
 	var BodyContent BodyContent
 	BodyContent.Content = content
-	IOurl := fmt.Sprintf("http://localhost:%d/receiveContentFromMemory", interfazEncontrada.Port)
+	IOurl := fmt.Sprintf("http://localhost:%d/receiveContentFromMemory", Puerto)
 	ContentResponseTest, err := json.Marshal(BodyContent)
 	if err != nil {
 		log.Fatalf("Error al serializar el Input: %v", err)

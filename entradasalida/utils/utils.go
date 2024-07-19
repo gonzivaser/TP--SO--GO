@@ -89,6 +89,15 @@ type Payload struct {
 	Pid int
 }
 
+type MemoryRequest struct {
+	PID     int    `json:"pid"`
+	Address []int  `json:"address"`
+	Size    int    `json:"size,omitempty"` //Si es 0, se omite (Util para creacion y terminacion de procesos)
+	Data    []byte `json:"data,omitempty"` //Si es 0, se omite Util para creacion y terminacion de procesos)
+	Type    string `json:"type"`           //Si es 0, se omite Util para creacion y terminacion de procesos)
+	Port    int    `json:"port,omitempty"`
+}
+
 type FSstructure struct {
 	FileName      string `json:"filename"`
 	FSInstruction string `json:"fsinstruction"`
@@ -247,10 +256,10 @@ func SendPortOfInterfaceToKernel(nombreInterfaz string, config *globals.Config) 
 }
 
 // STDOUT, FS_WRITE  leer en memoria y traer lo leido con "ReceiveContentFromMemory"
-func SendAdressToMemory(address BodyAdress) error {
-	memoriaURL := fmt.Sprintf("http://localhost:%d/SendAdressToMemory", config.PuertoMemoria)
+func SendAdressToMemory(ReadRequest MemoryRequest) error {
+	memoriaURL := fmt.Sprintf("http://localhost:%d/readMemory", config.PuertoMemoria)
 
-	adressResponseTest, err := json.Marshal(address)
+	adressResponseTest, err := json.Marshal(ReadRequest)
 	if err != nil {
 		log.Fatalf("Error al serializar el address: %v", err)
 	}
@@ -368,13 +377,16 @@ func (Interfaz *InterfazIO) IO_STDOUT_WRITE(address []int, length int) {
 		log.Fatalf("Error al cargar la configuración desde '%s': %v", pathToConfig, err)
 	}
 
-	var Bodyadress BodyAdress
+	//var Bodyadress BodyAdress
+	req := MemoryRequest{
+		PID:     GLOBALpid,
+		Address: address,
+		Size:    length,
+		Type:    "IO",
+		Port:    config.Puerto,
+	}
 
-	Bodyadress.Address = address
-	Bodyadress.Length = length
-	Bodyadress.Name = os.Args[1]
-
-	err1 := SendAdressToMemory(Bodyadress)
+	err1 := SendAdressToMemory(req)
 	if err1 != nil {
 		log.Fatalf("Error al leer desde la memoria: %v", err)
 	}
@@ -459,7 +471,7 @@ func (interfaz *InterfazIO) FILE_SYSTEM(pid int) {
 		log.Printf("PID: %d - Eliminar Archivo: %s", pid, fileName)
 
 	case "IO_FS_WRITE":
-		IO_FS_WRITE(pathDialFS, fileName, fsRegDirec, fsRegTam, fsRegPuntero)
+		IO_FS_WRITE(pathDialFS, fileName, fsRegDirec, fsRegTam, fsRegPuntero, pid)
 		log.Printf("PID: %d - Operacion: IO_FS_WRITE - Escribir Archivo: %s - Tamaño a Escribir: %d - Puntero Archivo: %d", pid, fileName, fsRegTam, fsRegPuntero)
 
 	case "IO_FS_TRUNCATE":
@@ -884,19 +896,21 @@ func getBlocksFile(fileName string) int {
 
 /* ----------------------------------------- FUNCIONES DE FS_WRITE ------------------------------------------------------ */
 
-func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, regPuntero int) {
+func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, regPuntero int, pid int) {
 	log.Printf("Escribiendo en el archivo %s en %s", fileName, pathDialFS)
 
 	// VERIFICO EXISTENCIA DE ARCHIVO
 	verificarExistenciaDeArchivo(pathDialFS, fileName)
 
-	// ENVIO A MEMORIA LA DIRECCION LOGICA Y EL TAMAÑO EN BYTES INDICADA POR EL REGISTRO LENGTH
-	var BodyadressFSWrite BodyAdress
-	BodyadressFSWrite.Address = adress
-	BodyadressFSWrite.Length = length
-	BodyadressFSWrite.Name = os.Args[1]
+	req := MemoryRequest{
+		PID:     pid,
+		Address: adress,
+		Size:    length,
+		Type:    "IO",
+		Port:    config.Puerto,
+	}
 
-	err := SendAdressToMemory(BodyadressFSWrite)
+	err := SendAdressToMemory(req)
 	if err != nil {
 		log.Fatalf("Error al leer desde la memoria: %v", err)
 	}
