@@ -192,7 +192,7 @@ func InstructionCycle(contextoDeEjecucion PCB) {
 		Execute(instruction, line, &contextoDeEjecucion)
 		log.Printf("PID: %d - Ejecutando: %s - %s”.", contextoDeEjecucion.Pid, instruction, line)
 
-		time.Sleep(1 * time.Second)
+		//time.Sleep(1 * time.Second)
 
 		// responseInterrupt.Interrupt ---> ese de clock y finalizacion
 		// interrupt ---> ese de io y wait
