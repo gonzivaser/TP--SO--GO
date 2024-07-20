@@ -172,6 +172,7 @@ var mutexReadyVRR sync.Mutex
 var mutexExecution sync.Mutex
 var mutexBlocked sync.Mutex
 var mutexExit sync.Mutex
+var mutexQuantum sync.Mutex
 
 // --------------------------------------------------------
 // ----------DECLARACION MUTEX MÓDULO----------------
@@ -222,6 +223,7 @@ func waitIfPaused() {
 func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 
 	if globals.ClientConfig.AlgoritmoPlanificacion != "FIFO" {
+		//log.Println("Se cierra el canal DONE ", globals.ClientConfig.AlgoritmoPlanificacion)
 		close(done)
 	}
 	var CPURequest KernelRequest
@@ -599,7 +601,7 @@ func executeProcessRR(quantum int) {
 		if len(colaReady) > 0 {
 			mutexExecutionCPU.Lock()
 			proceso = colaReady[0]
-			go startQuantum(quantum, &proceso)
+			go startQuantum(quantum, proceso)
 			executeTask(proceso)
 		}
 	}
@@ -615,22 +617,23 @@ func executeProcessVRR() {
 			mutexExecutionCPU.Lock()
 			proceso = colaReadyVRR[0]
 			quantum = proceso.Quantum
-			go startQuantum(quantum, &proceso)
+			go startQuantum(quantum, proceso)
 			executeTask(proceso)
 
 		} else if len(colaReady) > 0 {
 			mutexExecutionCPU.Lock()
 			proceso = colaReady[0]
 			quantum = globals.ClientConfig.Quantum
-			go startQuantum(quantum, &proceso)
+			go startQuantum(quantum, proceso)
 			executeTask(proceso)
 		}
 
 	}
 }
-func startQuantum(quantum int, proceso *PCB) {
+func startQuantum(quantum int, proceso PCB) {
 	log.Printf("PID %d - Quantum iniciado %d", proceso.Pid, quantum)
-
+	mutexQuantum.Lock()
+	defer mutexQuantum.Unlock()
 	done = make(chan struct{})
 	timer := time.NewTimer(time.Duration(quantum) * time.Millisecond)
 	start := time.Now()
@@ -908,7 +911,7 @@ func SendInterrupt(pid int, motivo string) error {
 		log.Printf("Error al serializar el valor de hayQuantum: %v", err)
 		return err
 	}
-	log.Printf("Mandando interrupción a la CPU")
+	log.Printf("Mandando interrupción a la CPU PID: %d", pid)
 	resp, err := http.Post(cpuURL, "application/json", bytes.NewBuffer(hayQuantumBytes))
 	if err != nil {
 		log.Printf("Error al enviar la solicitud al módulo de cpu: %v", err)

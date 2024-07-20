@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/sisoputnfrba/tp-golang/memoria/globals"
 )
@@ -195,6 +196,8 @@ func GetInstruction(w http.ResponseWriter, r *http.Request) {
 	pid, _ := strconv.Atoi(queryParams.Get("pid"))
 	programCounter, _ := strconv.Atoi(queryParams.Get("programCounter"))
 	instruction := mapInstructions[pid][programCounter][0]
+
+	time.Sleep(time.Duration(globals.ClientConfig.DelayResponse) * time.Millisecond)
 
 	instructionResponse := InstructionResposne{
 		Instruction: instruction,
