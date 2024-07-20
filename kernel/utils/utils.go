@@ -241,6 +241,8 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 		mutexExecution.Lock()
 		colaExecution = append(colaExecution[:0], colaExecution[1:]...)
 		mutexExecution.Unlock()
+	} else {
+		return
 	}
 
 	procesoEXEC.PCB.CpuReg = CPURequest.PcbUpdated.CpuReg
@@ -485,10 +487,12 @@ func HandleSignal(w http.ResponseWriter, r *http.Request) {
 		globals.ClientConfig.InstanciasRecursos[index]++
 		if len(colaBlocked[recurso]) > 0 {
 			// Unblock the first process in the blocked queue
+			waitIfPaused()
 			proceso := colaBlocked[recurso][0]
 			mutexBlocked.Lock()
 			colaBlocked[recurso] = colaBlocked[recurso][1:]
 			mutexBlocked.Unlock()
+
 			enqueueReadyProcess(proceso)
 		}
 	} else {
@@ -526,7 +530,8 @@ func handleSyscallIO(pcb PCB, timeIo int, ioInterface string, ioType string) {
 	mutex.Unlock()
 
 	waitIfPaused()
-	if len(colaBlocked) > 0 { // aca lo saco de la cola blocked
+
+	if len(colaBlocked[ioInterface]) > 0 { // aca lo saco de la cola blocked
 		mutexBlocked.Lock()
 		colaBlocked[ioInterface] = append(colaBlocked[ioInterface][:0], colaBlocked[ioInterface][1:]...)
 		mutexBlocked.Unlock()
@@ -966,7 +971,7 @@ func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "PID debe ser un número", http.StatusBadRequest)
 		return
 	}
-
+	PausarKernel()
 	// Use pidExists to check if the PID exists in any of the queues
 	pcb, err := findPCB(pid)
 	if err != nil {
@@ -987,7 +992,7 @@ func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Finaliza el proceso %v - Motivo: INTERRUPTED_BY_USER", pcb.Pid)
 
 	}
-
+	ReanudarKernel()
 	w.WriteHeader(http.StatusOK)
 }
 
