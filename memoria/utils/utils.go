@@ -198,6 +198,7 @@ func GetInstruction(w http.ResponseWriter, r *http.Request) {
 	pid, _ := strconv.Atoi(queryParams.Get("pid"))
 	programCounter, _ := strconv.Atoi(queryParams.Get("programCounter"))
 	instruction := mapInstructions[pid][programCounter][0]
+	time.Sleep(time.Duration(globals.ClientConfig.DelayResponse) * time.Millisecond)
 
 	instructionResponse := InstructionResposne{
 		Instruction: instruction,
@@ -346,7 +347,7 @@ func ResizeProcess(pid int, newSize int) error {
 		newSize = newSize + pageSize - (newSize % pageSize) //Si no es multiplo, lo redondeo al proximo multiplo
 	}
 	currentSize := len(pages)
-	if newSize > currentSize { //Comparo el tamaño actual con el nuevo tamaño
+	if newSize/pageSize > currentSize { //Comparo el tamaño actual con el nuevo tamaño
 		freespace := counterMemoryFree()
 		if freespace < (newSize/pageSize)-currentSize { //Verifico si hay suficiente espacio en memoria despues de la ampliacion
 			log.Printf("Out of Memory")
@@ -354,6 +355,8 @@ func ResizeProcess(pid int, newSize int) error {
 			var err1 error
 			return err1
 		}
+		log.Printf("PID: %d - Tamaño Actual: %d - Tamaño a Ampliar: %d", pid, currentSize, newSize)
+
 		for i := currentSize; i < newSize/pageSize; i++ { //Asigno nuevos marcos a la ampliacion
 			indiceLibre := proximoLugarLibre()
 			if indiceLibre != -1 {
@@ -361,17 +364,17 @@ func ResizeProcess(pid int, newSize int) error {
 				pageTable[pid] = append(pageTable[pid], indiceLibre)
 				memoryMap[indiceLibre] = true
 				//fmt.Println("Proceso ampliado")
-				log.Printf("PID: %d - Tamaño Actual: %d - Tamaño a Ampliar: %d", pid, currentSize, newSize)
+
 			} else {
 				log.Printf("No more free spots in memory")
 				break
 			}
 		}
 	} else {
-		for i := newSize; i < len(pageTable[pid]); i++ {
+		for i := newSize / pageSize; i < len(pageTable[pid]); i++ {
 			memoryMap[pageTable[pid][i]] = false
 		}
-		pageTable[pid] = pageTable[pid][:newSize] //Reduce el tamaño del proceso. :newSize es un slice de 0 a newSize (reduce el tope)
+		pageTable[pid] = pageTable[pid][:newSize/pageSize] //Reduce el tamaño del proceso. :newSize es un slice de 0 a newSize (reduce el tope)
 		//fmt.Println("Proceso reducido")
 		log.Printf("PID: %d - Tamaño Actual: %d - Tamaño a Reducir: %d", pid, currentSize, newSize)
 	}
@@ -462,13 +465,6 @@ func ReadMemory(pid int, addresses []int, size int) ([]byte, error) {
 		result = append(result, memory[address])
 	}
 	return result, nil
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 // address : address+size
@@ -574,6 +570,7 @@ func WriteMemory(pid int, addresses []int, data []byte) error {
 			i++
 		}
 	}
+	fmt.Println(pageTable)
 	fmt.Println(memory)
 	return nil
 }
