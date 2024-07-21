@@ -376,7 +376,6 @@ func init() {
 	}
 }
 
-
 func getProcessData(pid int) (ProcessData, bool) {
 	data, ok := processDataMap.Load(pid)
 	if !ok {
@@ -1028,18 +1027,6 @@ func SendPortOfInterfaceToMemory(nombreInterfaz string, puerto int) error {
 
 	///log.Println("Respuesta del módulo de memoria recibida correctamente.")
 	return nil
-}
-
-func RecieveFileNameFromCPU(w http.ResponseWriter, r *http.Request) {
-	var fileNmae string
-	err := json.NewDecoder(r.Body).Decode(&fileNmae)
-	if err != nil {
-		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("Registers received: %v", fileNmae)))
 }
 
 func SendInterrupt(pid int, motivo string) error {
