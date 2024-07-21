@@ -89,18 +89,22 @@ antes de subir el tag.
 
     - [x] Fetch Instrucción
     - [x] Instrucción Ejecutada
+
     - [ ] TLB Hit
     - [ ] TLB Miss
+
     - [x] Obtener Marco
     - [x] Lectura/Escritura Memoria
 
 - Módulo Memoria:
+
 
     - [x] Se Creación / destrucción de Tabla de Páginas
     - [x] Acceso a Tabla de Páginas
     - [x] Ampliación de Proceso
     - [x] Reducción de Proceso
     - [x] Acceso a espacio de usuario
+
 
 - Módulo Interfaz I/O:
 

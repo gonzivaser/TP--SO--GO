@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -92,6 +93,7 @@ type BodyFrame struct {
 	Frame int `json:"frame"`
 }
 type bodyRegisters struct {
+	Pid       int   `json:"iopid"`
 	DirFisica []int `json:"dirFisica"`
 	LengthREG int   `json:"lengthREG"`
 }
@@ -100,11 +102,24 @@ type BodyPageTam struct {
 	PageTam int `json:"pageTam"`
 }
 
+type BodyContent struct {
+	Content string `json:"content"`
+}
+
 type MemoryReadRequest struct {
 	PID     int    `json:"pid"`
-	Address int    `json:"address"`
+	Address []int  `json:"address"`
 	Size    int    `json:"size,omitempty"` //Si es 0, se omite (Util para creacion y terminacion de procesos)
 	Data    []byte `json:"data,omitempty"` //Si es 0, se omite Util para creacion y terminacion de procesos)
+	Type    string `json:"type"`
+}
+
+type FSstructure struct {
+	FileName      string `json:"filename"`
+	FSInstruction string `json:"fsinstruction"`
+	FSRegTam      int    `json:"fsregtam"`
+	FSRegDirec    []int  `json:"fsregdirec"`
+	FSRegPuntero  int    `json:"fsregpuntero"`
 }
 
 /*------------------------------------------------- VAR GLOBALES --------------------------------------------------------*/
@@ -118,6 +133,7 @@ var GLOBALrequestCPU KernelRequest
 var GLOBALcontextoDeEjecucion PCB //PCB recibido desde kernel
 var MemoryFrame int
 var GLOBALpageTam int
+var GLOBALdataMOV_IN []byte
 
 // var requestCPU KernelRequest
 var responseInterruptGlobal ResponseInterrupt
@@ -326,7 +342,6 @@ func Execute(instruction string, line []string, contextoDeEjecucion *PCB) error 
 		err := COPY_STRING(words, contextoDeEjecucion)
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
-
 		}
 	case "WAIT":
 		err := CheckWait(nil, nil, contextoDeEjecucion, words[1])
@@ -338,6 +353,31 @@ func Execute(instruction string, line []string, contextoDeEjecucion *PCB) error 
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 
+		}
+	case "IO_FS_CREATE":
+		err := IO(instruction, words, contextoDeEjecucion)
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	case "IO_FS_DELETE":
+		err := IO(instruction, words, contextoDeEjecucion)
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	case "IO_FS_TRUNCATE":
+		err := IO(instruction, words, contextoDeEjecucion)
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	case "IO_FS_WRITE":
+		err := IO(instruction, words, contextoDeEjecucion)
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
+		}
+	case "IO_FS_READ":
+		err := IO(instruction, words, contextoDeEjecucion)
+		if err != nil {
+			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "EXIT":
 		err := TerminarProceso(&contextoDeEjecucion.CpuReg, "FINALIZADO")
@@ -406,111 +446,86 @@ func SetCampo(r *RegisterCPU, campo string, valor interface{}) error {
 }
 
 func Suma(registerCPU *RegisterCPU, s1, s2 string) error {
-	// Suma al Registro Destino el Registro Origen y deja el resultado en el Registro Destino.
-	// Los registros pueden ser AX, BX, CX, DX.
-	// Los registros son de 8 bits, por lo que el resultado de la suma debe ser truncado a 8 bits.
-	// Si el resultado de la suma es mayor a 255, el registro destino debe quedar en 255.
-	// Si el resultado de la suma es menor a 0, el registro destino debe quedar en 0.
-
-	// Obtener el valor reflect.Value de la estructura Persona
 	valorRef := reflect.ValueOf(registerCPU)
 
-	// Obtener el valor reflect.Value del campo destino
 	campoDestinoRef := valorRef.Elem().FieldByName(s1)
 
-	// Verificar si el campo destino existe
 	if !campoDestinoRef.IsValid() {
 		return fmt.Errorf("campo destino '%s' no encontrado en la estructura", s1)
 	}
 
-	// Obtener el tipo de dato del campo destino
 	tipoCampoDestino := campoDestinoRef.Type()
 
-	// Obtener el valor reflect.Value del campo origen
 	campoOrigenRef := valorRef.Elem().FieldByName(s2)
 
-	// Verificar si el campo origen existe
 	if !campoOrigenRef.IsValid() {
 		return fmt.Errorf("campo origen '%s' no encontrado en la estructura", s2)
 	}
 
-	// Obtener el tipo de dato del campo origen
 	tipoCampoOrigen := campoOrigenRef.Type()
-
-	// Verificar que ambos campos sean del mismo tipo
 	if tipoCampoDestino != tipoCampoOrigen {
 		return fmt.Errorf("los campos '%s' y '%s' no son del mismo tipo", s1, s2)
 	}
 
-	// Realizar la suma entre los valores de los campos
 	switch tipoCampoDestino.Kind() {
 	case reflect.Uint8:
 		valorDestino := campoDestinoRef.Uint()
 		valorOrigen := campoOrigenRef.Uint()
 		suma := valorDestino + valorOrigen
-
-		// Truncar el resultado a 8 bits
 		if suma > 255 {
 			suma = 255
 		}
-
-		// Asignar el resultado de la suma al campo destino
+		campoDestinoRef.SetUint(suma)
+	case reflect.Uint32:
+		valorDestino := campoDestinoRef.Uint()
+		valorOrigen := campoOrigenRef.Uint()
+		suma := valorDestino + valorOrigen
+		if suma > 4294967295 { // Máximo valor para uint32
+			suma = 4294967295
+		}
 		campoDestinoRef.SetUint(suma)
 	}
 	return nil
 }
 
 func Resta(registerCPU *RegisterCPU, s1, s2 string) error {
-	// Suma al Registro Destino el Registro Origen y deja el resultado en el Registro Destino.
-	// Los registros pueden ser AX, BX, CX, DX.
-	// Los registros son de 8 bits, por lo que el resultado de la suma debe ser truncado a 8 bits.
-	// Si el resultado de la suma es mayor a 255, el registro destino debe quedar en 255.
-	// Si el resultado de la suma es menor a 0, el registro destino debe quedar en 0.
-
-	// Obtener el valor reflect.Value de la estructura Persona
 	valorRef := reflect.ValueOf(registerCPU)
 
-	// Obtener el valor reflect.Value del campo destino
 	campoDestinoRef := valorRef.Elem().FieldByName(s1)
-
-	// Verificar si el campo destino existe
 	if !campoDestinoRef.IsValid() {
 		return fmt.Errorf("campo destino '%s' no encontrado en la estructura", s1)
 	}
 
-	// Obtener el tipo de dato del campo destino
 	tipoCampoDestino := campoDestinoRef.Type()
 
-	// Obtener el valor reflect.Value del campo origen
 	campoOrigenRef := valorRef.Elem().FieldByName(s2)
-
-	// Verificar si el campo origen existe
 	if !campoOrigenRef.IsValid() {
 		return fmt.Errorf("campo origen '%s' no encontrado en la estructura", s2)
 	}
 
-	// Obtener el tipo de dato del campo origen
 	tipoCampoOrigen := campoOrigenRef.Type()
-
-	// Verificar que ambos campos sean del mismo tipo
 	if tipoCampoDestino != tipoCampoOrigen {
 		return fmt.Errorf("los campos '%s' y '%s' no son del mismo tipo", s1, s2)
 	}
 
-	// Realizar la suma entre los valores de los campos
 	switch tipoCampoDestino.Kind() {
 	case reflect.Uint8:
 		valorDestino := campoDestinoRef.Uint()
 		valorOrigen := campoOrigenRef.Uint()
 		resta := valorDestino - valorOrigen
-
-		// Truncar el resultado a 8 bits
 		if resta <= 0 {
 			resta = 0
 		}
-
-		// Asignar el resultado de la resta al campo destino
 		campoDestinoRef.SetUint(resta)
+	case reflect.Uint32:
+		valorDestino := campoDestinoRef.Uint()
+		valorOrigen := campoOrigenRef.Uint()
+		if valorDestino < valorOrigen {
+			campoDestinoRef.SetUint(0)
+		} else {
+			resta := valorDestino - valorOrigen
+			campoDestinoRef.SetUint(resta)
+		}
 	}
 	return nil
 }
@@ -540,100 +555,174 @@ func JNZ(registerCPU *RegisterCPU, reg, valor string) error {
 	return nil
 }
 
-// TranslateAddress(pid, DireccionLogica, TamPag, TamData int)
 func MOV_IN(words []string, contextoEjecucion *PCB) error {
 	REGdireccion := words[2]
 	valueDireccion := verificarRegistro(REGdireccion, contextoEjecucion)
-	direcciones := TranslateAddress(contextoEjecucion.Pid, valueDireccion, GLOBALpageTam, valueDireccion)
 
-	valorLeido, err := LeerMemoria(contextoEjecucion.Pid, direcciones[0], valueDireccion)
-	if err != nil {
-		return err
-	}
 	REGdatos := words[1]
-	err1 := SetCampo(&contextoEjecucion.CpuReg, REGdatos, valorLeido)
-	if err1 != nil {
-		return fmt.Errorf("error en execute: %s", err1)
+
+	// Verificar el tipo de dato del registro en RegisterCPU
+	var tamREGdatos int
+	switch REGdatos {
+	case "PC", "EAX", "EBX", "ECX", "EDX", "SI", "DI":
+		tamREGdatos = 4 // uint32
+	case "AX", "BX", "CX", "DX":
+		tamREGdatos = 1 // uint8
+	default:
+		return fmt.Errorf("registro no soportado: %s", REGdatos)
 	}
+
+	direcciones := TranslateAddress(contextoEjecucion.Pid, valueDireccion, GLOBALpageTam, tamREGdatos)
+
+	err1 := LeerMemoria(contextoEjecucion.Pid, direcciones, tamREGdatos)
+	if err1 != nil {
+		return fmt.Errorf("error leyendo memoria: %s", err1)
+	}
+	log.Printf("PID: %d - Acción: LEER - Dirección Física: %v - Valor: %s", contextoEjecucion.Pid, direcciones, GLOBALdataMOV_IN)
+	//buf := bytes.NewReader(GLOBALdataMOV_IN)
+	if tamREGdatos == 1 {
+		result := stringToUint8(string(GLOBALdataMOV_IN))
+		log.Printf("result ESSSS:%d", result)
+		err3 := SetCampo(&contextoEjecucion.CpuReg, REGdatos, result)
+		if err3 != nil {
+			return fmt.Errorf("error en execute: %s", err3)
+		}
+	} else {
+		result := stringToInteger(string(GLOBALdataMOV_IN))
+		log.Printf("result ESSSS:%d", result)
+		err3 := SetCampo(&contextoEjecucion.CpuReg, REGdatos, result)
+		if err3 != nil {
+			return fmt.Errorf("error en execute: %s", err3)
+		}
+	}
+
+	log.Printf("PID: %d - MOV_IN - %s - dato obtenido de memoria:%s", contextoEjecucion.Pid, REGdatos, GLOBALdataMOV_IN)
 
 	return nil
+}
+
+func stringToInteger(s string) uint32 {
+	var result uint32 = 0
+	for i, char := range s {
+		// Convertimos cada carácter a su valor ASCII y lo desplazamos
+		result |= uint32(char) << (8 * (3 - i))
+		if i == 3 {
+			break // Solo usamos los primeros 4 caracteres
+		}
+	}
+	return result
+}
+
+func stringToUint8(s string) uint8 {
+	if len(s) == 0 {
+		return 0
+	}
+	// Tomamos solo el primer carácter del string
+	return uint8(s[0])
+}
+func uint32ToString(num uint32) string {
+	bytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(bytes, num)
+	return string(bytes)
 }
 
 func MOV_OUT(words []string, contextoEjecucion *PCB) error {
 	REGdireccion := words[1]
 	valueDireccion := verificarRegistro(REGdireccion, contextoEjecucion)
-	direcciones := TranslateAddress(contextoEjecucion.Pid, valueDireccion, GLOBALpageTam, valueDireccion)
 
 	REGdatos := words[2]
 	valueDatos := verificarRegistro(REGdatos, contextoEjecucion)
 
-	err := EscribirMemoria(contextoEjecucion.Pid, direcciones[0], valueDatos)
+	var valueDatosBytes []byte
+	switch REGdatos {
+	case "PC", "EAX", "EBX", "ECX", "EDX", "SI", "DI":
+		valueDatosBytes = []byte(uint32ToString(uint32(valueDatos)))
+	case "AX", "BX", "CX", "DX":
+		valueDatosBytes = []byte{uint8(valueDatos)}
+	default:
+		return fmt.Errorf("registro no soportado: %s", REGdatos)
+	}
+	direcciones := TranslateAddress(contextoEjecucion.Pid, valueDireccion, GLOBALpageTam, len(valueDatosBytes))
+	err := EscribirMemoria(contextoEjecucion.Pid, direcciones, valueDatosBytes)
 	if err != nil {
 		return err
 	}
-
+	log.Printf("PID: %d - Acción: ESCRIBIR - Dirección Física: %v - Valor: %d", contextoEjecucion.Pid, direcciones, valueDatos)
 	return nil
 }
 
-// Pendiente---------------------------------------------------
 func COPY_STRING(words []string, contextoEjecucion *PCB) error {
-	REGdireccion := words[1]
-	valueDireccion := verificarRegistro(REGdireccion, contextoEjecucion)
-	direcciones := TranslateAddress(contextoEjecucion.Pid, valueDireccion, GLOBALpageTam, valueDireccion)
-
-	REGdatos := words[2]
-	valueDatos := verificarRegistro(REGdatos, contextoEjecucion)
-
-	err := EscribirMemoria(contextoEjecucion.Pid, direcciones[0], valueDatos)
+	tamString := words[1]
+	tam, err := strconv.Atoi(tamString)
 	if err != nil {
 		return err
 	}
+	valorSI := verificarRegistro("SI", contextoEjecucion)
+	direccionesSI := TranslateAddress(contextoEjecucion.Pid, valorSI, GLOBALpageTam, tam)
 
+	err1 := LeerMemoria(contextoEjecucion.Pid, direccionesSI, tam)
+	if err1 != nil {
+		return err1
+	}
+	log.Printf("PID: %d - Acción: LEER - Dirección Física: %v - Valor: %s", contextoEjecucion.Pid, direccionesSI, GLOBALdataMOV_IN)
+	valorDI := verificarRegistro("DI", contextoEjecucion)
+	direccionesDI := TranslateAddress(contextoEjecucion.Pid, valorDI, GLOBALpageTam, tam)
+	err2 := EscribirMemoria(contextoEjecucion.Pid, direccionesDI, GLOBALdataMOV_IN)
+	if err2 != nil {
+		return err2
+	}
+	log.Printf("PID: %d - Acción: ESCRIBIR - Dirección Física: %v - Valor: %s", contextoEjecucion.Pid, direccionesDI, GLOBALdataMOV_IN)
+	//fmt.Println(GLOBALdataMOV_IN)
 	return nil
 }
 
-func LeerMemoria(pid, direccion, size int) ([]byte, error) {
+func LeerMemoria(pid int, direccion []int, size int) error {
 	memoriaURL := fmt.Sprintf("http://localhost:%d/readMemory", globals.ClientConfig.PortMemory)
 	req := MemoryReadRequest{
 		PID:     pid,
 		Address: direccion,
 		Size:    size,
+		Type:    "CPU",
 	}
+
 	reqJSON, err := json.Marshal(req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(reqJSON))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("error en la respuesta del módulo de memoria: %v", resp.StatusCode)
+		return fmt.Errorf("error en la respuesta del módulo de memoria: %v", resp.StatusCode)
 	}
 
-	var data []byte
-	err = json.NewDecoder(resp.Body).Decode(&data)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
+	return nil
 }
 
-func EscribirMemoria(pid, direccion int, data interface{}) error {
+func RecieveMOV_IN(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Recibiendo solicitud de datos desde la memoria")
+
+	var Content []byte
+	err := json.NewDecoder(r.Body).Decode(&Content)
+	if err != nil {
+		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
+		return
+	}
+
+	GLOBALdataMOV_IN = Content
+	w.WriteHeader(http.StatusOK)
+}
+
+func EscribirMemoria(pid int, direcciones []int, data []byte) error {
 	memoriaURL := fmt.Sprintf("http://localhost:%d/writeMemory", globals.ClientConfig.PortMemory)
 	var req MemoryReadRequest
 	req.PID = pid
-	req.Address = direccion
-
-	switch data.(type) {
-	case []byte:
-		req.Data = data.([]byte)
-	default:
-		return fmt.Errorf("tipo de dato no soportado")
-	}
+	req.Address = direcciones
+	req.Data = data
 
 	reqJSON, err := json.Marshal(req)
 	if err != nil {
@@ -678,7 +767,7 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 		valueLength1 := verificarRegistro(lengthREG, contextoEjecucion)
 
 		direcciones := TranslateAddress(contextoEjecucion.Pid, valueAdress1, GLOBALpageTam, valueLength1)
-		sendREGtoKernel(direcciones, valueLength1)
+		sendREGtoKernel(direcciones, valueLength1, contextoEjecucion.Pid)
 		GLOBALrequestCPU = KernelRequest{
 			PcbUpdated:     *contextoEjecucion,
 			MotivoDesalojo: "INTERRUPCION POR IO",
@@ -694,7 +783,7 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 		valueLength := verificarRegistro(lengthREG, contextoEjecucion)
 
 		direcciones := TranslateAddress(contextoEjecucion.Pid, valueAdress, GLOBALpageTam, valueLength)
-		sendREGtoKernel(direcciones, valueLength)
+		sendREGtoKernel(direcciones, valueLength, contextoEjecucion.Pid)
 		GLOBALrequestCPU = KernelRequest{
 			PcbUpdated:     *contextoEjecucion,
 			MotivoDesalojo: "INTERRUPCION POR IO",
@@ -703,17 +792,86 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 			TimeIO:         0,
 		}
 	case "IO_FS_CREATE":
-		fmt.Println("IO_FS_CREATE")
+		fileName := words[2]
+		GLOBALrequestCPU = KernelRequest{
+			PcbUpdated:     *contextoEjecucion,
+			MotivoDesalojo: "INTERRUPCION POR IO",
+			IoType:         "DialFS",
+			Interface:      words[1],
+			TimeIO:         0,
+		}
+
+		sendFSDataToKernel(fileName, kind, 0, []int{0}, 0)
+		fmt.Printf("IO_FS_CREATE")
 	case "IO_FS_DELETE":
-		fmt.Println("IO_FS_DELETE")
-	case "IO_FS_SEEK":
-		fmt.Println("IO_FS_SEEK")
+		fileName := words[2]
+		GLOBALrequestCPU = KernelRequest{
+			PcbUpdated:     *contextoEjecucion,
+			MotivoDesalojo: "INTERRUPCION POR IO",
+			IoType:         "DialFS",
+			Interface:      words[1],
+			TimeIO:         0,
+		}
+		sendFSDataToKernel(fileName, kind, 0, []int{0}, 0)
+		fmt.Printf("IO_FS_DELETE")
 	case "IO_FS_TRUNCATE":
-		fmt.Println("IO_FS_TRUNCATE")
+		fileName := words[2]
+		regTamano := words[3]
+		valueLength := verificarRegistro(regTamano, contextoEjecucion)
+		GLOBALrequestCPU = KernelRequest{
+			PcbUpdated:     *contextoEjecucion,
+			MotivoDesalojo: "INTERRUPCION POR IO",
+			IoType:         "DialFS",
+			Interface:      words[1],
+			TimeIO:         0,
+		}
+		sendFSDataToKernel(fileName, kind, valueLength, []int{0}, 0)
+		fmt.Printf("IO_FS_TRUNCATE")
 	case "IO_FS_WRITE":
-		fmt.Println("IO_FS_WRITE")
+		fileName := words[2]
+
+		regDirec := words[3]
+		valueAdress := verificarRegistro(regDirec, contextoEjecucion)
+
+		regTamano := words[4]
+		valueLength := verificarRegistro(regTamano, contextoEjecucion)
+
+		regPuntero := words[5]
+		valuePuntero := verificarRegistro(regPuntero, contextoEjecucion)
+
+		direcFisica := TranslateAddress(contextoEjecucion.Pid, valueAdress, GLOBALpageTam, valueLength)
+
+		GLOBALrequestCPU = KernelRequest{
+			PcbUpdated:     *contextoEjecucion,
+			MotivoDesalojo: "INTERRUPCION POR IO",
+			IoType:         "DialFS",
+			Interface:      words[1],
+			TimeIO:         0,
+		}
+		sendFSDataToKernel(fileName, kind, valueLength, direcFisica, valuePuntero)
+		fmt.Printf("IO_FS_WRITE")
 	case "IO_FS_READ":
-		fmt.Println("IO_FS_READ")
+		fileName := words[2]
+
+		regDirec := words[3]
+		valueAdress := verificarRegistro(regDirec, contextoEjecucion)
+
+		regTamano := words[4]
+		valueLength := verificarRegistro(regTamano, contextoEjecucion)
+
+		regPuntero := words[5]
+		valuePuntero := verificarRegistro(regPuntero, contextoEjecucion)
+
+		direcFisica := TranslateAddress(contextoEjecucion.Pid, valueAdress, GLOBALpageTam, valueLength)
+		GLOBALrequestCPU = KernelRequest{
+			PcbUpdated:     *contextoEjecucion,
+			MotivoDesalojo: "INTERRUPCION POR IO",
+			IoType:         "DialFS",
+			Interface:      words[1],
+			TimeIO:         0,
+		}
+		sendFSDataToKernel(fileName, kind, valueLength, direcFisica, valuePuntero)
+		fmt.Printf("IO_FS_READ")
 	default:
 		return fmt.Errorf("tipo de instrucción no soportado")
 	}
@@ -721,7 +879,6 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 }
 
 func verificarRegistro(registerName string, contextoEjecucion *PCB) int {
-	fmt.Println(&contextoEjecucion)
 	var registerValue int
 	switch registerName {
 	case "AX":
@@ -902,21 +1059,21 @@ func ReplaceTLBEntry(pid, page, frame int) { //Reemplazo una entrada de globalTL
 		globalTLB = append(globalTLB, newEntry) //Si la globalTLB no está llena, agrego la entrada
 	} else {
 		if replacementAlgorithm == "FIFO" {
-			oldestPos := 0
+			victima := 0
 			for i, entry := range globalTLB {
-				if entry.globalPosicionFila < globalTLB[oldestPos].globalPosicionFila {
-					oldestPos = i
+				if entry.globalPosicionFila < globalTLB[victima].globalPosicionFila {
+					victima = i
 				}
 			}
-			globalTLB[oldestPos] = newEntry
+			globalTLB[victima] = newEntry
 		} else if replacementAlgorithm == "LRU" {
-			oldestPos := 0
+			victima := 0
 			for i, entry := range globalTLB {
-				if entry.UltimoAcceso.Before(globalTLB[oldestPos].UltimoAcceso) {
-					oldestPos = i
+				if entry.UltimoAcceso.Before(globalTLB[victima].UltimoAcceso) {
+					victima = i
 				}
 			}
-			globalTLB[oldestPos] = newEntry
+			globalTLB[victima] = newEntry
 		}
 	}
 	globalPosicionFila++
@@ -939,36 +1096,98 @@ func TranslateHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Función de traducción de direcciones
-func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
+/*func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 	var DireccionesFisicas []int
+	tamRestantePag := TamRestantePagina(DireccionLogica, TamPag)
 
-	for offset := 0; offset < TamData; offset += TamPag {
+	for i := 0; i < TamData; i += TamPag {
 		pageNumber := int(math.Floor(float64(DireccionLogica) / float64(TamPag)))
 		pageOffset := DireccionLogica - (pageNumber * TamPag)
 
 		frame, found := CheckTLB(pid, pageNumber)
 		if !found {
-			fmt.Println("globalTLB Miss")
+			log.Printf("PID: %d - TLB MISS - Pagina: %d", pid, pageNumber)
 			err := FetchFrameFromMemory(pid, pageNumber)
 			if err != nil {
 				fmt.Println("Error al obtener el marco desde la memoria")
+				return nil // O manejar el error de manera adecuada
 			}
 			frame = MemoryFrame
-			ReplaceTLBEntry(pid, pageNumber, MemoryFrame) //frame encontrado en memoria con la funcion FetchFrameFromMemory
+			log.Printf("PID: %d - OBTENER MARCO - Página: %d - Marco: %d", pid, pageNumber, frame)
+			if globals.ClientConfig.NumberFellingTLB > 0 {
+				ReplaceTLBEntry(pid, pageNumber, MemoryFrame)
+			}
 		} else {
-			fmt.Println("globalTLB Hit")
+			log.Printf("PID: %d - TLB HIT - Pagina: %d", pid, pageNumber)
 		}
 
 		physicalAddress := frame*TamPag + pageOffset
 		DireccionesFisicas = append(DireccionesFisicas, physicalAddress)
+
+		// Actualizar la dirección lógica para la siguiente página
+		if TamData > tamRestantePag {
+			DireccionLogica += tamRestantePag
+		}
 	}
+	paginas := make([]int, len(globalTLB))
+	for i, entry := range globalTLB {
+		paginas[i] = entry.Pagina
+	}
+	fmt.Println("Páginas en la TLB:", paginas)
+	return DireccionesFisicas
+}*/
+func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
+	var DireccionesFisicas []int
+
+	for i := 0; i < TamData; i++ {
+		pageNumber := int(math.Floor(float64(DireccionLogica) / float64(TamPag)))
+		pageOffset := DireccionLogica - (pageNumber * TamPag)
+
+		frame, found := CheckTLB(pid, pageNumber)
+		if !found {
+			//log.Printf("PID: %d - TLB MISS - Página: %d", pid, pageNumber)
+			err := FetchFrameFromMemory(pid, pageNumber)
+			if err != nil {
+				fmt.Println("Error al obtener el marco desde la memoria")
+				return nil // O manejar el error de manera adecuada
+			}
+			frame = MemoryFrame
+			//log.Printf("PID: %d - OBTENER MARCO - Página: %d - Marco: %d", pid, pageNumber, frame)
+			if globals.ClientConfig.NumberFellingTLB > 0 {
+				ReplaceTLBEntry(pid, pageNumber, MemoryFrame)
+			}
+		} else {
+			log.Printf("PID: %d - TLB HIT - Pagina: %d", pid, pageNumber)
+		}
+		DireccionFisica := frame*TamPag + pageOffset
+		DireccionesFisicas = append(DireccionesFisicas, DireccionFisica)
+
+		DireccionLogica++
+	}
+	paginas := make([]int, len(globalTLB))
+	for i, entry := range globalTLB {
+		paginas[i] = entry.Pagina
+	}
+	fmt.Println("Páginas en la TLB:", paginas)
 	return DireccionesFisicas
 }
 
+func TamRestantePagina(dirLog, tamPag int) int {
+	// Calcular el offset dentro de la página actual
+	offsetEnPagina := dirLog % tamPag
+
+	// Calcular el tamaño restante en la página actual
+	tamRestante := tamPag - offsetEnPagina
+
+	return tamRestante
+}
+
 /*
+ 0--6	 7--13   14-20
+frame 0 frame 1	frame 2
 22/7 = 3 = numero de pagina
 offset = 1
-pageTable[pid][3-1] = frame 2
+pageTable[pid][3] = frame 3
 
 dir fisica = (frame*TamPag + pageOffset) = 15
 
@@ -988,7 +1207,7 @@ func FetchFrameFromMemory(pid, pageNumber int) error {
 		log.Fatalf("Error al serializar el Input: %v", err)
 	}
 
-	log.Println("Enviando solicitud con contenido:", pageTableJSON)
+	//log.Println("Enviando solicitud con contenido:", pageTableJSON)
 
 	resp, err := http.Post(memoryURL, "application/json", bytes.NewBuffer(pageTableJSON))
 	if err != nil {
@@ -1025,7 +1244,7 @@ func sendResizeMemory(tam int) {
 		log.Fatalf("Error al serializar el Input: %v", err)
 	}
 
-	log.Println("Enviando solicitud con contenido:", bodyResizeJSON)
+	//log.Println("Enviando solicitud con contenido:", bodyResizeJSON)
 	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(bodyResizeJSON))
 	if err != nil {
 		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
@@ -1034,9 +1253,10 @@ func sendResizeMemory(tam int) {
 
 }
 
-func sendREGtoKernel(adress []int, length int) {
+func sendREGtoKernel(adress []int, length int, pid int) {
 	kernelURL := fmt.Sprintf("http://localhost:%d/recieveREG", globals.ClientConfig.PortKernel)
 	var BodyRegisters bodyRegisters
+	BodyRegisters.Pid = pid
 	BodyRegisters.DirFisica = adress
 	BodyRegisters.LengthREG = length
 
@@ -1046,6 +1266,28 @@ func sendREGtoKernel(adress []int, length int) {
 	}
 
 	resp, err := http.Post(kernelURL, "application/json", bytes.NewBuffer(BodyRegistersJSON))
+	if err != nil {
+		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
+	}
+	defer resp.Body.Close()
+}
+
+func sendFSDataToKernel(fileName string, instructionFS string, regTamano int, regDireccion []int, regPuntero int) {
+	fsStructure := FSstructure{
+		FileName:      fileName,
+		FSInstruction: instructionFS,
+		FSRegTam:      regTamano,
+		FSRegDirec:    regDireccion,
+		FSRegPuntero:  regPuntero,
+	}
+	kernelURL := fmt.Sprintf("http://localhost:%d/recieveFSDATA", globals.ClientConfig.PortKernel)
+
+	fsStructureJSON, err := json.Marshal(fsStructure)
+	if err != nil {
+		log.Fatalf("Error al serializar el Input: %v", err)
+	}
+
+	resp, err := http.Post(kernelURL, "application/json", bytes.NewBuffer(fsStructureJSON))
 	if err != nil {
 		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
 	}

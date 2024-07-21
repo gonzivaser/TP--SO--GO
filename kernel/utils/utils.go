@@ -83,6 +83,7 @@ type RegisterCPU struct {
 type Payload struct {
 	Nombre string `json:"nombre"`
 	IO     int    `json:"io"`
+	Pid    int    `json:"pid"`
 }
 
 type Finalizado struct {
@@ -125,9 +126,9 @@ type interfaz struct {
 }
 
 type BodyRegisters struct {
+	IOpid     int   `json:"iopid"`
 	DirFisica []int `json:"dirFisica"`
 	LengthREG int   `json:"lengthREG"`
-	IOpid     int   `json:"iopid"`
 }
 
 type Process struct {
@@ -137,6 +138,14 @@ type Process struct {
 
 var interfaces []interfaz
 
+type ProcessData struct {
+	Pid             int
+	LengthREG       int
+	DireccionFisica []int
+}
+
+var processDataMap sync.Map
+
 /*---------------------------------------------------VAR GLOBALES------------------------------------------------*/
 
 var (
@@ -145,7 +154,6 @@ var (
 	nextPid      = 1
 	DirFisica    []int
 	LengthREG    int
-	IOpid        int
 	done         chan struct{}
 	pauseChan    chan struct{}
 	resumeChan   chan struct{}
@@ -189,6 +197,21 @@ var quantumMapGlobal = make(map[int]int)
 // ----------DECLARACION DE PROCESO EN EJECUCION----------------
 var procesoEXEC Proceso // este proceso es el que se esta ejecutando
 //----------------------------------------------------------------------
+
+// ---------FilaeNmae global-----------------------
+var fileName string
+var fsInstruction string
+var fsRegTam int
+var fsRegDirec []int
+var fsRegPuntero int
+
+type FSstructure struct {
+	FileName      string `json:"filename"`
+	FSInstruction string `json:"fsinstruction"`
+	FSRegTam      int    `json:"fsregtam"`
+	FSRegDirec    []int  `json:"fsregdirec"`
+	FSRegPuntero  int    `json:"fsregpuntero"`
+}
 
 /*-------------------------------------------------FUNCIONES CREADAS----------------------------------------------*/
 
@@ -353,6 +376,14 @@ func init() {
 	}
 }
 
+
+func getProcessData(pid int) (ProcessData, bool) {
+	data, ok := processDataMap.Load(pid)
+	if !ok {
+		return ProcessData{}, false
+	}
+	return data.(ProcessData), true
+}
 func handelMultiProg() {
 	for {
 		proceso := <-newChannel
@@ -514,7 +545,7 @@ func handleSyscallIO(pcb PCB, timeIo int, ioInterface string, ioType string) {
 	}
 
 	mutex.Lock()
-	SendIOToEntradaSalida(ioInterface, timeIo)
+	SendIOToEntradaSalida(ioInterface, timeIo, pcb.Pid)
 	mutex.Unlock()
 
 	waitIfPaused()
@@ -765,10 +796,11 @@ func RecievePortOfInterfaceFromIO(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf("Port received: %d", requestPort.Port)))
 }
 
-func SendIOToEntradaSalida(nombre string, io int) error {
+func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 	payload := Payload{
 		Nombre: nombre,
 		IO:     io,
+		Pid:    pid,
 	}
 	var interfazEncontrada interfaz // Asume que Interfaz es el tipo de tus interfaces
 
@@ -779,7 +811,16 @@ func SendIOToEntradaSalida(nombre string, io int) error {
 		}
 	}
 	if interfazEncontrada != (interfaz{}) && interfazEncontrada.Type == "STDOUT" || interfazEncontrada.Type == "STDIN" {
-		SendREGtoIO(DirFisica, LengthREG, interfazEncontrada.Port) //envia los registros a IO
+
+		log.Printf("entre alk primer if con la interfaz: %+v", interfazEncontrada.Type)
+		processData, ok := getProcessData(pid)
+		if !ok {
+			log.Printf("No se encontraron datos para el PID: %d", payload.Pid)
+			// Manejar el caso donde no hay datos para el PID
+		}
+
+		SendREGtoIO(processData.DireccionFisica, processData.LengthREG, interfazEncontrada.Port, pid) //envia los registros a IO
+
 		//envia el payload a IO
 		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
 
@@ -820,6 +861,49 @@ func SendIOToEntradaSalida(nombre string, io int) error {
 
 		//log.Println("Respuesta del módulo de IO recibida correctamente.")
 		return nil
+	} else if interfazEncontrada != (interfaz{}) && interfazEncontrada.Type == "GENERICA" {
+		log.Printf("entre al SEGUNDO if con la interfaz: %+v", interfazEncontrada.Name)
+		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
+
+		ioResponseTest, err := json.Marshal(payload)
+		if err != nil {
+			return fmt.Errorf("error al serializar el payload: %v", err)
+		}
+
+		resp, err := http.Post(entradasalidaURL, "application/json", bytes.NewBuffer(ioResponseTest))
+		if err != nil {
+			return fmt.Errorf("error al enviar la solicitud al módulo de cpu: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("error en la respuesta del módulo de cpu: %v", resp.StatusCode)
+		}
+
+		log.Println("Respuesta del módulo de IO recibida correctamente.")
+		return nil
+	} else if interfazEncontrada != (interfaz{}) && interfazEncontrada.Type == "DialFS" {
+		log.Printf("entre al tercer if con la interfaz: %+v", interfazEncontrada.Name)
+		SendFSDataToIO(fileName, fsInstruction, interfazEncontrada.Port, fsRegTam, fsRegDirec, fsRegPuntero) //envia los registros a IO
+		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
+
+		ioResponseTest, err := json.Marshal(payload)
+		if err != nil {
+			return fmt.Errorf("error al serializar el payload: %v", err)
+		}
+
+		resp, err := http.Post(entradasalidaURL, "application/json", bytes.NewBuffer(ioResponseTest))
+		if err != nil {
+			return fmt.Errorf("error al enviar la solicitud al módulo de cpu: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("error en la respuesta del módulo de cpu: %v", resp.StatusCode)
+		}
+
+		log.Println("Respuesta del módulo de IO recibida correctamente.")
+		return nil
 	}
 	return nil
 }
@@ -833,19 +917,42 @@ func RecieveREGFromCPU(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
 		return
 	}
-	DirFisica = bodyRegisters.DirFisica
-	LengthREG = bodyRegisters.LengthREG
+	processData := ProcessData{
+		Pid:             bodyRegisters.IOpid,
+		LengthREG:       bodyRegisters.LengthREG,
+		DireccionFisica: bodyRegisters.DirFisica,
+	}
+	processDataMap.Store(processData.Pid, processData)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("Registers received: %v", bodyRegisters)))
 }
 
-func SendREGtoIO(REGdireccion []int, lengthREG int, port int) error {
+func RecieveFileNameFromCPU(w http.ResponseWriter, r *http.Request) {
+	var fsStructure FSstructure
+	err := json.NewDecoder(r.Body).Decode(&fsStructure)
+	if err != nil {
+		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
+		return
+	}
+	fileName = fsStructure.FileName
+	fsInstruction = fsStructure.FSInstruction
+	fsRegTam = fsStructure.FSRegTam
+	fsRegDirec = fsStructure.FSRegDirec
+	fsRegPuntero = fsStructure.FSRegPuntero
+	log.Printf("Received filename: %+v", fileName)
+	log.Printf("Received FS instruction: %+v", fsInstruction)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("Registers received: %v", fileName)))
+}
+
+func SendREGtoIO(REGdireccion []int, lengthREG int, port int, pid int) error {
 	ioURL := fmt.Sprintf("http://localhost:%d/recieveREG", port)
 	var BodyRegister BodyRegisters
 	BodyRegister.DirFisica = REGdireccion
 	BodyRegister.LengthREG = lengthREG
-	BodyRegister.IOpid = IOpid
+	BodyRegister.IOpid = pid
 
 	savedRegJSON, err := json.Marshal(BodyRegister)
 	if err != nil {
@@ -863,6 +970,37 @@ func SendREGtoIO(REGdireccion []int, lengthREG int, port int) error {
 	}
 
 	//log.Println("Respuesta del módulo de entradasalida recibida correctamente.")
+	return nil
+}
+
+func SendFSDataToIO(filename string, instruction string, port int, regTam int, regDirec []int, regPuntero int) error {
+	ioURL := fmt.Sprintf("http://localhost:%d/recieveFSDATA", port)
+	fsStructure := FSstructure{
+		FileName:      fileName,
+		FSInstruction: instruction,
+		FSRegTam:      regTam,
+		FSRegDirec:    regDirec,
+		FSRegPuntero:  regPuntero,
+	}
+
+	fsStructureJSON, err := json.Marshal(fsStructure)
+	if err != nil {
+		return fmt.Errorf("error al serializar los datos JSON: %v", err)
+	}
+
+	log.Println("Enviando solicitud con contenido:", string(fsStructureJSON))
+
+	resp, err := http.Post(ioURL, "application/json", bytes.NewBuffer(fsStructureJSON))
+	if err != nil {
+		return fmt.Errorf("error al enviar la solicitud al módulo de entradasalida: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("error en la respuesta del módulo de entradasalida: %v", resp.StatusCode)
+	}
+
+	log.Println("Respuesta del módulo de entradasalida recibida correctamente.")
 	return nil
 }
 
@@ -961,13 +1099,16 @@ func findPCB(pid int) (PCB, error) {
 }
 
 func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
-	pidStr := r.URL.Query().Get("pid")
+	if r.Method != "DELETE" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 
+	pidStr := r.URL.Query().Get("pid")
 	if pidStr == "" {
 		http.Error(w, "PID no especificado", http.StatusBadRequest)
 		return
 	}
-
 	pid, err := strconv.Atoi(pidStr)
 	if err != nil {
 		http.Error(w, "PID debe ser un número", http.StatusBadRequest)
