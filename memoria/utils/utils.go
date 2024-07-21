@@ -200,6 +200,8 @@ func GetInstruction(w http.ResponseWriter, r *http.Request) {
 	instruction := mapInstructions[pid][programCounter][0]
 	time.Sleep(time.Duration(globals.ClientConfig.DelayResponse) * time.Millisecond)
 
+	time.Sleep(time.Duration(globals.ClientConfig.DelayResponse) * time.Millisecond)
+
 	instructionResponse := InstructionResposne{
 		Instruction: instruction,
 	}

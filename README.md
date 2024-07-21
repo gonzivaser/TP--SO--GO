@@ -89,22 +89,26 @@ antes de subir el tag.
 
     - [x] Fetch Instrucción
     - [x] Instrucción Ejecutada
-    - [x] TLB Hit
-    - [x] TLB Miss
+
+    - [ ] TLB Hit
+    - [ ] TLB Miss
+
     - [x] Obtener Marco
     - [x] Lectura/Escritura Memoria
 
 - Módulo Memoria:
 
-    - [ ] Se Creación / destrucción de Tabla de Páginas
+
+    - [x] Se Creación / destrucción de Tabla de Páginas
     - [x] Acceso a Tabla de Páginas
     - [x] Ampliación de Proceso
     - [x] Reducción de Proceso
-    - [ ] Acceso a espacio de usuario
+    - [x] Acceso a espacio de usuario
+
 
 - Módulo Interfaz I/O:
 
-    - [ ] Todos - Operación
+    - [X] Todos - Operación
     - [ ] DialFS - Crear Archivo
     - [ ] DialFS - Eliminar Archivo
     - [ ] DialFS - Truncar Archivo

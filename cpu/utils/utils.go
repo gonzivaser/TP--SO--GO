@@ -136,7 +136,7 @@ var GLOBALpageTam int
 var GLOBALdataMOV_IN []byte
 
 // var requestCPU KernelRequest
-var responseInterrupt ResponseInterrupt
+var responseInterruptGlobal ResponseInterrupt
 
 func init() {
 	globals.ClientConfig = IniciarConfiguracion("config.json") // tiene que prender la confi cuando arranca
@@ -212,8 +212,8 @@ func InstructionCycle(contextoDeEjecucion PCB) {
 
 		// responseInterrupt.Interrupt ---> ese de clock y finalizacion
 		// interrupt ---> ese de io y wait
-		if responseInterrupt.Interrupt && responseInterrupt.Pid == contextoDeEjecucion.Pid || interrupt {
-			responseInterrupt.Interrupt = false
+		if (responseInterruptGlobal.Interrupt && responseInterruptGlobal.Pid == contextoDeEjecucion.Pid) || interrupt {
+			responseInterruptGlobal.Interrupt = false
 			interrupt = false
 			break
 		}
@@ -221,7 +221,7 @@ func InstructionCycle(contextoDeEjecucion PCB) {
 	}
 	log.Printf("PID: %d - Sale de CPU - PCB actualizado: %d\n", contextoDeEjecucion.Pid, contextoDeEjecucion.CpuReg) //LOG no officia
 	if GLOBALrequestCPU.MotivoDesalojo == "" {
-		GLOBALrequestCPU.MotivoDesalojo = responseInterrupt.Motivo
+		GLOBALrequestCPU.MotivoDesalojo = responseInterruptGlobal.Motivo
 	}
 	GLOBALrequestCPU.PcbUpdated = contextoDeEjecucion
 	responsePCBtoKernel(GLOBALrequestCPU)
@@ -1009,10 +1009,26 @@ func CheckWait(w http.ResponseWriter, r *http.Request, registerCPU *PCB, recurso
 func Checkinterrupts(w http.ResponseWriter, r *http.Request) { // A chequear
 	log.Printf("Recibiendo solicitud de Interrupcion del Kernel")
 
-	err := json.NewDecoder(r.Body).Decode(&responseInterrupt)
+	var responseInterruptLocal ResponseInterrupt
+
+	err := json.NewDecoder(r.Body).Decode(&responseInterruptLocal)
 	if err != nil {
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
 		return
+	}
+
+	if responseInterruptLocal.Motivo == "INTERRUPTED_BY_USER" {
+		// Siempre procesar INTERRUPTED_BY_USER inmediatamente
+		responseInterruptGlobal = responseInterruptLocal
+	} else if responseInterruptLocal.Motivo == "CLOCK" {
+		// Verificar si ya hay una interrupción pendiente
+		if responseInterruptGlobal.Interrupt && responseInterruptGlobal.Motivo == "INTERRUPTED_BY_USER" {
+			// Ya hay una interrupción de mayor prioridad, ignorar CLOCK
+			log.Printf("Ignorando interrupción CLOCK debido a una interrupción pendiente de mayor prioridad")
+		} else {
+			// No hay interrupción de mayor prioridad, procesar CLOCK
+			responseInterruptGlobal = responseInterruptLocal
+		}
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(interrupt)

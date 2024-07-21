@@ -10,7 +10,7 @@ type Config struct {
 	Quantum                int      `json:"quantum"`
 	Recursos               []string `json:"resources"`
 	InstanciasRecursos     []int    `json:"resource_instances"`
-	Multiprogramacion      int      `json:"multiprogramacion"`
+	Multiprogramacion      int      `json:"multiprogramming"`
 }
 
 var ClientConfig *Config
