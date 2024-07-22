@@ -949,6 +949,8 @@ func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, r
 
 	// BLOQUE A ESCRIBIR
 	bloqueInicialDelArchivo := searchInMetaDataStructure(fileName)
+	//fileData := dataFileInMetaDataStructure(fileName)
+
 	posicionInicialDeEscritura := (bloqueInicialDelArchivo * config.TamanioBloqueDialFS) + regPuntero
 
 	// ME MUEVO A LA POSICION INICIAL DE ESCRITURA
@@ -973,7 +975,7 @@ func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, r
 	}
 
 	// Leer el contenido del archivo
-	fileContent := make([]byte, config.TamanioBloqueDialFS) // Asumiendo que el archivo ocupa un bloque
+	fileContent := make([]byte, config.TamanioBloqueDialFS*config.CantidadBloquesDialFS) // Asumiendo que el archivo ocupa un bloque
 	bytesRead, err := blocksFile.Read(fileContent)
 	if err != nil && err != io.EOF {
 		log.Fatalf("Error al leer el contenido del archivo: %v", err)
