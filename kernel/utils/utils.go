@@ -273,6 +273,7 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 
 	procesoEXEC.PCB.CpuReg = CPURequest.PcbUpdated.CpuReg
 	procesoEXEC.PCB.Pid = CPURequest.PcbUpdated.Pid
+	procesoEXEC.PCB.State = CPURequest.PcbUpdated.State
 	switch CPURequest.MotivoDesalojo {
 	case "FINALIZADO":
 		log.Printf("Finaliza el proceso %v - Motivo: SUCCESS", CPURequest.PcbUpdated.Pid)
