@@ -212,9 +212,15 @@ func InstructionCycle(contextoDeEjecucion PCB) {
 
 		// responseInterrupt.Interrupt ---> ese de clock y finalizacion
 		// interrupt ---> ese de io y wait
-		if (responseInterruptGlobal.Interrupt && responseInterruptGlobal.Pid == contextoDeEjecucion.Pid) || interrupt {
+		if responseInterruptGlobal.Interrupt && responseInterruptGlobal.Pid == contextoDeEjecucion.Pid && responseInterruptGlobal.Motivo == "INTERRUPTED_BY_USER" {
 			responseInterruptGlobal.Interrupt = false
+			GLOBALrequestCPU.MotivoDesalojo = responseInterruptGlobal.Motivo
+			break
+		} else if interrupt {
 			interrupt = false
+			if GLOBALrequestCPU.MotivoDesalojo == "" {
+				GLOBALrequestCPU.MotivoDesalojo = "INTERRUPCION POR IO"
+			}
 			break
 		}
 
@@ -636,7 +642,8 @@ func MOV_OUT(words []string, contextoEjecucion *PCB) error {
 	var valueDatosBytes []byte
 	switch REGdatos {
 	case "PC", "EAX", "EBX", "ECX", "EDX", "SI", "DI":
-		valueDatosBytes = []byte(uint32ToString(uint32(valueDatos)))
+		valueDatosBytes = make([]byte, 4)
+		binary.LittleEndian.PutUint32(valueDatosBytes, uint32(valueDatos))
 	case "AX", "BX", "CX", "DX":
 		valueDatosBytes = []byte{uint8(valueDatos)}
 	default:
