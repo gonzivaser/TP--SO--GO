@@ -328,7 +328,7 @@ func createStructuresMemory(pid int, pages int) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("error en la respuesta del módulo de memoria: %v", resp.StatusCode)
 	}
-	log.Println("Respuesta del módulo de entradasalida recibida correctamente.")
+	//log.Println("Respuesta del módulo de entradasalida recibida correctamente.")
 	return nil
 }
 
@@ -649,7 +649,7 @@ func executeProcessVRR() {
 		if len(colaReadyVRR) > 0 {
 			mutexExecutionCPU.Lock()
 			proceso = colaReadyVRR[0]
-			log.Printf("PID %d (VRR)- Quantum iniciado %d", proceso.Pid, quantumMapGlobal[proceso.Pid])
+			//log.Printf("PID %d (VRR)- Quantum iniciado %d", proceso.Pid, quantumMapGlobal[proceso.Pid])
 			go startQuantum(quantumMapGlobal[proceso.Pid], proceso.Pid)
 			executeTask(proceso)
 
@@ -657,7 +657,7 @@ func executeProcessVRR() {
 			mutexExecutionCPU.Lock()
 			proceso = colaReady[0]
 			quantum = globals.ClientConfig.Quantum
-			log.Printf("PID %d (RR)- Quantum iniciado %d", proceso.Pid, globals.ClientConfig.Quantum)
+			//log.Printf("PID %d (RR)- Quantum iniciado %d", proceso.Pid, globals.ClientConfig.Quantum)
 			go startQuantum(quantum, proceso.Pid)
 			executeTask(proceso)
 		}
@@ -665,7 +665,7 @@ func executeProcessVRR() {
 	}
 }
 func startQuantum(quantum int, pid int) {
-	log.Printf("PID %d - Quantum iniciado %d", pid, quantum)
+	//log.Printf("PID %d - Quantum iniciado %d", pid, quantum)
 	mutexQuantum.Lock()
 	quantumMapGlobal[pid] = 0
 	defer mutexQuantum.Unlock()
@@ -676,10 +676,9 @@ func startQuantum(quantum int, pid int) {
 	for {
 		select {
 		case <-timer.C:
-			elapsed := time.Since(start)
-			log.Printf("PID %d - Quantum terminado. Tiempo real transcurrido: %v", pid, elapsed)
+			//log.Printf("PID %d - Quantum terminado. Tiempo real transcurrido: %v", pid, elapsed)
 			if err := SendInterrupt(pid, "CLOCK"); err != nil {
-				log.Printf("Error sending interrupt to CPU: %v", err)
+				//log.Printf("Error sending interrupt to CPU: %v", err)
 			}
 			return
 		case <-done:
@@ -691,7 +690,7 @@ func startQuantum(quantum int, pid int) {
 			if remainingQuantum < 0 {
 				remainingQuantum = 0
 			}
-			log.Printf("PID %d - Proceso desalojado antes de que el quantum termine. Quantum restante %d", pid, remainingQuantum)
+			//log.Printf("PID %d - Proceso desalojado antes de que el quantum termine. Quantum restante %d", pid, remainingQuantum)
 			if globals.ClientConfig.AlgoritmoPlanificacion == "VRR" {
 				quantumMapGlobal[pid] = remainingQuantum
 			}
@@ -811,7 +810,6 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 	}
 	if interfazEncontrada != (interfaz{}) && interfazEncontrada.Type == "STDOUT" || interfazEncontrada.Type == "STDIN" {
 
-		log.Printf("entre alk primer if con la interfaz: %+v", interfazEncontrada.Type)
 		processData, ok := getProcessData(pid)
 		if !ok {
 			log.Printf("No se encontraron datos para el PID: %d", payload.Pid)
@@ -861,7 +859,6 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 		//log.Println("Respuesta del módulo de IO recibida correctamente.")
 		return nil
 	} else if interfazEncontrada != (interfaz{}) && interfazEncontrada.Type == "GENERICA" {
-		log.Printf("entre al SEGUNDO if con la interfaz: %+v", interfazEncontrada.Name)
 		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
 
 		ioResponseTest, err := json.Marshal(payload)
@@ -879,10 +876,9 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 			return fmt.Errorf("error en la respuesta del módulo de cpu: %v", resp.StatusCode)
 		}
 
-		log.Println("Respuesta del módulo de IO recibida correctamente.")
+		//log.Println("Respuesta del módulo de IO recibida correctamente.")
 		return nil
 	} else if interfazEncontrada != (interfaz{}) && interfazEncontrada.Type == "DialFS" {
-		log.Printf("entre al tercer if con la interfaz: %+v", interfazEncontrada.Name)
 		SendFSDataToIO(fileName, fsInstruction, interfazEncontrada.Port, fsRegTam, fsRegDirec, fsRegPuntero) //envia los registros a IO
 		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
 
@@ -901,7 +897,7 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 			return fmt.Errorf("error en la respuesta del módulo de cpu: %v", resp.StatusCode)
 		}
 
-		log.Println("Respuesta del módulo de IO recibida correctamente.")
+		//log.Println("Respuesta del módulo de IO recibida correctamente.")
 		return nil
 	}
 	return nil
@@ -939,8 +935,8 @@ func RecieveFileNameFromCPU(w http.ResponseWriter, r *http.Request) {
 	fsRegTam = fsStructure.FSRegTam
 	fsRegDirec = fsStructure.FSRegDirec
 	fsRegPuntero = fsStructure.FSRegPuntero
-	log.Printf("Received filename: %+v", fileName)
-	log.Printf("Received FS instruction: %+v", fsInstruction)
+	//log.Printf("Received filename: %+v", fileName)
+	//log.Printf("Received FS instruction: %+v", fsInstruction)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("Registers received: %v", fileName)))
@@ -987,7 +983,7 @@ func SendFSDataToIO(filename string, instruction string, port int, regTam int, r
 		return fmt.Errorf("error al serializar los datos JSON: %v", err)
 	}
 
-	log.Println("Enviando solicitud con contenido:", string(fsStructureJSON))
+	//log.Println("Enviando solicitud con contenido:", string(fsStructureJSON))
 
 	resp, err := http.Post(ioURL, "application/json", bytes.NewBuffer(fsStructureJSON))
 	if err != nil {
@@ -999,7 +995,7 @@ func SendFSDataToIO(filename string, instruction string, port int, regTam int, r
 		return fmt.Errorf("error en la respuesta del módulo de entradasalida: %v", resp.StatusCode)
 	}
 
-	log.Println("Respuesta del módulo de entradasalida recibida correctamente.")
+	//log.Println("Respuesta del módulo de entradasalida recibida correctamente.")
 	return nil
 }
 
@@ -1043,7 +1039,7 @@ func SendInterrupt(pid int, motivo string) error {
 		log.Printf("Error al serializar el valor de hayQuantum: %v", err)
 		return err
 	}
-	log.Printf("Mandando interrupción a la CPU PID: %d", pid)
+	//log.Printf("Mandando interrupción a la CPU PID: %d", pid)
 	resp, err := http.Post(cpuURL, "application/json", bytes.NewBuffer(hayQuantumBytes))
 	if err != nil {
 		log.Printf("Error al enviar la solicitud al módulo de cpu: %v", err)
