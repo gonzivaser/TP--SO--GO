@@ -584,26 +584,23 @@ func MOV_IN(words []string, contextoEjecucion *PCB) error {
 	if err1 != nil {
 		return fmt.Errorf("error leyendo memoria: %s", err1)
 	}
-	log.Printf("PID: %d - Acción: LEER - Dirección Física: %v - Valor: %s", contextoEjecucion.Pid, direcciones, GLOBALdataMOV_IN)
+
 	//buf := bytes.NewReader(GLOBALdataMOV_IN)
 	if tamREGdatos == 1 {
 		result := stringToUint8(string(GLOBALdataMOV_IN))
-		log.Printf("result ESSSS:%d", result)
+		log.Printf("PID: %d - Acción: LEER - Dirección Física: %v - Valor: %d", contextoEjecucion.Pid, direcciones, result)
 		err3 := SetCampo(&contextoEjecucion.CpuReg, REGdatos, result)
 		if err3 != nil {
 			return fmt.Errorf("error en execute: %s", err3)
 		}
 	} else {
 		result := stringToInteger(string(GLOBALdataMOV_IN))
-		log.Printf("result ESSSS:%d", result)
+		log.Printf("PID: %d - Acción: LEER - Dirección Física: %v - Valor: %d", contextoEjecucion.Pid, direcciones, result)
 		err3 := SetCampo(&contextoEjecucion.CpuReg, REGdatos, result)
 		if err3 != nil {
 			return fmt.Errorf("error en execute: %s", err3)
 		}
 	}
-
-	log.Printf("PID: %d - MOV_IN - %s - dato obtenido de memoria:%s", contextoEjecucion.Pid, REGdatos, GLOBALdataMOV_IN)
-
 	return nil
 }
 
@@ -643,7 +640,7 @@ func MOV_OUT(words []string, contextoEjecucion *PCB) error {
 	switch REGdatos {
 	case "PC", "EAX", "EBX", "ECX", "EDX", "SI", "DI":
 		valueDatosBytes = make([]byte, 4)
-		binary.LittleEndian.PutUint32(valueDatosBytes, uint32(valueDatos))
+		binary.BigEndian.PutUint32(valueDatosBytes, uint32(valueDatos))
 	case "AX", "BX", "CX", "DX":
 		valueDatosBytes = []byte{uint8(valueDatos)}
 	default:
