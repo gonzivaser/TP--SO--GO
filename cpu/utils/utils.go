@@ -212,15 +212,9 @@ func InstructionCycle(contextoDeEjecucion PCB) {
 
 		// responseInterrupt.Interrupt ---> ese de clock y finalizacion
 		// interrupt ---> ese de io y wait
-		if responseInterruptGlobal.Interrupt && responseInterruptGlobal.Pid == contextoDeEjecucion.Pid && responseInterruptGlobal.Motivo == "INTERRUPTED_BY_USER" {
+		if (responseInterruptGlobal.Interrupt && responseInterruptGlobal.Pid == contextoDeEjecucion.Pid) || interrupt {
 			responseInterruptGlobal.Interrupt = false
-			GLOBALrequestCPU.MotivoDesalojo = responseInterruptGlobal.Motivo
-			break
-		} else if interrupt {
 			interrupt = false
-			if GLOBALrequestCPU.MotivoDesalojo == "" {
-				GLOBALrequestCPU.MotivoDesalojo = "INTERRUPCION POR IO"
-			}
 			break
 		}
 
@@ -1011,7 +1005,6 @@ func CheckWait(w http.ResponseWriter, r *http.Request, registerCPU *PCB, recurso
 }
 
 func Checkinterrupts(w http.ResponseWriter, r *http.Request) { // A chequear
-	log.Printf("Recibiendo solicitud de Interrupcion del Kernel")
 
 	var responseInterruptLocal ResponseInterrupt
 
@@ -1020,6 +1013,7 @@ func Checkinterrupts(w http.ResponseWriter, r *http.Request) { // A chequear
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
 		return
 	}
+	log.Printf("Recibiendo solicitud de Interrupcion del Kernel %d", responseInterruptLocal.Pid)
 
 	if responseInterruptLocal.Motivo == "INTERRUPTED_BY_USER" {
 		// Siempre procesar INTERRUPTED_BY_USER inmediatamente
