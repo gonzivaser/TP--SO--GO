@@ -470,7 +470,7 @@ func ReadMemory(pid int, addresses []int, size int) ([]byte, error) {
 
 // address : address+size
 func sendDataToCPU(content []byte) error {
-	CPUurl := fmt.Sprintf("http://localhost:%d/receiveDataFromMemory", globals.ClientConfig.PuertoCPU)
+	CPUurl := fmt.Sprintf("http://%s:%d/receiveDataFromMemory", globals.ClientConfig.IpCPU, globals.ClientConfig.PuertoCPU)
 	ContentResponseTest, err := json.Marshal(content)
 	if err != nil {
 		log.Fatalf("Error al serializar el Input: %v", err)
@@ -660,7 +660,7 @@ func RecievePortOfInterfaceFromKernel(w http.ResponseWriter, r *http.Request) {
 func SendContentToIO(content string, Puerto int) error {
 	var BodyContent BodyContent
 	BodyContent.Content = content
-	IOurl := fmt.Sprintf("http://localhost:%d/receiveContentFromMemory", Puerto)
+	IOurl := fmt.Sprintf("http://%s:%d/receiveContentFromMemory", globals.ClientConfig.IpEntradaSalida, Puerto)
 	ContentResponseTest, err := json.Marshal(BodyContent)
 	if err != nil {
 		log.Fatalf("Error al serializar el Input: %v", err)
@@ -699,7 +699,7 @@ func GetPageFromCPU(w http.ResponseWriter, r *http.Request) {
 
 func sendFrameToCPU(pid int, page int) error {
 	var bodyFrame BodyFrame
-	CPUurl := fmt.Sprintf("http://localhost:%d/recieveFrame", globals.ClientConfig.PuertoCPU)
+	CPUurl := fmt.Sprintf("http://%s:%d/recieveFrame", globals.ClientConfig.IpCPU, globals.ClientConfig.PuertoCPU)
 	frame := pageTable[pid][page]
 	log.Printf("PID: %d - Pagina: %d - Marco: %d", pid, page, frame)
 	bodyFrame.Frame = frame
@@ -740,7 +740,7 @@ func proximoLugarLibre() int {
 }*/
 
 func SendPageTamToCPU(tamPage int) {
-	CPUurl := fmt.Sprintf("http://localhost:%d/recievePageTam", globals.ClientConfig.PuertoCPU)
+	CPUurl := fmt.Sprintf("http://%s:%d/recievePageTam", globals.ClientConfig.IpCPU, globals.ClientConfig.PuertoCPU)
 	var body BodyPageTam
 	body.PageTam = tamPage
 	PageTamResponseTest, err := json.Marshal(body)
@@ -757,7 +757,7 @@ func SendPageTamToCPU(tamPage int) {
 }
 
 func FinalizarProceso(pid int) {
-	kernelURL := fmt.Sprintf("http://localhost:%d/process?pid=%d", globals.ClientConfig.PuertoKernel, pid)
+	kernelURL := fmt.Sprintf("http://%s:%d/process?pid=%d", globals.ClientConfig.IpKernel, globals.ClientConfig.PuertoKernel, pid)
 	req, err := http.NewRequest("DELETE", kernelURL, nil)
 	if err != nil {
 		log.Fatalf("Error al crear la solicitud: %v", err)

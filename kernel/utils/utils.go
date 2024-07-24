@@ -308,7 +308,7 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 }
 
 func createStructuresMemory(pid int, pages int) error {
-	memoriaURL := fmt.Sprintf("http://localhost:%d/createProcess", globals.ClientConfig.PuertoMemoria)
+	memoriaURL := fmt.Sprintf("http://%s:%d/createProcess", globals.ClientConfig.IpMemoria, globals.ClientConfig.PuertoMemoria)
 	var process Process
 	process.PID = pid
 	process.Pages = pages
@@ -729,7 +729,7 @@ func createPCB() PCB {
 }
 
 func SendPathToMemory(request BodyRequest, pid int) error {
-	memoriaURL := fmt.Sprintf("http://localhost:8085/setInstructionFromFileToMap?pid=%d&path=%s", pid, request.Path)
+	memoriaURL := fmt.Sprintf("http://%s:8085/setInstructionFromFileToMap?pid=%d&path=%s", globals.ClientConfig.IpMemoria, pid, request.Path)
 	savedPathJSON, err := json.Marshal(request)
 	if err != nil {
 		return fmt.Errorf("error al serializar los datos JSON: %v", err)
@@ -752,7 +752,7 @@ func SendPathToMemory(request BodyRequest, pid int) error {
 }
 
 func SendContextToCPU(pcb PCB) error {
-	cpuURL := "http://localhost:8075/receivePCB"
+	cpuURL := fmt.Sprintf("http://%s:%d/receivePCB", globals.ClientConfig.IpCPU, globals.ClientConfig.PuertoCPU)
 
 	context := pcb
 	pcbResponseTest, err := json.Marshal(context)
@@ -820,7 +820,7 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 		SendREGtoIO(processData.DireccionFisica, processData.LengthREG, interfazEncontrada.Port, pid) //envia los registros a IO
 
 		//envia el payload a IO
-		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
+		entradasalidaURL := fmt.Sprintf("http://%s:%d/interfaz", globals.ClientConfig.IpEntradaSalida, interfazEncontrada.Port)
 
 		ioResponseTest, err := json.Marshal(payload)
 		if err != nil {
@@ -840,27 +840,7 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 		//log.Println("Respuesta del módulo de IO recibida correctamente.")
 		return nil
 	} else if interfazEncontrada != (interfaz{}) && interfazEncontrada.Type == "GENERICA" {
-		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
-
-		ioResponseTest, err := json.Marshal(payload)
-		if err != nil {
-			return fmt.Errorf("error al serializar el payload: %v", err)
-		}
-
-		resp, err := http.Post(entradasalidaURL, "application/json", bytes.NewBuffer(ioResponseTest))
-		if err != nil {
-			return fmt.Errorf("error al enviar la solicitud al módulo de cpu: %v", err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("error en la respuesta del módulo de cpu: %v", resp.StatusCode)
-		}
-
-		//log.Println("Respuesta del módulo de IO recibida correctamente.")
-		return nil
-	} else if interfazEncontrada != (interfaz{}) && interfazEncontrada.Type == "GENERICA" {
-		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
+		entradasalidaURL := fmt.Sprintf("http://%s:%d/interfaz", globals.ClientConfig.IpEntradaSalida, interfazEncontrada.Port)
 
 		ioResponseTest, err := json.Marshal(payload)
 		if err != nil {
@@ -881,7 +861,7 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 		return nil
 	} else if interfazEncontrada != (interfaz{}) && interfazEncontrada.Type == "DialFS" {
 		SendFSDataToIO(fileName, fsInstruction, interfazEncontrada.Port, fsRegTam, fsRegDirec, fsRegPuntero) //envia los registros a IO
-		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
+		entradasalidaURL := fmt.Sprintf("http://%s:%d/interfaz", globals.ClientConfig.IpEntradaSalida, interfazEncontrada.Port)
 
 		ioResponseTest, err := json.Marshal(payload)
 		if err != nil {
@@ -944,7 +924,7 @@ func RecieveFileNameFromCPU(w http.ResponseWriter, r *http.Request) {
 }
 
 func SendREGtoIO(REGdireccion []int, lengthREG int, port int, pid int) error {
-	ioURL := fmt.Sprintf("http://localhost:%d/recieveREG", port)
+	ioURL := fmt.Sprintf("http://%s:%d/recieveREG", globals.ClientConfig.IpEntradaSalida, port)
 	var BodyRegister BodyRegisters
 	BodyRegister.DirFisica = REGdireccion
 	BodyRegister.LengthREG = lengthREG
@@ -970,7 +950,7 @@ func SendREGtoIO(REGdireccion []int, lengthREG int, port int, pid int) error {
 }
 
 func SendFSDataToIO(filename string, instruction string, port int, regTam int, regDirec []int, regPuntero int) error {
-	ioURL := fmt.Sprintf("http://localhost:%d/recieveFSDATA", port)
+	ioURL := fmt.Sprintf("http://%s:%d/recieveFSDATA", globals.ClientConfig.IpEntradaSalida, port)
 	fsStructure := FSstructure{
 		FileName:      fileName,
 		FSInstruction: instruction,
@@ -1001,7 +981,7 @@ func SendFSDataToIO(filename string, instruction string, port int, regTam int, r
 }
 
 func SendPortOfInterfaceToMemory(nombreInterfaz string, puerto int) error {
-	memoriaURL := fmt.Sprintf("http://localhost:%d/SendPortOfInterfaceToMemory", globals.ClientConfig.PuertoMemoria)
+	memoriaURL := fmt.Sprintf("http://%s:%d/SendPortOfInterfaceToMemory", globals.ClientConfig.IpMemoria, globals.ClientConfig.PuertoMemoria)
 	body := BodyRequestPort{
 		Nombre: nombreInterfaz,
 		Port:   puerto,
@@ -1027,7 +1007,7 @@ func SendPortOfInterfaceToMemory(nombreInterfaz string, puerto int) error {
 }
 
 func SendInterrupt(pid int, motivo string) error {
-	cpuURL := "http://localhost:8075/interrupt"
+	cpuURL := fmt.Sprintf("http://%s:%d/interrupt", globals.ClientConfig.IpCPU, globals.ClientConfig.PuertoCPU)
 
 	RequestInterrupt := RequestInterrupt{
 		Interrupt: true,
@@ -1124,7 +1104,7 @@ func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
 }
 
 func deletePagesmemory(pid int) {
-	memoriaURL := fmt.Sprintf("http://localhost:8085/terminateProcess?pid=%d", pid)
+	memoriaURL := fmt.Sprintf("http://%s:%d/terminateProcess?pid=%d", globals.ClientConfig.IpMemoria, globals.ClientConfig.PuertoMemoria, pid)
 	resp, err := http.Post(memoriaURL, "application/json", nil)
 	if err != nil {
 		log.Printf("Error al enviar la solicitud al módulo de memoria: %v", err)

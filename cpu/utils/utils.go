@@ -229,7 +229,7 @@ func InstructionCycle(contextoDeEjecucion PCB) {
 }
 
 func responsePCBtoKernel(requestCPU KernelRequest) {
-	kernelURL := fmt.Sprintf("http://localhost:%d/syscall", globals.ClientConfig.PortKernel)
+	kernelURL := fmt.Sprintf("http://%s:%d/syscall", globals.ClientConfig.IpKernel, globals.ClientConfig.PortKernel)
 
 	requestJSON, err := json.Marshal(requestCPU)
 	if err != nil {
@@ -247,7 +247,7 @@ func responsePCBtoKernel(requestCPU KernelRequest) {
 }
 
 func Fetch(pc int, pid int) ([]string, error) {
-	memoriaURL := fmt.Sprintf("http://localhost:%d/getInstructionFromPid?pid=%d&programCounter=%d", globals.ClientConfig.PortMemory, pid, pc)
+	memoriaURL := fmt.Sprintf("http://%s:%d/getInstructionFromPid?pid=%d&programCounter=%d", globals.ClientConfig.IPMemory, globals.ClientConfig.PortMemory, pid, pc)
 	resp, err := http.Get(memoriaURL)
 	if err != nil {
 		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
@@ -677,7 +677,7 @@ func COPY_STRING(words []string, contextoEjecucion *PCB) error {
 }
 
 func LeerMemoria(pid int, direccion []int, size int) error {
-	memoriaURL := fmt.Sprintf("http://localhost:%d/readMemory", globals.ClientConfig.PortMemory)
+	memoriaURL := fmt.Sprintf("http://%s:%d/readMemory", globals.ClientConfig.IPMemory, globals.ClientConfig.PortMemory)
 	req := MemoryReadRequest{
 		PID:     pid,
 		Address: direccion,
@@ -718,7 +718,7 @@ func RecieveMOV_IN(w http.ResponseWriter, r *http.Request) {
 }
 
 func EscribirMemoria(pid int, direcciones []int, data []byte) error {
-	memoriaURL := fmt.Sprintf("http://localhost:%d/writeMemory", globals.ClientConfig.PortMemory)
+	memoriaURL := fmt.Sprintf("http://%s:%d/writeMemory", globals.ClientConfig.IPMemory, globals.ClientConfig.PortMemory)
 	var req MemoryReadRequest
 	req.PID = pid
 	req.Address = direcciones
@@ -921,7 +921,7 @@ func CheckSignal(w http.ResponseWriter, r *http.Request, pid int, motivo string,
 		return err
 	}
 
-	kernelURL := fmt.Sprintf("http://localhost:%d/signal", globals.ClientConfig.PortKernel)
+	kernelURL := fmt.Sprintf("http://%s:%d/signal", globals.ClientConfig.IpKernel, globals.ClientConfig.PortKernel)
 	resp, err := http.Post(kernelURL, "application/json", bytes.NewBuffer(waitRequestJSON))
 	if err != nil {
 		http.Error(w, "Error al enviar la solicitud al kernel", http.StatusInternalServerError)
@@ -967,7 +967,7 @@ func CheckWait(w http.ResponseWriter, r *http.Request, registerCPU *PCB, recurso
 		return err
 	}
 
-	kernelURL := fmt.Sprintf("http://localhost:%d/wait", globals.ClientConfig.PortKernel)
+	kernelURL := fmt.Sprintf("http://%s:%d/wait", globals.ClientConfig.IpKernel, globals.ClientConfig.PortKernel)
 	resp, err := http.Post(kernelURL, "application/json", bytes.NewBuffer(waitRequestJSON))
 	if err != nil {
 		http.Error(w, "Error al enviar la solicitud al kernel", http.StatusInternalServerError)
@@ -1197,7 +1197,7 @@ a partir de memoria[15]
 
 // simulacion de la obtención de un marco desde la memoria
 func FetchFrameFromMemory(pid, pageNumber int) error {
-	memoryURL := fmt.Sprintf("http://localhost:%d/getFramefromCPU", globals.ClientConfig.PortMemory)
+	memoryURL := fmt.Sprintf("http://%s:%d/getFramefromCPU", globals.ClientConfig.IPMemory, globals.ClientConfig.PortMemory)
 	var pageTable bodyPageTable
 	pageTable.Pid = pid
 	pageTable.Page = pageNumber
@@ -1234,7 +1234,7 @@ func RecieveFramefromMemory(w http.ResponseWriter, r *http.Request) {
 }
 
 func sendResizeMemory(tam int) {
-	memoriaURL := fmt.Sprintf("http://localhost:%d/resizeProcess", globals.ClientConfig.PortMemory)
+	memoriaURL := fmt.Sprintf("http://%s:%d/resizeProcess", globals.ClientConfig.IPMemory, globals.ClientConfig.PortMemory)
 	var process bodyProcess
 	process.Pid = GLOBALcontextoDeEjecucion.Pid
 	process.Pages = tam
@@ -1254,7 +1254,7 @@ func sendResizeMemory(tam int) {
 }
 
 func sendREGtoKernel(adress []int, length int, pid int) {
-	kernelURL := fmt.Sprintf("http://localhost:%d/recieveREG", globals.ClientConfig.PortKernel)
+	kernelURL := fmt.Sprintf("http://%s:%d/recieveREG", globals.ClientConfig.IpKernel, globals.ClientConfig.PortKernel)
 	var BodyRegisters bodyRegisters
 	BodyRegisters.Pid = pid
 	BodyRegisters.DirFisica = adress
@@ -1280,7 +1280,7 @@ func sendFSDataToKernel(fileName string, instructionFS string, regTamano int, re
 		FSRegDirec:    regDireccion,
 		FSRegPuntero:  regPuntero,
 	}
-	kernelURL := fmt.Sprintf("http://localhost:%d/recieveFSDATA", globals.ClientConfig.PortKernel)
+	kernelURL := fmt.Sprintf("http://%s:%d/recieveFSDATA", globals.ClientConfig.IpKernel, globals.ClientConfig.PortKernel)
 
 	fsStructureJSON, err := json.Marshal(fsStructure)
 	if err != nil {
