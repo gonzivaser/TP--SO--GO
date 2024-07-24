@@ -5,6 +5,7 @@ type Config struct {
 	IpMemoria              string   `json:"mensaje"`
 	PuertoMemoria          int      `json:"port_memory"`
 	IpCPU                  string   `json:"ip_cpu"`
+	IpEntradaSalida        string   `json:"ip_entradasalida"`
 	PuertoCPU              int      `json:"port_cpu"`
 	AlgoritmoPlanificacion string   `json:"planning_algorithm"`
 	Quantum                int      `json:"quantum"`

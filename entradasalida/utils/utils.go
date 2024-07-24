@@ -250,7 +250,7 @@ func FinalizarProceso(pid int) {
 }
 
 func SendPortOfInterfaceToKernel(nombreInterfaz string, config *globals.Config) error {
-	kernelURL := fmt.Sprintf("http://localhost:%d/SendPortOfInterfaceToKernel", config.PuertoKernel)
+	kernelURL := fmt.Sprintf("http://%s:%d/SendPortOfInterfaceToKernel", config.IPKernel, config.PuertoKernel)
 
 	interfaceData := BodyRequestPort{
 		Nombre: nombreInterfaz,
@@ -279,7 +279,7 @@ func SendPortOfInterfaceToKernel(nombreInterfaz string, config *globals.Config) 
 
 // STDOUT, FS_WRITE  leer en memoria y traer lo leido con "ReceiveContentFromMemory"
 func SendAdressToMemory(ReadRequest MemoryRequest) error {
-	memoriaURL := fmt.Sprintf("http://localhost:%d/readMemory", config.PuertoMemoria)
+	memoriaURL := fmt.Sprintf("http://%s:%d/readMemory", config.IPMemoria, config.PuertoMemoria)
 
 	adressResponseTest, err := json.Marshal(ReadRequest)
 	if err != nil {
@@ -307,7 +307,7 @@ func SendInputToMemory(pid int, input string, address []int) error {
 		Address: address,
 	}
 
-	memoriaURL := fmt.Sprintf("http://localhost:%d/writeMemory", config.PuertoMemoria)
+	memoriaURL := fmt.Sprintf("http://%s:%d/SendInputToMemory", config.IPMemoria, config.PuertoMemoria)
 
 	inputResponseTest, err := json.Marshal(bodyRequest)
 	if err != nil {

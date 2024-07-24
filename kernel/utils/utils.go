@@ -273,6 +273,7 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 
 	procesoEXEC.PCB.CpuReg = CPURequest.PcbUpdated.CpuReg
 	procesoEXEC.PCB.Pid = CPURequest.PcbUpdated.Pid
+	procesoEXEC.PCB.State = CPURequest.PcbUpdated.State
 	switch CPURequest.MotivoDesalojo {
 	case "FINALIZADO":
 		log.Printf("Finaliza el proceso %v - Motivo: SUCCESS", CPURequest.PcbUpdated.Pid)
@@ -307,7 +308,7 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 }
 
 func createStructuresMemory(pid int, pages int) error {
-	memoriaURL := fmt.Sprintf("http://localhost:%d/createProcess", globals.ClientConfig.PuertoMemoria)
+	memoriaURL := fmt.Sprintf("http://%s:%d/createProcess", globals.ClientConfig.IpMemoria, globals.ClientConfig.PuertoMemoria)
 	var process Process
 	process.PID = pid
 	process.Pages = pages
@@ -328,7 +329,7 @@ func createStructuresMemory(pid int, pages int) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("error en la respuesta del módulo de memoria: %v", resp.StatusCode)
 	}
-	log.Println("Respuesta del módulo de entradasalida recibida correctamente.")
+	//log.Println("Respuesta del módulo de entradasalida recibida correctamente.")
 	return nil
 }
 
@@ -649,7 +650,7 @@ func executeProcessVRR() {
 		if len(colaReadyVRR) > 0 {
 			mutexExecutionCPU.Lock()
 			proceso = colaReadyVRR[0]
-			log.Printf("PID %d (VRR)- Quantum iniciado %d", proceso.Pid, quantumMapGlobal[proceso.Pid])
+			//log.Printf("PID %d (VRR)- Quantum iniciado %d", proceso.Pid, quantumMapGlobal[proceso.Pid])
 			go startQuantum(quantumMapGlobal[proceso.Pid], proceso.Pid)
 			executeTask(proceso)
 
@@ -657,7 +658,7 @@ func executeProcessVRR() {
 			mutexExecutionCPU.Lock()
 			proceso = colaReady[0]
 			quantum = globals.ClientConfig.Quantum
-			log.Printf("PID %d (RR)- Quantum iniciado %d", proceso.Pid, globals.ClientConfig.Quantum)
+			//log.Printf("PID %d (RR)- Quantum iniciado %d", proceso.Pid, globals.ClientConfig.Quantum)
 			go startQuantum(quantum, proceso.Pid)
 			executeTask(proceso)
 		}
@@ -665,7 +666,7 @@ func executeProcessVRR() {
 	}
 }
 func startQuantum(quantum int, pid int) {
-	log.Printf("PID %d - Quantum iniciado %d", pid, quantum)
+	//log.Printf("PID %d - Quantum iniciado %d", pid, quantum)
 	mutexQuantum.Lock()
 	quantumMapGlobal[pid] = 0
 	defer mutexQuantum.Unlock()
@@ -676,10 +677,9 @@ func startQuantum(quantum int, pid int) {
 	for {
 		select {
 		case <-timer.C:
-			elapsed := time.Since(start)
-			log.Printf("PID %d - Quantum terminado. Tiempo real transcurrido: %v", pid, elapsed)
+			//log.Printf("PID %d - Quantum terminado. Tiempo real transcurrido: %v", pid, elapsed)
 			if err := SendInterrupt(pid, "CLOCK"); err != nil {
-				log.Printf("Error sending interrupt to CPU: %v", err)
+				//log.Printf("Error sending interrupt to CPU: %v", err)
 			}
 			return
 		case <-done:
@@ -691,7 +691,7 @@ func startQuantum(quantum int, pid int) {
 			if remainingQuantum < 0 {
 				remainingQuantum = 0
 			}
-			log.Printf("PID %d - Proceso desalojado antes de que el quantum termine. Quantum restante %d", pid, remainingQuantum)
+			//log.Printf("PID %d - Proceso desalojado antes de que el quantum termine. Quantum restante %d", pid, remainingQuantum)
 			if globals.ClientConfig.AlgoritmoPlanificacion == "VRR" {
 				quantumMapGlobal[pid] = remainingQuantum
 			}
@@ -729,7 +729,7 @@ func createPCB() PCB {
 }
 
 func SendPathToMemory(request BodyRequest, pid int) error {
-	memoriaURL := fmt.Sprintf("http://localhost:8085/setInstructionFromFileToMap?pid=%d&path=%s", pid, request.Path)
+	memoriaURL := fmt.Sprintf("http://%s:8085/setInstructionFromFileToMap?pid=%d&path=%s", globals.ClientConfig.IpMemoria, pid, request.Path)
 	savedPathJSON, err := json.Marshal(request)
 	if err != nil {
 		return fmt.Errorf("error al serializar los datos JSON: %v", err)
@@ -752,7 +752,7 @@ func SendPathToMemory(request BodyRequest, pid int) error {
 }
 
 func SendContextToCPU(pcb PCB) error {
-	cpuURL := "http://localhost:8075/receivePCB"
+	cpuURL := fmt.Sprintf("http://%s:%d/receivePCB", globals.ClientConfig.IpCPU, globals.ClientConfig.PuertoCPU)
 
 	context := pcb
 	pcbResponseTest, err := json.Marshal(context)
@@ -811,7 +811,6 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 	}
 	if interfazEncontrada != (interfaz{}) && interfazEncontrada.Type == "STDOUT" || interfazEncontrada.Type == "STDIN" {
 
-		log.Printf("entre alk primer if con la interfaz: %+v", interfazEncontrada.Type)
 		processData, ok := getProcessData(pid)
 		if !ok {
 			log.Printf("No se encontraron datos para el PID: %d", payload.Pid)
@@ -821,7 +820,7 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 		SendREGtoIO(processData.DireccionFisica, processData.LengthREG, interfazEncontrada.Port, pid) //envia los registros a IO
 
 		//envia el payload a IO
-		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
+		entradasalidaURL := fmt.Sprintf("http://%s:%d/interfaz", globals.ClientConfig.IpEntradaSalida, interfazEncontrada.Port)
 
 		ioResponseTest, err := json.Marshal(payload)
 		if err != nil {
@@ -841,7 +840,7 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 		//log.Println("Respuesta del módulo de IO recibida correctamente.")
 		return nil
 	} else if interfazEncontrada != (interfaz{}) && interfazEncontrada.Type == "GENERICA" {
-		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
+		entradasalidaURL := fmt.Sprintf("http://%s:%d/interfaz", globals.ClientConfig.IpEntradaSalida, interfazEncontrada.Port)
 
 		ioResponseTest, err := json.Marshal(payload)
 		if err != nil {
@@ -859,32 +858,10 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 		}
 
 		//log.Println("Respuesta del módulo de IO recibida correctamente.")
-		return nil
-	} else if interfazEncontrada != (interfaz{}) && interfazEncontrada.Type == "GENERICA" {
-		log.Printf("entre al SEGUNDO if con la interfaz: %+v", interfazEncontrada.Name)
-		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
-
-		ioResponseTest, err := json.Marshal(payload)
-		if err != nil {
-			return fmt.Errorf("error al serializar el payload: %v", err)
-		}
-
-		resp, err := http.Post(entradasalidaURL, "application/json", bytes.NewBuffer(ioResponseTest))
-		if err != nil {
-			return fmt.Errorf("error al enviar la solicitud al módulo de cpu: %v", err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("error en la respuesta del módulo de cpu: %v", resp.StatusCode)
-		}
-
-		log.Println("Respuesta del módulo de IO recibida correctamente.")
 		return nil
 	} else if interfazEncontrada != (interfaz{}) && interfazEncontrada.Type == "DialFS" {
-		log.Printf("entre al tercer if con la interfaz: %+v", interfazEncontrada.Name)
 		SendFSDataToIO(fileName, fsInstruction, interfazEncontrada.Port, fsRegTam, fsRegDirec, fsRegPuntero) //envia los registros a IO
-		entradasalidaURL := fmt.Sprintf("http://localhost:%d/interfaz", interfazEncontrada.Port)
+		entradasalidaURL := fmt.Sprintf("http://%s:%d/interfaz", globals.ClientConfig.IpEntradaSalida, interfazEncontrada.Port)
 
 		ioResponseTest, err := json.Marshal(payload)
 		if err != nil {
@@ -901,7 +878,7 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 			return fmt.Errorf("error en la respuesta del módulo de cpu: %v", resp.StatusCode)
 		}
 
-		log.Println("Respuesta del módulo de IO recibida correctamente.")
+		//log.Println("Respuesta del módulo de IO recibida correctamente.")
 		return nil
 	}
 	return nil
@@ -939,15 +916,15 @@ func RecieveFileNameFromCPU(w http.ResponseWriter, r *http.Request) {
 	fsRegTam = fsStructure.FSRegTam
 	fsRegDirec = fsStructure.FSRegDirec
 	fsRegPuntero = fsStructure.FSRegPuntero
-	log.Printf("Received filename: %+v", fileName)
-	log.Printf("Received FS instruction: %+v", fsInstruction)
+	//log.Printf("Received filename: %+v", fileName)
+	//log.Printf("Received FS instruction: %+v", fsInstruction)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("Registers received: %v", fileName)))
 }
 
 func SendREGtoIO(REGdireccion []int, lengthREG int, port int, pid int) error {
-	ioURL := fmt.Sprintf("http://localhost:%d/recieveREG", port)
+	ioURL := fmt.Sprintf("http://%s:%d/recieveREG", globals.ClientConfig.IpEntradaSalida, port)
 	var BodyRegister BodyRegisters
 	BodyRegister.DirFisica = REGdireccion
 	BodyRegister.LengthREG = lengthREG
@@ -973,7 +950,7 @@ func SendREGtoIO(REGdireccion []int, lengthREG int, port int, pid int) error {
 }
 
 func SendFSDataToIO(filename string, instruction string, port int, regTam int, regDirec []int, regPuntero int) error {
-	ioURL := fmt.Sprintf("http://localhost:%d/recieveFSDATA", port)
+	ioURL := fmt.Sprintf("http://%s:%d/recieveFSDATA", globals.ClientConfig.IpEntradaSalida, port)
 	fsStructure := FSstructure{
 		FileName:      fileName,
 		FSInstruction: instruction,
@@ -987,7 +964,7 @@ func SendFSDataToIO(filename string, instruction string, port int, regTam int, r
 		return fmt.Errorf("error al serializar los datos JSON: %v", err)
 	}
 
-	log.Println("Enviando solicitud con contenido:", string(fsStructureJSON))
+	//log.Println("Enviando solicitud con contenido:", string(fsStructureJSON))
 
 	resp, err := http.Post(ioURL, "application/json", bytes.NewBuffer(fsStructureJSON))
 	if err != nil {
@@ -999,12 +976,12 @@ func SendFSDataToIO(filename string, instruction string, port int, regTam int, r
 		return fmt.Errorf("error en la respuesta del módulo de entradasalida: %v", resp.StatusCode)
 	}
 
-	log.Println("Respuesta del módulo de entradasalida recibida correctamente.")
+	//log.Println("Respuesta del módulo de entradasalida recibida correctamente.")
 	return nil
 }
 
 func SendPortOfInterfaceToMemory(nombreInterfaz string, puerto int) error {
-	memoriaURL := fmt.Sprintf("http://localhost:%d/SendPortOfInterfaceToMemory", globals.ClientConfig.PuertoMemoria)
+	memoriaURL := fmt.Sprintf("http://%s:%d/SendPortOfInterfaceToMemory", globals.ClientConfig.IpMemoria, globals.ClientConfig.PuertoMemoria)
 	body := BodyRequestPort{
 		Nombre: nombreInterfaz,
 		Port:   puerto,
@@ -1029,8 +1006,8 @@ func SendPortOfInterfaceToMemory(nombreInterfaz string, puerto int) error {
 	return nil
 }
 
-func SendInterrupt(pid int, motivo string) error {
-	cpuURL := fmt.Sprintf("http://localhost:%d/interrupt", globals.ClientConfig.PuertoCPU)
+func SendInterrupt(pid int, motivo string) error 
+	cpuURL := fmt.Sprintf("http://%s:%d/interrupt", globals.ClientConfig.IpCPU, globals.ClientConfig.PuertoCPU)
 
 	RequestInterrupt := RequestInterrupt{
 		Interrupt: true,
@@ -1043,7 +1020,7 @@ func SendInterrupt(pid int, motivo string) error {
 		log.Printf("Error al serializar el valor de hayQuantum: %v", err)
 		return err
 	}
-	log.Printf("Mandando interrupción a la CPU PID: %d", pid)
+	//log.Printf("Mandando interrupción a la CPU PID: %d", pid)
 	resp, err := http.Post(cpuURL, "application/json", bytes.NewBuffer(hayQuantumBytes))
 	if err != nil {
 		log.Printf("Error al enviar la solicitud al módulo de cpu: %v", err)
@@ -1127,7 +1104,7 @@ func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
 }
 
 func deletePagesmemory(pid int) {
-	memoriaURL := fmt.Sprintf("http://localhost:8085/terminateProcess?pid=%d", pid)
+	memoriaURL := fmt.Sprintf("http://%s:%d/terminateProcess?pid=%d", globals.ClientConfig.IpMemoria, globals.ClientConfig.PuertoMemoria, pid)
 	resp, err := http.Post(memoriaURL, "application/json", nil)
 	if err != nil {
 		log.Printf("Error al enviar la solicitud al módulo de memoria: %v", err)
