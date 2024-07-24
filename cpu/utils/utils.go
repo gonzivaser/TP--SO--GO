@@ -212,9 +212,15 @@ func InstructionCycle(contextoDeEjecucion PCB) {
 
 		// responseInterrupt.Interrupt ---> ese de clock y finalizacion
 		// interrupt ---> ese de io y wait
-		if (responseInterruptGlobal.Interrupt && responseInterruptGlobal.Pid == contextoDeEjecucion.Pid) || interrupt {
+		if responseInterruptGlobal.Interrupt && responseInterruptGlobal.Pid == contextoDeEjecucion.Pid && responseInterruptGlobal.Motivo == "INTERRUPTED_BY_USER" {
 			responseInterruptGlobal.Interrupt = false
+			GLOBALrequestCPU.MotivoDesalojo = responseInterruptGlobal.Motivo
+			break
+		} else if interrupt {
 			interrupt = false
+			if GLOBALrequestCPU.MotivoDesalojo == "" {
+				GLOBALrequestCPU.MotivoDesalojo = "INTERRUPCION POR IO"
+			}
 			break
 		}
 
@@ -578,26 +584,23 @@ func MOV_IN(words []string, contextoEjecucion *PCB) error {
 	if err1 != nil {
 		return fmt.Errorf("error leyendo memoria: %s", err1)
 	}
-	log.Printf("PID: %d - Acción: LEER - Dirección Física: %v - Valor: %s", contextoEjecucion.Pid, direcciones, GLOBALdataMOV_IN)
+
 	//buf := bytes.NewReader(GLOBALdataMOV_IN)
 	if tamREGdatos == 1 {
 		result := stringToUint8(string(GLOBALdataMOV_IN))
-		log.Printf("result ESSSS:%d", result)
+		log.Printf("PID: %d - Acción: LEER - Dirección Física: %v - Valor: %d", contextoEjecucion.Pid, direcciones, result)
 		err3 := SetCampo(&contextoEjecucion.CpuReg, REGdatos, result)
 		if err3 != nil {
 			return fmt.Errorf("error en execute: %s", err3)
 		}
 	} else {
 		result := stringToInteger(string(GLOBALdataMOV_IN))
-		log.Printf("result ESSSS:%d", result)
+		log.Printf("PID: %d - Acción: LEER - Dirección Física: %v - Valor: %d", contextoEjecucion.Pid, direcciones, result)
 		err3 := SetCampo(&contextoEjecucion.CpuReg, REGdatos, result)
 		if err3 != nil {
 			return fmt.Errorf("error en execute: %s", err3)
 		}
 	}
-
-	log.Printf("PID: %d - MOV_IN - %s - dato obtenido de memoria:%s", contextoEjecucion.Pid, REGdatos, GLOBALdataMOV_IN)
-
 	return nil
 }
 
@@ -636,7 +639,8 @@ func MOV_OUT(words []string, contextoEjecucion *PCB) error {
 	var valueDatosBytes []byte
 	switch REGdatos {
 	case "PC", "EAX", "EBX", "ECX", "EDX", "SI", "DI":
-		valueDatosBytes = []byte(uint32ToString(uint32(valueDatos)))
+		valueDatosBytes = make([]byte, 4)
+		binary.BigEndian.PutUint32(valueDatosBytes, uint32(valueDatos))
 	case "AX", "BX", "CX", "DX":
 		valueDatosBytes = []byte{uint8(valueDatos)}
 	default:

@@ -5,8 +5,8 @@
     "ip_cpu": "localhost",
     "ip_entradasalida": "localhost",
     "port_cpu": 8075,
-    "planning_algorithm": "VRR",
-    "quantum": 2750,
+    "planning_algorithm": "RR",
+    "quantum": 750,
     "resources": ["RA", "RB", "RC", "RD"],
     "resource_instances": [1, 1, 1, 1],
     "multiprogramming": 10 

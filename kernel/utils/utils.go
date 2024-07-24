@@ -1006,7 +1006,7 @@ func SendPortOfInterfaceToMemory(nombreInterfaz string, puerto int) error {
 	return nil
 }
 
-func SendInterrupt(pid int, motivo string) error {
+func SendInterrupt(pid int, motivo string) error 
 	cpuURL := fmt.Sprintf("http://%s:%d/interrupt", globals.ClientConfig.IpCPU, globals.ClientConfig.PuertoCPU)
 
 	RequestInterrupt := RequestInterrupt{

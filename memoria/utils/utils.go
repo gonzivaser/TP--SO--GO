@@ -90,10 +90,6 @@ type BodyRequestPort struct {
 	Nombre string `json:"nombre"`
 	Port   int    `json:"port"`
 }
-type interfaz struct {
-	Name string
-	Port int
-}
 
 type BodyRequestInput struct {
 	Input   string `json:"input"`
@@ -112,17 +108,8 @@ type BodyPageTam struct {
 
 /////////////////////////////////////////////////// VARS GLOBALES ///////////////////////////////////////////////////////////////////////
 
-var addressGLOBAL []int
-var lengthGLOBAL int
-var IOaddress []int
-var IOpid int
-var IOinput string
-var IOPort int
 var CPUpid int
 var CPUpage int
-
-var GLOBALnameIO string
-var interfacesGLOBAL []interfaz
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -198,8 +185,6 @@ func GetInstruction(w http.ResponseWriter, r *http.Request) {
 	pid, _ := strconv.Atoi(queryParams.Get("pid"))
 	programCounter, _ := strconv.Atoi(queryParams.Get("programCounter"))
 	instruction := mapInstructions[pid][programCounter][0]
-
-	time.Sleep(time.Duration(globals.ClientConfig.DelayResponse) * time.Millisecond)
 
 	instructionResponse := InstructionResposne{
 		Instruction: instruction,
@@ -280,17 +265,23 @@ func contains(slice []int, element int) bool {
 }
 
 func TerminateProcessHandler(w http.ResponseWriter, r *http.Request) {
-	var process Process
-	time.Sleep(time.Duration(globals.ClientConfig.DelayResponse) * time.Millisecond)
-	if err := json.NewDecoder(r.Body).Decode(&process); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	pidStr := r.URL.Query().Get("pid")
+	if pidStr == "" {
+		http.Error(w, "PID no especificado", http.StatusBadRequest)
+		return
+	}
+	pid, err := strconv.Atoi(pidStr)
+	if err != nil {
+		http.Error(w, "PID debe ser un número", http.StatusBadRequest)
 		return
 	}
 
-	if err := TerminateProcess(process.PID); err != nil {
+	if err := TerminateProcess(pid); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	fmt.Println(pageTable)
+	fmt.Println(memory)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -394,6 +385,7 @@ func counterMemoryFree() int {
 	return contador
 }
 
+// STDOUT, FS_WRITE
 func ReadMemoryHandler(w http.ResponseWriter, r *http.Request) {
 	var memReq MemoryRequest
 	time.Sleep(time.Duration(globals.ClientConfig.DelayResponse) * time.Millisecond)
@@ -414,41 +406,6 @@ func ReadMemoryHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Write(data)
 }
-
-/*func ReadMemory(pid int, addresses []int, size int) ([]byte, error) {
-	mu.Lock()
-	defer mu.Unlock()
-
-	if _, exists := pageTable[pid]; !exists {
-		return nil, fmt.Errorf("Process with PID %d not found", pid)
-	}
-
-	var result []byte
-	remainingSize := size
-
-	for _, address := range addresses {
-		if address < 0 || address >= len(memory) {
-			return nil, fmt.Errorf("memory access out of bounds at address %d", address)
-		}
-
-		// Calculate how much we can read from this address
-		readSize := min(remainingSize, pageSize-(address%pageSize))
-
-		// Read the data
-		result = append(result, memory[address:address+readSize]...)
-
-		remainingSize -= readSize
-		if remainingSize <= 0 {
-			break
-		}
-	}
-
-	if len(result) < size {
-		return nil, fmt.Errorf("unable to read %d bytes, only %d bytes available", size, len(result))
-	}
-
-	return result[:size], nil
-}*/
 
 func ReadMemory(pid int, addresses []int, size int) ([]byte, error) {
 	mu.Lock()
@@ -491,6 +448,7 @@ func sendDataToCPU(content []byte) error {
 	return nil
 }
 
+// STDIN, FSREAD
 func WriteMemoryHandler(w http.ResponseWriter, r *http.Request) {
 	var memReq MemoryRequest
 	time.Sleep(time.Duration(globals.ClientConfig.DelayResponse) * time.Millisecond)
@@ -506,51 +464,6 @@ func WriteMemoryHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 }
-
-/*func WriteMemory(pid int, addresses []int, data []byte) error {
-	mu.Lock()
-	defer mu.Unlock()
-
-	pages, exists := pageTable[pid]
-	if !exists {
-		return fmt.Errorf("Process with PID %d not found", pid)
-	}
-
-	dataIndex := 0
-	for _, address := range addresses {
-		// Verificar que la dirección pertenece al proceso
-		pageIndex := address / pageSize
-		if pageIndex >= len(pages) {
-			return fmt.Errorf("address %d does not belong to process %d", address, pid)
-		}
-
-		frame := pages[pageIndex]
-		offsetInFrame := address % pageSize
-
-		// Calcular cuánto podemos escribir en este frame
-		bytesToWrite := min(len(data)-dataIndex, pageSize-offsetInFrame)
-
-		// Verificar que no excedemos el límite de la memoria
-		if frame*pageSize+offsetInFrame+bytesToWrite > len(memory) {
-			return fmt.Errorf("memory access out of bounds")
-		}
-
-		// Escribir los datos
-		copy(memory[frame*pageSize+offsetInFrame:], data[dataIndex:dataIndex+bytesToWrite])
-
-		dataIndex += bytesToWrite
-
-		if dataIndex >= len(data) {
-			break
-		}
-	}
-
-	if dataIndex < len(data) {
-		return fmt.Errorf("not all data could be written. Only %d out of %d bytes written", dataIndex, len(data))
-	}
-	fmt.Println(memory)
-	return nil
-}*/
 
 func WriteMemory(pid int, addresses []int, data []byte) error {
 	mu.Lock()
@@ -576,70 +489,7 @@ func WriteMemory(pid int, addresses []int, data []byte) error {
 	return nil
 }
 
-// STDIN, FSREAD
-func RecieveInputFromIO(w http.ResponseWriter, r *http.Request) {
-	var inputRecieved BodyRequestInput
-	time.Sleep(time.Duration(globals.ClientConfig.DelayResponse) * time.Millisecond)
-	err := json.NewDecoder(r.Body).Decode(&inputRecieved)
-
-	if err != nil {
-		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
-		return
-	}
-
-	IOinput = inputRecieved.Input
-	IOaddress = inputRecieved.Address
-	IOpid = inputRecieved.Pid
-
-	log.Printf("Received data: %+v", IOpid)
-
-	var IOinputMemoria []byte = []byte(IOinput)
-
-	err2 := WriteMemory(IOpid, IOaddress, IOinputMemoria)
-	if err2 != nil {
-		http.Error(w, err2.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	for i := 0; i < len(IOaddress) && len(IOinputMemoria) < globals.ClientConfig.PageSize; i++ {
-		AssignAddressToProcess(IOpid, IOaddress[i])
-	}
-
-	//16*i + 16*(i+1)
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Input recibido correctamente"))
-}
-
-// STDOUT, FSWRITE
-/*func RecieveAdressFromIO(w http.ResponseWriter, r *http.Request) {
-	var BodyRequestAdress BodyAdress
-	time.Sleep(time.Duration(globals.ClientConfig.DelayResponse) * time.Millisecond)
-	err := json.NewDecoder(r.Body).Decode(&BodyRequestAdress)
-
-	if err != nil {
-		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
-		return
-	}
-
-	addressGLOBAL = BodyRequestAdress.Address
-	lengthGLOBAL = BodyRequestAdress.Length
-	GLOBALnameIO = BodyRequestAdress.Name
-
-	data, err1 := ReadMemory(IOpid, addressGLOBAL, lengthGLOBAL)
-	if err1 != nil {
-		http.Error(w, err1.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// data := memory[address : address+lengthGLOBAL]
-	SendContentToIO(string(data))
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("address recibido correctamente"))
-}*/
-
-func RecievePortOfInterfaceFromKernel(w http.ResponseWriter, r *http.Request) {
+/*func RecievePortOfInterfaceFromKernel(w http.ResponseWriter, r *http.Request) {
 	var requestPort BodyRequestPort
 	var interfaz interfaz
 	err := json.NewDecoder(r.Body).Decode(&requestPort)
@@ -655,7 +505,7 @@ func RecievePortOfInterfaceFromKernel(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("Port received: %d", requestPort.Port)))
-}
+}*/
 
 func SendContentToIO(content string, Puerto int) error {
 	var BodyContent BodyContent
@@ -700,6 +550,11 @@ func GetPageFromCPU(w http.ResponseWriter, r *http.Request) {
 func sendFrameToCPU(pid int, page int) error {
 	var bodyFrame BodyFrame
 	CPUurl := fmt.Sprintf("http://%s:%d/recieveFrame", globals.ClientConfig.IpCPU, globals.ClientConfig.PuertoCPU)
+
+	if page > len(pageTable[pid]) {
+		FinalizarProceso(pid)
+		return nil
+	}
 	frame := pageTable[pid][page]
 	log.Printf("PID: %d - Pagina: %d - Marco: %d", pid, page, frame)
 	bodyFrame.Frame = frame
