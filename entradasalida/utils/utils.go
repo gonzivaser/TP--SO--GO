@@ -228,6 +228,7 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Termino de escribir en la interfaz '%s'\n", Interfaz.Nombre)
 
 	case "DialFS":
+		createDirectory(Interfaz.Config.PathDialFS)
 		Interfaz.FILE_SYSTEM(pidExecutionProcess)
 
 	default:
@@ -235,9 +236,18 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func createDirectory(path string) {
+	pahDialFS := path + "/FS"
+	err := os.MkdirAll(pahDialFS, 0755)
+	if err != nil {
+		fmt.Printf("Error al crear la carpeta: %v\n", err)
+		return
+	}
+}
+
 /*-------------------------------------------------- ENDPOINTS ------------------------------------------------------*/
 func FinalizarProceso(pid int) {
-	kernelURL := fmt.Sprintf("http://localhost:%d/process?pid=%d", config.PuertoKernel, pid)
+	kernelURL := fmt.Sprintf("http://%s:%d/process?pid=%d", config.IPKernel, config.PuertoKernel, pid)
 	req, err := http.NewRequest("DELETE", kernelURL, nil)
 	if err != nil {
 		log.Fatalf("Error al crear la solicitud: %v", err)
@@ -307,7 +317,7 @@ func SendInputToMemory(pid int, input string, address []int) error {
 		Address: address,
 	}
 
-	memoriaURL := fmt.Sprintf("http://%s:%d/SendInputToMemory", config.IPMemoria, config.PuertoMemoria)
+	memoriaURL := fmt.Sprintf("http://%s:%d/writeMemory", config.IPMemoria, config.PuertoMemoria)
 
 	inputResponseTest, err := json.Marshal(bodyRequest)
 	if err != nil {
@@ -322,7 +332,7 @@ func SendInputToMemory(pid int, input string, address []int) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Fatalf("Error en la respuesta del módulo de memoria: %v", resp.StatusCode)
+		log.Fatalf("Error en la respuesta del módulo de memoria: %v", resp)
 	}
 
 	return nil
@@ -480,7 +490,7 @@ func (interfaz *InterfazIO) IO_GEN_SLEEP(n int) time.Duration {
 func (interfaz *InterfazIO) FILE_SYSTEM(pid int) {
 	log.Printf("La interfaz '%s' es de tipo FILE SYSTEM", interfaz.Nombre)
 
-	pathDialFS := interfaz.Config.PathDialFS
+	pathDialFS := interfaz.Config.PathDialFS + "/FS"
 	blocksSize := interfaz.Config.TamanioBloqueDialFS
 	blocksCount := interfaz.Config.CantidadBloquesDialFS
 	sizeFile := blocksSize * blocksCount
@@ -488,7 +498,7 @@ func (interfaz *InterfazIO) FILE_SYSTEM(pid int) {
 	unitWorkTimeFS := interfaz.Config.UnidadDeTiempo
 
 	// CHEQUEO EXISTENCIA DE ARCHIVOS BLOQUES.DAT Y BITMAP.DAT, DE NO SER ASI, LOS CREO
-	createMetaDataStructure()
+	createMetaDataStructure(pathDialFS)
 	EnsureIfFileExists(pathDialFS, blocksSize, blocksCount, sizeFile, bitmapSize)
 
 	switch fsInstruction {
@@ -518,7 +528,8 @@ func (interfaz *InterfazIO) FILE_SYSTEM(pid int) {
 }
 
 func EnsureIfFileExists(pathDialFS string, blocksSize int, blocksCount int, sizeFile int, bitmapSize int) {
-	// Ruta completa para bloques.dat
+
+	// pathDialFS completa para bloques.dat
 	blockFilePath := pathDialFS + "/bloques.dat"
 	if _, err := os.Stat(blockFilePath); os.IsNotExist(err) {
 		log.Printf("El archivo de bloques no existe, creando: %s", blockFilePath)
@@ -527,7 +538,7 @@ func EnsureIfFileExists(pathDialFS string, blocksSize int, blocksCount int, size
 		log.Printf("El archivo de bloques ya existe: %s", blockFilePath)
 	}
 
-	// Ruta completa para bitmap.dat
+	// pathDialFS completa para bitmap.dat
 	bitmapFilePath := pathDialFS + "/bitmap.dat"
 	if _, err := os.Stat(bitmapFilePath); os.IsNotExist(err) {
 		log.Printf("El archivo bitmap no existe, creando: %s", bitmapFilePath)
@@ -653,10 +664,10 @@ func readFilesInDirectory(directoryPath string) []FileContent {
 	return filesContent
 }
 
-func createMetaDataStructure() {
-	if checkFilesInDirectory(config.PathDialFS) {
+func createMetaDataStructure(pathDialFS string) {
+	if checkFilesInDirectory(pathDialFS) {
 		// Example usage of readFilesInDirectory
-		metaDataStructure = readFilesInDirectory(config.PathDialFS)
+		metaDataStructure = readFilesInDirectory(pathDialFS)
 
 		// Display filesContent
 		for i, fileContent := range metaDataStructure {
@@ -1199,7 +1210,7 @@ func updateBitMap(bitmap *Bitmap, bitmapFilePath string) {
 
 //fs pide posicion a memoria, si lo agarra y lo guarda en el archivo de bloques.dat
 // bloques basados por tamaños de byte, ej 4 bytes por bloque y si pongo hola que ocupa 7 bytes, ocupa un bloque
-// cuando hago create lo que voy a hacer es meterlo al filesystem, notas.txt ya existe en tu ruta de dialfs_path y lo que hago es escribir en bloques.dat
+// cuando hago create lo que voy a hacer es meterlo al filesystem, notas.txt ya existe en tu pathDialFS de dialfs_path y lo que hago es escribir en bloques.dat
 // como existe en esa ruta voy a acceder y sacar la metdata
 
 // INTERFAZ FILE SYSTEM (IO_FS_CREATE)
