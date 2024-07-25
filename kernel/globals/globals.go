@@ -2,7 +2,7 @@ package globals
 
 type Config struct {
 	Puerto                 int      `json:"port"`
-	IpMemoria              string   `json:"mensaje"`
+	IpMemoria              string   `json:"ip_memory"`
 	PuertoMemoria          int      `json:"port_memory"`
 	IpCPU                  string   `json:"ip_cpu"`
 	IpEntradaSalida        string   `json:"ip_entradasalida"`
