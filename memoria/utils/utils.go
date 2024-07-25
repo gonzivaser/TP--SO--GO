@@ -114,7 +114,7 @@ var CPUpage int
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 func init() {
-	globals.ClientConfig = IniciarConfiguracion("config.json") // tiene que prender la confi cuando arranca
+	globals.ClientConfig = IniciarConfiguracion(os.Args[1]) // tiene que prender la confi cuando arranca
 
 	if globals.ClientConfig != nil {
 		pageSize = globals.ClientConfig.PageSize
