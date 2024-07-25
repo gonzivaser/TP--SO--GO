@@ -138,9 +138,9 @@ var GLOBALdataMOV_IN []byte
 // var requestCPU KernelRequest
 var responseInterruptGlobal ResponseInterrupt
 
-func init() {
+/*func init() {
 	globals.ClientConfig = IniciarConfiguracion(os.Args[1]) // tiene que prender la confi cuando arranca
-}
+}*/
 
 func ConfigurarLogger() {
 
@@ -153,7 +153,7 @@ func ConfigurarLogger() {
 }
 
 func init() {
-	globals.ClientConfig = IniciarConfiguracion("config.json") // tiene que prender la confi cuando arranca
+	globals.ClientConfig = IniciarConfiguracion(os.Args[1]) // tiene que prender la confi cuando arranca
 
 	if globals.ClientConfig != nil {
 		globalTLBsize = globals.ClientConfig.NumberFellingTLB

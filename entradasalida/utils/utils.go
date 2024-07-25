@@ -307,7 +307,7 @@ func SendInputToMemory(pid int, input string, address []int) error {
 		Address: address,
 	}
 
-	memoriaURL := fmt.Sprintf("http://%s:%d/SendInputToMemory", config.IPMemoria, config.PuertoMemoria)
+	memoriaURL := fmt.Sprintf("http://%s:%d/writeMemory", config.IPMemoria, config.PuertoMemoria)
 
 	inputResponseTest, err := json.Marshal(bodyRequest)
 	if err != nil {
