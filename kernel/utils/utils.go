@@ -355,7 +355,7 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 }
 
 func init() {
-	globals.ClientConfig = IniciarConfiguracion("config.json") // tiene que prender la confi cuando arranca
+	globals.ClientConfig = IniciarConfiguracion(os.Args[1]) // tiene que prender la confi cuando arranca
 	readyChannel = make(chan PCB, 1)
 	newChannel = make(chan PCB, 1)
 	multiProgramacion = make(chan int, globals.ClientConfig.Multiprogramacion)

@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/sisoputnfrba/tp-golang/cpu/globals"
@@ -11,7 +12,7 @@ import (
 
 func main() {
 	utils.ConfigurarLogger()
-	globals.ClientConfig = utils.IniciarConfiguracion("config.json")
+	globals.ClientConfig = utils.IniciarConfiguracion(os.Args[1])
 
 	if globals.ClientConfig == nil {
 		log.Fatalf("No se pudo cargar la configuración")

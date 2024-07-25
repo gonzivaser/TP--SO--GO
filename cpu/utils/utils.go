@@ -138,9 +138,9 @@ var GLOBALdataMOV_IN []byte
 // var requestCPU KernelRequest
 var responseInterruptGlobal ResponseInterrupt
 
-func init() {
-	globals.ClientConfig = IniciarConfiguracion("config.json") // tiene que prender la confi cuando arranca
-}
+/*func init() {
+	globals.ClientConfig = IniciarConfiguracion(os.Args[1]) // tiene que prender la confi cuando arranca
+}*/
 
 func ConfigurarLogger() {
 
@@ -153,7 +153,7 @@ func ConfigurarLogger() {
 }
 
 func init() {
-	globals.ClientConfig = IniciarConfiguracion("config.json") // tiene que prender la confi cuando arranca
+	globals.ClientConfig = IniciarConfiguracion(os.Args[1]) // tiene que prender la confi cuando arranca
 
 	if globals.ClientConfig != nil {
 		globalTLBsize = globals.ClientConfig.NumberFellingTLB
@@ -1136,6 +1136,7 @@ func TranslateHandler(w http.ResponseWriter, r *http.Request) {
 }*/
 func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 	var DireccionesFisicas []int
+	cache := make(map[int]int) // Mapa para cachear los marcos traídos de la memoria
 
 	for i := 0; i < TamData; i++ {
 		pageNumber := int(math.Floor(float64(DireccionLogica) / float64(TamPag)))
@@ -1143,25 +1144,32 @@ func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 
 		frame, found := CheckTLB(pid, pageNumber)
 		if !found {
-			//log.Printf("PID: %d - TLB MISS - Página: %d", pid, pageNumber)
-			err := FetchFrameFromMemory(pid, pageNumber)
-			if err != nil {
-				fmt.Println("Error al obtener el marco desde la memoria")
-				return nil // O manejar el error de manera adecuada
-			}
-			frame = MemoryFrame
-			//log.Printf("PID: %d - OBTENER MARCO - Página: %d - Marco: %d", pid, pageNumber, frame)
-			if globals.ClientConfig.NumberFellingTLB > 0 {
-				ReplaceTLBEntry(pid, pageNumber, MemoryFrame)
+			// Verificar si el marco ya está en caché
+			if cachedFrame, ok := cache[pageNumber]; ok {
+				frame = cachedFrame
+			} else {
+				err := FetchFrameFromMemory(pid, pageNumber)
+				if err != nil {
+					fmt.Println("Error al obtener el marco desde la memoria")
+					return nil // O manejar el error de manera adecuada
+				}
+				frame = MemoryFrame
+				cache[pageNumber] = frame // Cachear el marco traído desde la memoria
+				log.Printf("PID: %d - OBTENER MARCO - Página: %d - Marco: %d", pid, pageNumber, frame)
+
+				if globals.ClientConfig.NumberFellingTLB > 0 {
+					ReplaceTLBEntry(pid, pageNumber, MemoryFrame)
+				}
 			}
 		} else {
-			log.Printf("PID: %d - TLB HIT - Pagina: %d", pid, pageNumber)
+			log.Printf("PID: %d - TLB HIT - Página: %d", pid, pageNumber)
 		}
+
 		DireccionFisica := frame*TamPag + pageOffset
 		DireccionesFisicas = append(DireccionesFisicas, DireccionFisica)
-
 		DireccionLogica++
 	}
+
 	paginas := make([]int, len(globalTLB))
 	for i, entry := range globalTLB {
 		paginas[i] = entry.Pagina
