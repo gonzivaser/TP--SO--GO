@@ -70,25 +70,10 @@ type BodyRequestInput struct {
 	Address []int  `json:"address"` //Esto viene desde kernel
 }
 
-type BodyAdress struct {
-	Address []int  `json:"address"`
-	Length  int    `json:"length"`
-	Name    string `json:"name"`
-}
-
-type Finalizado struct {
-	Finalizado bool `json:"finalizado"`
-}
-
-type BodyRequest struct {
-	Instruction string `json:"instruction"`
-}
-
 type BodyContent struct {
 	Content string `json:"content"`
 }
 
-// Estructura para la interfaz genérica
 type InterfazIO struct {
 	Nombre string         // Nombre único
 	Config globals.Config // Configuración
@@ -122,21 +107,10 @@ type FileContent struct {
 	FileName     string
 }
 
-type AdressFS struct {
-	Address []int  `json:"address"`
-	Content []byte `json:"data,omitempty"`
-	Pid     int    `json:"pid"`
-	Length  int    `json:"size,omitempty"`
-}
-
 type Bitmap struct {
 	bits       []int
 	blockCount int
 	blockSize  int
-}
-
-type Block struct {
-	Data []byte // Datos del bloque
 }
 
 type BlockFile struct {
@@ -147,6 +121,7 @@ type BlockFile struct {
 }
 
 /*--------------------------- ESTRUCTURA DEL METADATA -----------------------------*/
+
 var metaDataStructure []FileContent
 
 /*--------------------------- NOMBRE DEL ARCHIVO E INSTRUCCION -----------------------------*/
