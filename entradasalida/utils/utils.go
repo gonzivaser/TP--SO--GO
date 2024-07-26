@@ -70,25 +70,10 @@ type BodyRequestInput struct {
 	Address []int  `json:"address"` //Esto viene desde kernel
 }
 
-type BodyAdress struct {
-	Address []int  `json:"address"`
-	Length  int    `json:"length"`
-	Name    string `json:"name"`
-}
-
-type Finalizado struct {
-	Finalizado bool `json:"finalizado"`
-}
-
-type BodyRequest struct {
-	Instruction string `json:"instruction"`
-}
-
 type BodyContent struct {
 	Content string `json:"content"`
 }
 
-// Estructura para la interfaz genérica
 type InterfazIO struct {
 	Nombre string         // Nombre único
 	Config globals.Config // Configuración
@@ -122,21 +107,10 @@ type FileContent struct {
 	FileName     string
 }
 
-type AdressFS struct {
-	Address []int  `json:"address"`
-	Content []byte `json:"data,omitempty"`
-	Pid     int    `json:"pid"`
-	Length  int    `json:"size,omitempty"`
-}
-
 type Bitmap struct {
 	bits       []int
 	blockCount int
 	blockSize  int
-}
-
-type Block struct {
-	Data []byte // Datos del bloque
 }
 
 type BlockFile struct {
@@ -147,9 +121,11 @@ type BlockFile struct {
 }
 
 /*--------------------------- ESTRUCTURA DEL METADATA -----------------------------*/
+
 var metaDataStructure []FileContent
 
 /*--------------------------- NOMBRE DEL ARCHIVO E INSTRUCCION -----------------------------*/
+
 var fileName string
 var fsInstruction string
 var fsRegTam int
@@ -246,6 +222,7 @@ func createDirectory(path string) {
 }
 
 /*-------------------------------------------------- ENDPOINTS ------------------------------------------------------*/
+
 func FinalizarProceso(pid int) {
 	kernelURL := fmt.Sprintf("http://%s:%d/process?pid=%d", config.IPKernel, config.PuertoKernel, pid)
 	req, err := http.NewRequest("DELETE", kernelURL, nil)
@@ -498,7 +475,7 @@ func (interfaz *InterfazIO) FILE_SYSTEM(pid int) {
 	unitWorkTimeFS := interfaz.Config.UnidadDeTiempo
 
 	// CHEQUEO EXISTENCIA DE ARCHIVOS BLOQUES.DAT Y BITMAP.DAT, DE NO SER ASI, LOS CREO
-	createMetaDataStructure(pathDialFS)
+	ensureExistingMetaDataFiles(pathDialFS)
 	EnsureIfFileExists(pathDialFS, blocksSize, blocksCount, sizeFile, bitmapSize)
 
 	switch fsInstruction {
@@ -527,152 +504,38 @@ func (interfaz *InterfazIO) FILE_SYSTEM(pid int) {
 	time.Sleep(time.Duration(unitWorkTimeFS) * time.Millisecond)
 }
 
-func EnsureIfFileExists(pathDialFS string, blocksSize int, blocksCount int, sizeFile int, bitmapSize int) {
-
-	// pathDialFS completa para bloques.dat
-	blockFilePath := pathDialFS + "/bloques.dat"
-	if _, err := os.Stat(blockFilePath); os.IsNotExist(err) {
-		log.Printf("El archivo de bloques no existe, creando: %s", blockFilePath)
-		CreateBlockFile(pathDialFS, blocksSize, blocksCount, sizeFile)
-	} else {
-		log.Printf("El archivo de bloques ya existe: %s", blockFilePath)
-	}
-
-	// pathDialFS completa para bitmap.dat
-	bitmapFilePath := pathDialFS + "/bitmap.dat"
-	if _, err := os.Stat(bitmapFilePath); os.IsNotExist(err) {
-		log.Printf("El archivo bitmap no existe, creando: %s", bitmapFilePath)
-		CreateBitmapFile(pathDialFS, blocksCount, bitmapSize)
-	} else {
-		log.Printf("El archivo bitmap ya existe: %s", bitmapFilePath)
-	}
-}
-
 /* -------------------------------------------- FUNCIONES DE FS_CREATE ------------------------------------------------------ */
 
 func IO_FS_CREATE(pathDialFS string, fileName string) {
 	log.Printf("Creando archivo %s en %s", fileName, pathDialFS)
 
-	filePath := pathDialFS + "/" + fileName
-	file, err := os.Create(filePath)
-	if err != nil {
-		log.Printf("Error al crear el archivo '%s': %v", pathDialFS, err)
-	}
-	defer file.Close()
+	// CREO ARCHIVO
+	crearArchivo(pathDialFS, fileName)
 
-	// Abrir el archivo de bitmap para lectura
+	// ABRO BITMAP Y LO PASO A SLICE
 	bitmapFilePath := pathDialFS + "/bitmap.dat"
-
 	bitmap := readAndCopyBitMap(bitmapFilePath)
 
-	//Calcular el primer bit libre
+	// CALCULO PRIMER BIT LIBRE
 	firstFreeBlock := firstBitFree(bitmap)
 
+	// SI MI FIRSTFREEBLOCK ES -1, NO HAY BLOQUES LIBRES DISPONIBLES
 	if firstFreeBlock == -1 {
 		log.Printf("No hay bloques libres disponibles")
 	} else {
-		fileSize := 0
 
+		// SETEO EL PRIMER BIT LIBRE EN 1
 		bitmap.Set(firstFreeBlock)
 
-		// Mostrar el contenido del bitmap
 		showBitmap(bitmap)
 
 		updateBitMap(bitmap, bitmapFilePath)
 
+		// ACTUALIZO EL TAMAÑO A 0 Y EL METADATA
+		fileSize := 0
 		updateMetaDataFile(pathDialFS, fileName, firstFreeBlock, fileSize)
 
 		fmt.Printf("Archivo '%s' creado y escrito exitosamente.\n", fileName)
-	}
-}
-
-func updateMetaDataFile(pathDialFS string, fileName string, initialBlock int, fileSize int) {
-	filePath := pathDialFS + "/" + fileName
-	fileContent := FileContent{
-		InitialBlock: initialBlock,
-		Size:         fileSize,
-	}
-	contentBytes, err := json.Marshal(fileContent)
-	if err != nil {
-		log.Fatalf("Error al convertir FileContent a bytes: %v", err)
-	}
-
-	// Write FileContent to the file
-	file, err := os.OpenFile(filePath, os.O_RDWR, 0644)
-	if err != nil {
-		log.Fatalf("Error al crear el archivo '%s': %v", pathDialFS, err)
-	}
-	_, err = file.Write(contentBytes)
-	if err != nil {
-		log.Fatalf("Error al escribir el contenido en el archivo '%s': %v", filePath, err)
-	}
-
-	file.Close()
-}
-
-func checkFilesInDirectory(pathDialFS string) bool {
-	files, err := os.ReadDir(pathDialFS)
-	if err != nil {
-		log.Printf("Error reading directory: %v", err)
-		return false
-	}
-
-	for _, file := range files {
-		if !file.IsDir() && strings.HasSuffix(file.Name(), ".txt") {
-			log.Printf("Found .txt file in %s", pathDialFS)
-			return true
-		}
-	}
-
-	log.Printf("No .txt files found in %s", pathDialFS)
-	return false
-}
-
-func readFile(pathFile string) FileContent {
-	readContent, err := os.ReadFile(pathFile)
-	if err != nil {
-		log.Fatalf("Error al leer el archivo '%s': %v", pathFile, err)
-	}
-
-	var fileContent FileContent
-	err = json.Unmarshal(readContent, &fileContent)
-	if err != nil {
-		log.Fatalf("Error al deserializar el contenido del archivo '%s': %v", pathFile, err)
-	}
-
-	fileContent.FileName = filepath.Base(pathFile)
-
-	return fileContent
-}
-
-func readFilesInDirectory(directoryPath string) []FileContent {
-	var filesContent []FileContent
-
-	files, err := os.ReadDir(directoryPath)
-	if err != nil {
-		log.Fatalf("Error al leer el directorio '%s': %v", directoryPath, err)
-	}
-
-	for _, file := range files {
-		if !file.IsDir() && filepath.Ext(file.Name()) == ".txt" {
-			filePath := filepath.Join(directoryPath, file.Name())
-			fileContent := readFile(filePath)
-			filesContent = append(filesContent, fileContent)
-		}
-	}
-
-	return filesContent
-}
-
-func createMetaDataStructure(pathDialFS string) {
-	if checkFilesInDirectory(pathDialFS) {
-		// Example usage of readFilesInDirectory
-		metaDataStructure = readFilesInDirectory(pathDialFS)
-
-		// Display filesContent
-		for i, fileContent := range metaDataStructure {
-			fmt.Printf("MetaStructure %d: FileName %s InitialBlock: %d, Size: %d\n", i, fileContent.FileName, fileContent.InitialBlock, fileContent.Size)
-		}
 	}
 }
 
@@ -689,44 +552,45 @@ func firstBitFree(bitmap *Bitmap) int {
 	return -1
 }
 
+func crearArchivo(path string, fileName string) {
+	filePath := path + "/" + fileName
+	file, err := os.Create(filePath)
+	if err != nil {
+		log.Fatalf("Error al crear el archivo '%s': %v", path, err)
+	}
+	defer file.Close()
+}
+
 /* ------------------------------------------- FUNCIONES DE FS_DELETE ------------------------------------------------------ */
 
 func IO_FS_DELETE(pathDialFS string, fileName string) {
 	log.Printf("Eliminando el archivo %s en %s", fileName, pathDialFS)
 
-	filePath := pathDialFS + "/" + fileName
-
-	// PRIMERO CHEQUEO QUE EL ARCHIVO EXISTE
-	/*if !verificarExistenciaDeArchivo(pathDialFS, fileName) {
-		return
-	}*/
-
-	err := os.Remove(filePath)
-	if err != nil {
-		log.Fatalf("Error al eliminar el archivo '%s': %v", pathDialFS, err)
-	}
+	// PRIMERO ELIMINO EL ARCHIVO
+	eliminarArchivo(fileName, pathDialFS)
 
 	// UNA VEZ REMOVIDO EL ARCHIVO, TENGO QUE ACTUALIZAR BITMAP Y ARCHIVO DE BLOQUES
-	// Abrir el archivo de bitmap para lectura
 	var fileData FileContent
-	fileData, err = dataFileInMetaDataStructure(fileName)
+	fileData, err := dataFileInMetaDataStructure(fileName)
 	if err != nil {
 		log.Printf("Error: %v", err)
 		return
 	}
 
 	var blocksToDelete int
-
 	if fileData.Size > 0 {
 		blocksToDelete = fileData.Size / config.TamanioBloqueDialFS
 	} else {
 		blocksToDelete = 1
 	}
 
+	// ABRO BITMAP Y LO PONGO EN SLICE
 	bitmapFilePath := pathDialFS + "/bitmap.dat"
 	bitmap := readAndCopyBitMap(bitmapFilePath)
 
-	removeBlocks(bitmap, fileData.InitialBlock, blocksToDelete, blocksToDelete)
+	for i := fileData.InitialBlock; i < fileData.InitialBlock+blocksToDelete; i++ {
+		bitmap.Remove(i)
+	}
 
 	showBitmap(bitmap)
 
@@ -735,21 +599,11 @@ func IO_FS_DELETE(pathDialFS string, fileName string) {
 	deleteInMetaDataStructure(fileName)
 }
 
-func searchInMetaDataStructure(fileName string) int {
-	for _, fileContent := range metaDataStructure {
-		if fileContent.FileName == fileName {
-			return fileContent.InitialBlock
-		}
-	}
-	return -1
-}
-
-func deleteInMetaDataStructure(fileName string) {
-	for i, fileContent := range metaDataStructure {
-		if fileContent.FileName == fileName {
-			metaDataStructure = append(metaDataStructure[:i], metaDataStructure[i+1:]...)
-			break
-		}
+func eliminarArchivo(fileName string, pathDialFS string) {
+	filePath := pathDialFS + "/" + fileName
+	err := os.Remove(filePath)
+	if err != nil {
+		log.Fatalf("Error al eliminar el archivo '%s': %v", pathDialFS, err)
 	}
 }
 
@@ -804,7 +658,6 @@ func IO_FS_TRUNCATE(pathDialFS string, fileName string, length int) {
 		log.Printf("El tamaño a truncar es igual al tamaño actual del archivo")
 	} else {
 		log.Printf("Error al truncar el archivo, bloques disponibles %d", totalFreeBlocks)
-
 	}
 }
 
@@ -836,15 +689,6 @@ func removeBlocks(bitmap *Bitmap, initialBlock int, totalBlocks int, blocksToRem
 			bitmap.Remove(i)
 		}
 	}
-}
-
-func dataFileInMetaDataStructure(fileName string) (FileContent, error) {
-	for _, fileContent := range metaDataStructure {
-		if fileContent.FileName == fileName {
-			return fileContent, nil
-		}
-	}
-	return FileContent{}, fmt.Errorf("file '%s' not found in metadata structure", fileName)
 }
 
 func lookForContiguousBlocks(cantBloques int, initialBlock int, pathDialFS string) bool {
@@ -901,7 +745,6 @@ func truncateBitmap(bitmap *Bitmap, initialBlock int, bitmapFilePath string, pat
 		newInitialBlock := moveZeros(bitmap, fileContent.InitialBlock, blocksPerFile, bitmapFilePath)
 		updateMetaDataFile(pathDialFS, fileContent.FileName, newInitialBlock, fileContent.Size)
 	}
-
 }
 
 func moveZeros(bitmap *Bitmap, initialBlock int, cantBloques int, bitmapFilePath string) int {
@@ -968,7 +811,7 @@ func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, r
 	defer blocksFile.Close()
 
 	// BLOQUE A ESCRIBIR
-	bloqueInicialDelArchivo := searchInMetaDataStructure(fileName)
+	bloqueInicialDelArchivo := firstBlockOfFileInMetadata(fileName)
 	//fileData := dataFileInMetaDataStructure(fileName)
 
 	posicionInicialDeEscritura := (bloqueInicialDelArchivo * config.TamanioBloqueDialFS) + regPuntero
@@ -1025,7 +868,7 @@ func IO_FS_READ(pathDialFS string, fileName string, address []int, length int, r
 	defer blocksFile.Close()
 
 	// BLOQUE A LEER
-	bloqueInicialDelArchivo := searchInMetaDataStructure(fileName)
+	bloqueInicialDelArchivo := firstBlockOfFileInMetadata(fileName)
 	posicionInicialDeLectura := (bloqueInicialDelArchivo * config.TamanioBloqueDialFS) + regPuntero
 
 	// ME MUEVO A LA POSICION INICIAL DE LECTURA
@@ -1047,13 +890,6 @@ func IO_FS_READ(pathDialFS string, fileName string, address []int, length int, r
 	err1 := SendInputToMemory(pid, string(contenidoLeidoDeArchivo), address)
 	if err1 != nil {
 		log.Fatalf("Error al leer desde la memoria: %v", err)
-	}
-}
-
-func verificarExistenciaDeArchivo(path string, fileName string) {
-	filePath := path + "/" + fileName
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		log.Fatalf("El archivo '%s' no existe", fileName)
 	}
 }
 
@@ -1103,6 +939,34 @@ func CreateBitmapFile(path string, blocksCount int, bitmapSize int) {
 	// flushear si hubo error
 	if err := bitmapFile.Sync(); err != nil {
 		log.Fatalf("Error al forzar la escritura del archivo de bitmap '%s': %v", filePath, err)
+	}
+}
+
+func EnsureIfFileExists(pathDialFS string, blocksSize int, blocksCount int, sizeFile int, bitmapSize int) {
+
+	// pathDialFS completa para bloques.dat
+	blockFilePath := pathDialFS + "/bloques.dat"
+	if _, err := os.Stat(blockFilePath); os.IsNotExist(err) {
+		log.Printf("El archivo de bloques no existe, creando: %s", blockFilePath)
+		CreateBlockFile(pathDialFS, blocksSize, blocksCount, sizeFile)
+	} else {
+		log.Printf("El archivo de bloques ya existe: %s", blockFilePath)
+	}
+
+	// pathDialFS completa para bitmap.dat
+	bitmapFilePath := pathDialFS + "/bitmap.dat"
+	if _, err := os.Stat(bitmapFilePath); os.IsNotExist(err) {
+		log.Printf("El archivo bitmap no existe, creando: %s", bitmapFilePath)
+		CreateBitmapFile(pathDialFS, blocksCount, bitmapSize)
+	} else {
+		log.Printf("El archivo bitmap ya existe: %s", bitmapFilePath)
+	}
+}
+
+func verificarExistenciaDeArchivo(path string, fileName string) {
+	filePath := path + "/" + fileName
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		log.Fatalf("El archivo '%s' no existe", fileName)
 	}
 }
 
@@ -1166,7 +1030,7 @@ func (b *Bitmap) Remove(pos int) {
 	b.bits[pos] = 0
 }
 
-/* ------------------------------------- METODOS DE BLOQUES ------------------------------------------------------ */
+/* ------------------------------------- FUNCIONES PARA AGILIZAR BITMAP ------------------------------------------------------ */
 
 func showBitmap(bitmap *Bitmap) {
 	fmt.Println("Bitmap:")
@@ -1208,63 +1072,121 @@ func updateBitMap(bitmap *Bitmap, bitmapFilePath string) {
 	fmt.Println("Bitmap file updated successfully.")
 }
 
-//fs pide posicion a memoria, si lo agarra y lo guarda en el archivo de bloques.dat
-// bloques basados por tamaños de byte, ej 4 bytes por bloque y si pongo hola que ocupa 7 bytes, ocupa un bloque
-// cuando hago create lo que voy a hacer es meterlo al filesystem, notas.txt ya existe en tu pathDialFS de dialfs_path y lo que hago es escribir en bloques.dat
-// como existe en esa ruta voy a acceder y sacar la metdata
+/* --------------------------------------------- FUNCIONES DE METADATA ------------------------------------------------------ */
 
-// INTERFAZ FILE SYSTEM (IO_FS_CREATE)
-/*func (interfaz *InterfazIO, nombreArchivo string) IO_FS_CREATE() {
-	// RECIBO EL NOMBRE DEL ARCHIVO A CREAR
-	// MEDIANTE LA INTERFAZ SELECCIONADA SE CREE UN ARCHIVO EN EL FS, MONTADO EN DICHA INTERFAZ
+func updateMetaDataFile(pathDialFS string, fileName string, initialBlock int, fileSize int) {
+	filePath := pathDialFS + "/" + fileName
+	fileContent := FileContent{
+		InitialBlock: initialBlock,
+		Size:         fileSize,
+	}
+	contentBytes, err := json.Marshal(fileContent)
+	if err != nil {
+		log.Fatalf("Error al convertir FileContent a bytes: %v", err)
+	}
 
-}*/
+	// Write FileContent to the file
+	file, err := os.OpenFile(filePath, os.O_RDWR, 0644)
+	if err != nil {
+		log.Fatalf("Error al crear el archivo '%s': %v", pathDialFS, err)
+	}
+	_, err = file.Write(contentBytes)
+	if err != nil {
+		log.Fatalf("Error al escribir el contenido en el archivo '%s': %v", filePath, err)
+	}
 
-// INTERFAZ FILE SYSTEM (IO_FS_DELETE)
-/*func (interfaz *InterfazIO, nombreArchivo string) IO_FS_DELETE() {
-	// RECIBO EL NOMBRE DEL ARCHIVO A ELIMINAR
-	// MEDIANTE LA INTERFAZ SELECCIONADA SE ELIMINE UN ARCHIVO EN EL FS, MONTADO EN DICHA INTERFAZ
-}*/
+	file.Close()
+}
 
-/*
-LISTA GLOBAL DE ARCHIVOS ABIERTOS
-LISTA GLOBAL DE ARCHIVOS ABIERTOS POR PROCESO
-*/
+func deleteInMetaDataStructure(fileName string) {
+	for i, fileContent := range metaDataStructure {
+		if fileContent.FileName == fileName {
+			metaDataStructure = append(metaDataStructure[:i], metaDataStructure[i+1:]...)
+			break
+		}
+	}
+}
 
-/*currentBlocks := global.GetCurrentBlocks(global.Estructura_truncate.FileName)
-  freeContiguousBlocks := global.GetFreeContiguousBlocks(global.Estructura_truncate.FileName)
-  neededBlocks := global.GetNeededBlocks(global.Estructura_truncate)
-  totalFreeBlocks := global.GetTotalFreeBlocks()
+func ensureExistingMetaDataFiles(pathDialFS string) {
+	if checkFilesInDirectoryThatWereInDirectory(pathDialFS) {
+		// Example usage of readFilesThatWereInDirectory
+		metaDataStructure = readFilesThatWereInDirectory(pathDialFS)
 
-  if currentBlocks == neededBlocks {
-      global.UpdateSize(global.Estructura_truncate.FileName, global.Estructura_truncate.Tamanio, neededBlocks)
-      global.Logger.Log(fmt.Sprintf("No es necesario truncar pero actualicé el size: %+v", global.Estructura_truncate), log.DEBUG)
+		// Display filesContent
+		for i, fileContent := range metaDataStructure {
+			fmt.Printf("MetaStructure %d: FileName %s InitialBlock: %d, Size: %d\n", i, fileContent.FileName, fileContent.InitialBlock, fileContent.Size)
+		}
+	}
+}
 
-  } else if !(totalFreeBlocks >= neededBlocks-currentBlocks) {
-      global.Logger.Log(fmt.Sprintf("No es posible agrandar el archivo: %+v", global.Estructura_truncate), log.ERROR)
+func readFilesThatWereInDirectory(directoryPath string) []FileContent {
+	var filesContent []FileContent
 
-  } else if currentBlocks > neededBlocks {
-      global.Logger.Log(fmt.Sprintf("Trunco a menos %+v", global.Estructura_truncate), log.DEBUG)
+	files, err := os.ReadDir(directoryPath)
+	if err != nil {
+		log.Fatalf("Error al leer el directorio '%s': %v", directoryPath, err)
+	}
 
-      global.UpdateSize(global.Estructura_truncate.FileName, global.Estructura_truncate.Tamanio, neededBlocks)
-      global.PrintBitmap()
-      global.UpdateBitmap(0, filestruct.Initial_block+neededBlocks, currentBlocks-neededBlocks)
-      global.PrintBitmap()
+	for _, file := range files {
+		if !file.IsDir() && filepath.Ext(file.Name()) == ".txt" {
+			filePath := filepath.Join(directoryPath, file.Name())
+			fileContent := readFileOfMetaData(filePath)
+			filesContent = append(filesContent, fileContent)
+		}
+	}
 
-  } else if neededBlocks-currentBlocks <= freeContiguousBlocks {
-      global.Logger.Log(fmt.Sprintf("Trunco a más %+v", global.Estructura_truncate), log.DEBUG)
+	return filesContent
+}
 
-      global.UpdateSize(global.Estructura_truncate.FileName, global.Estructura_truncate.Tamanio, neededBlocks)
-      global.PrintBitmap()
-      global.UpdateBitmap(1, filestruct.Initial_block+currentBlocks, neededBlocks-currentBlocks)
-      global.PrintBitmap()
+func checkFilesInDirectoryThatWereInDirectory(pathDialFS string) bool {
+	files, err := os.ReadDir(pathDialFS)
+	if err != nil {
+		log.Printf("Error reading directory: %v", err)
+		return false
+	}
 
-  } else {
-      global.Logger.Log(fmt.Sprintf("Es necesario compactar: %+v", global.Estructura_truncate), log.DEBUG)
+	for _, file := range files {
+		if !file.IsDir() && strings.HasSuffix(file.Name(), ".txt") {
+			log.Printf("Found .txt file in %s", pathDialFS)
+			return true
+		}
+	}
 
-      // actualizar bitamp y archivos metadata
-      compactar(global.Estructura_truncate.FileName, totalFreeBlocks)
+	log.Printf("No .txt files found in %s", pathDialFS)
+	return false
+}
 
-      global.PrintBloques()
+func readFileOfMetaData(pathFile string) FileContent {
+	readContent, err := os.ReadFile(pathFile)
+	if err != nil {
+		log.Fatalf("Error al leer el archivo '%s': %v", pathFile, err)
+	}
 
-  }*/
+	var fileContent FileContent
+	err = json.Unmarshal(readContent, &fileContent)
+	if err != nil {
+		log.Fatalf("Error al deserializar el contenido del archivo '%s': %v", pathFile, err)
+	}
+
+	fileContent.FileName = filepath.Base(pathFile)
+
+	return fileContent
+}
+
+func firstBlockOfFileInMetadata(fileName string) int {
+	for _, fileContent := range metaDataStructure {
+		if fileContent.FileName == fileName {
+			return fileContent.InitialBlock
+		}
+	}
+	return -1
+}
+
+func dataFileInMetaDataStructure(fileName string) (FileContent, error) {
+	for _, fileContent := range metaDataStructure {
+		if fileContent.FileName == fileName {
+			return fileContent, nil
+		}
+	}
+	return FileContent{}, fmt.Errorf("file '%s' not found in metadata structure", fileName)
+}

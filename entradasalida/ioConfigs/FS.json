@@ -6,7 +6,7 @@
     "port_kernel": 8080,
     "ip_memory": "localhost",
     "port_memory": 8085,
-    "dialfs_path": "C:/Users/Silvia/Desktop/tp-2024-1c-Panza_confianza/entradasalida",
+    "dialfs_path": "C:/Users/Usuario/Desktop/tp-2024-1c-Panza_confianza/entradasalida",
     "dialfs_block_size": 16,
     "dialfs_block_count": 32
 }
