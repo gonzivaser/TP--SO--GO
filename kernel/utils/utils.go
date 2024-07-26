@@ -145,6 +145,7 @@ type ProcessData struct {
 }
 
 var processDataMap sync.Map
+var OutOfMemory bool = false
 
 /*---------------------------------------------------VAR GLOBALES------------------------------------------------*/
 
@@ -1064,6 +1065,14 @@ func findPCB(pid int) (PCB, error) {
 	return PCB{}, fmt.Errorf("PID not found")
 }
 
+func HandleOutOfMemory(w http.ResponseWriter, r *http.Request) {
+	pid := r.URL.Query().Get("pid")
+	if pid != "" {
+		OutOfMemory = true
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
 func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "DELETE" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -1090,6 +1099,12 @@ func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
 	//log.Printf("Finalizing process %v - Reason: <SUCCESS / INVALID_RESOURCE / INVALID_WRITE> con estado %v", pcb.Pid, pcb.State)
 
 	//Llamar a funcion que finalioza el proceso
+	if OutOfMemory {
+		eliminarProcesoCola(pcb.Pid)
+		deletePagesmemory(pcb.Pid)
+		enqueueExitProcess(pcb)
+		log.Printf("Finaliza el proceso %d - Motivo: OUT_OF_MEMORY", pcb.Pid)
+	}
 
 	if pcb.State == "EXEC" {
 		SendInterrupt(pcb.Pid, "INTERRUPTED_BY_USER")

@@ -306,6 +306,7 @@ func ResizeProcess(pid int, newSize int) error {
 		freespace := counterMemoryFree()
 		if freespace < (newSize/pageSize)-currentSize { //Verifico si hay suficiente espacio en memoria despues de la ampliacion
 			log.Printf("Out of Memory")
+			NotifyOutOfMemory(pid)
 			FinalizarProceso(pid)
 			var err1 error
 			return err1
@@ -529,6 +530,15 @@ func SendPageTamToCPU(tamPage int) {
 	resp, err := http.Post(CPUurl, "application/json", bytes.NewBuffer(PageTamResponseTest))
 	if err != nil {
 		log.Fatalf("error al enviar la solicitud al módulo de memoria: %v", err)
+	}
+	defer resp.Body.Close()
+}
+
+func NotifyOutOfMemory(pid int) {
+	kernelURL := fmt.Sprintf("http://%s:%d/outOfMemory?pid=%d", globals.ClientConfig.IpKernel, globals.ClientConfig.PuertoKernel, pid)
+	resp, err := http.Post(kernelURL, "application/json", nil)
+	if err != nil {
+		log.Printf("Error al notificar Out of Memory al kernel: %v", err)
 	}
 	defer resp.Body.Close()
 }
