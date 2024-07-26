@@ -205,13 +205,9 @@ func InstructionCycle(contextoDeEjecucion PCB) {
 		GLOBALrequestCPU.PcbUpdated = contextoDeEjecucion
 		instruction, _ := Decode(line)
 
+		log.Printf("PID: %d - Ejecutando: %s - %s.", contextoDeEjecucion.Pid, instruction, line)
 		Execute(instruction, line, &contextoDeEjecucion)
-		log.Printf("PID: %d - Ejecutando: %s - %s”.", contextoDeEjecucion.Pid, instruction, line)
 
-		//time.Sleep(1 * time.Second)
-
-		// responseInterrupt.Interrupt ---> ese de clock y finalizacion
-		// interrupt ---> ese de io y wait
 		if (responseInterruptGlobal.Interrupt && responseInterruptGlobal.Pid == contextoDeEjecucion.Pid) || interrupt {
 			responseInterruptGlobal.Interrupt = false
 			interrupt = false
@@ -616,11 +612,6 @@ func stringToUint8(s string) uint8 {
 	}
 	// Tomamos solo el primer carácter del string
 	return uint8(s[0])
-}
-func uint32ToString(num uint32) string {
-	bytes := make([]byte, 4)
-	binary.BigEndian.PutUint32(bytes, num)
-	return string(bytes)
 }
 
 func MOV_OUT(words []string, contextoEjecucion *PCB) error {
@@ -1093,50 +1084,9 @@ func TranslateHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(res)
 }
 
-// Función de traducción de direcciones
-/*func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
-	var DireccionesFisicas []int
-	tamRestantePag := TamRestantePagina(DireccionLogica, TamPag)
-
-	for i := 0; i < TamData; i += TamPag {
-		pageNumber := int(math.Floor(float64(DireccionLogica) / float64(TamPag)))
-		pageOffset := DireccionLogica - (pageNumber * TamPag)
-
-		frame, found := CheckTLB(pid, pageNumber)
-		if !found {
-			log.Printf("PID: %d - TLB MISS - Pagina: %d", pid, pageNumber)
-			err := FetchFrameFromMemory(pid, pageNumber)
-			if err != nil {
-				fmt.Println("Error al obtener el marco desde la memoria")
-				return nil // O manejar el error de manera adecuada
-			}
-			frame = MemoryFrame
-			log.Printf("PID: %d - OBTENER MARCO - Página: %d - Marco: %d", pid, pageNumber, frame)
-			if globals.ClientConfig.NumberFellingTLB > 0 {
-				ReplaceTLBEntry(pid, pageNumber, MemoryFrame)
-			}
-		} else {
-			log.Printf("PID: %d - TLB HIT - Pagina: %d", pid, pageNumber)
-		}
-
-		physicalAddress := frame*TamPag + pageOffset
-		DireccionesFisicas = append(DireccionesFisicas, physicalAddress)
-
-		// Actualizar la dirección lógica para la siguiente página
-		if TamData > tamRestantePag {
-			DireccionLogica += tamRestantePag
-		}
-	}
-	paginas := make([]int, len(globalTLB))
-	for i, entry := range globalTLB {
-		paginas[i] = entry.Pagina
-	}
-	fmt.Println("Páginas en la TLB:", paginas)
-	return DireccionesFisicas
-}*/
 func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 	var DireccionesFisicas []int
-	cache := make(map[int]int) // Mapa para cachear los marcos traídos de la memoria
+	cache := make(map[int]int) // Mapa para no buscar 10 veces el mismo marco
 
 	for i := 0; i < TamData; i++ {
 		pageNumber := int(math.Floor(float64(DireccionLogica) / float64(TamPag)))
@@ -1144,17 +1094,17 @@ func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 
 		frame, found := CheckTLB(pid, pageNumber)
 		if !found {
-			// Verificar si el marco ya está en caché
 			if cachedFrame, ok := cache[pageNumber]; ok {
 				frame = cachedFrame
 			} else {
+				log.Printf("PID: %d - TLB MISS - Página: %d", pid, pageNumber)
 				err := FetchFrameFromMemory(pid, pageNumber)
 				if err != nil {
 					fmt.Println("Error al obtener el marco desde la memoria")
-					return nil // O manejar el error de manera adecuada
+					return nil
 				}
 				frame = MemoryFrame
-				cache[pageNumber] = frame // Cachear el marco traído desde la memoria
+				cache[pageNumber] = frame
 				log.Printf("PID: %d - OBTENER MARCO - Página: %d - Marco: %d", pid, pageNumber, frame)
 
 				if globals.ClientConfig.NumberFellingTLB > 0 {

@@ -300,6 +300,7 @@ func TerminateProcess(pid int) error {
 				memoryMap[address] = false //Marca las addresses del pid como libres
 			}
 		}
+		log.Printf("PID: %d - Tamaño: %d", pid, len(pageTable))
 		delete(pageTable, pid) //Funcion que viene con map, libera los marcos asignados a un pid
 		log.Println("Proceso terminado")
 	}
@@ -424,6 +425,7 @@ func ReadMemory(pid int, addresses []int, size int) ([]byte, error) {
 		}
 		result = append(result, memory[address])
 	}
+	log.Printf("PID: %d - Accion: LEER - Direccion fisica: %d - Tamaño %d", pid, addresses[0], size)
 	return result, nil
 }
 
@@ -486,6 +488,7 @@ func WriteMemory(pid int, addresses []int, data []byte) error {
 			i++
 		}
 	}
+	log.Printf("PID: %d - Accion: ESCRIBIR - Direccion fisica: %d - Tamaño %d", pid, addresses[0], len(addresses))
 	fmt.Println(pageTable)
 	fmt.Println(memory)
 	return nil
