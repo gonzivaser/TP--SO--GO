@@ -785,7 +785,7 @@ func IO_FS_TRUNCATE(pathDialFS string, fileName string, length int) {
 			updateMetaDataFile(pathDialFS, fileName, fileData.InitialBlock, length)
 		} else {
 			log.Printf("Los bloques solicitados no están libres")
-			truncateBitmap(bitmap, fileData.InitialBlock, cantBloques, bitmapFilePath, pathDialFS, fileName, fileData.Size)
+			truncateBitmap(bitmap, fileData.InitialBlock, bitmapFilePath, pathDialFS, fileName, fileData.Size)
 			firstFreeBlock := firstBitFree(bitmap)
 			assignBlocks(bitmap, firstFreeBlock, cantBloques)
 			showBitmap(bitmap)
@@ -883,7 +883,7 @@ func lookForContiguousBlocks(cantBloques int, initialBlock int, pathDialFS strin
 	return true
 }
 
-func truncateBitmap(bitmap *Bitmap, initialBlock int, cantBloques int, bitmapFilePath string, pathDialFS string, fileName string, fileSize int) {
+func truncateBitmap(bitmap *Bitmap, initialBlock int, bitmapFilePath string, pathDialFS string, fileName string, fileSize int) {
 	//eliminamos los bloques que tiene asignado el archivo
 
 	var blocksToDelete int
