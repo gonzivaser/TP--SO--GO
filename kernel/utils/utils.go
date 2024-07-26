@@ -787,6 +787,7 @@ func RecievePortOfInterfaceFromIO(w http.ResponseWriter, r *http.Request) {
 	interfaz.Name = requestPort.Nombre
 	interfaz.Port = requestPort.Port
 	interfaz.Type = requestPort.Type
+	log.Printf("Port received: %d, Name: %s, type: %s", requestPort.Port, requestPort.Nombre, requestPort.Type)
 
 	interfaces = append(interfaces, interfaz)
 	SendPortOfInterfaceToMemory(interfaz.Name, interfaz.Port)
@@ -846,6 +847,7 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 		if err != nil {
 			return fmt.Errorf("error al serializar el payload: %v", err)
 		}
+		log.Printf("LA URL ES: %s", entradasalidaURL)
 
 		resp, err := http.Post(entradasalidaURL, "application/json", bytes.NewBuffer(ioResponseTest))
 		if err != nil {
