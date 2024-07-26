@@ -6,25 +6,29 @@ if [ -z "$KERNEL_PORT" ]; then
     KERNEL_PORT=8080
 fi
 
+# Verificar si se ha definido la variable KERNEL_HOST
 if [ -z "$KERNEL_HOST" ]; then
     echo "No se ha definido la variable KERNEL_HOST"
     echo "Usando HOST por defecto localhost"
-    KERNEL_PORT=localhost
+    KERNEL_HOST=localhost
 fi
 
-KERNEL_URL="http://$KERNEL_HOST:$KERNEL_PORT"
 
-# Verificar si se pasó el argumento necesario
+# Verificar si se pasaron los argumentos necesarios
 if [ "$#" -ne 1 ]; then
     echo "Uso: $0 <PID>"
     exit 1
 fi
 
-# Asignar el argumento a la variable PID
+# Asignar los argumentos a variables
 PID="$1"
 
-# Construir la URL completa
-URL="$BASE_URL/process/$PID"
+# URL del servidor
+KERNEL_URL="http://$KERNEL_HOST:$KERNEL_PORT/process/$PID"
 
-# Realizar la petición DELETE con curl
-curl -X DELETE "$URL"
+
+# Imprimir la URL y el cuerpo JSON para depuración
+echo "URL: $KERNEL_URL"
+
+# Realizar la petición PUT con curl
+curl -X DELETE "$KERNEL_URL"
