@@ -1104,9 +1104,7 @@ func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
 		deletePagesmemory(pcb.Pid)
 		enqueueExitProcess(pcb)
 		log.Printf("Finaliza el proceso %d - Motivo: OUT_OF_MEMORY", pcb.Pid)
-	}
-
-	if pcb.State == "EXEC" {
+	} else if pcb.State == "EXEC" {
 		SendInterrupt(pcb.Pid, "INTERRUPTED_BY_USER")
 		deletePagesmemory(pcb.Pid)
 	} else {
