@@ -16,26 +16,26 @@ curl --location --request PUT http://$KERNEL_HOST:$KERNEL_PORT/process \
 --header 'Content-Type: application/json' \
 --data '{
     "pid": 1,
-    "path": "/scripts_memoria/LOCK_A"
+    "path": "/home/utnso/tp-2024-1c-panza_confianza/prueba/scripts_memoria/LOCK_A"
 }'
 
 curl --location --request PUT http://$KERNEL_HOST:$KERNEL_PORT/process \
 --header 'Content-Type: application/json' \
 --data '{
     "pid": 2,
-    "path": "/scripts_memoria/LOCK_B"
+    "path": "/home/utnso/tp-2024-1c-panza_confianza/prueba/scripts_memoria/LOCK_B"
 }'
 
 curl --location --request PUT http://$KERNEL_HOST:$KERNEL_PORT/process \
 --header 'Content-Type: application/json' \
 --data '{
     "pid": 3,
-    "path": "/scripts_memoria/LOCK_C"
+    "path": "/home/utnso/tp-2024-1c-panza_confianza/prueba/scripts_memoria/LOCK_C"
 }'
 
 curl --location --request PUT http://$KERNEL_HOST:$KERNEL_PORT/process \
 --header 'Content-Type: application/json' \
 --data '{
     "pid": 4,
-    "path": "/scripts_memoria/LOCK_D"
+    "path": "/home/utnso/tp-2024-1c-panza_confianza/prueba/scripts_memoria/LOCK_D"
 }'
