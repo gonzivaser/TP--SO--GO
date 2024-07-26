@@ -16,12 +16,12 @@ curl --location --request PUT http://$KERNEL_HOST:$KERNEL_PORT/process \
 --header 'Content-Type: application/json' \
 --data '{
     "pid": 1,
-    "path": "/home/utnso/tp-2024-1c-Panza_confianza/prueba/scripts_memoria/FS1"
+    "path": "/home/utnso/tp-2024-1c-Panza_confianza/prueba/scripts_memoria/FS_1"
 }'
 
 curl --location --request PUT http://$KERNEL_HOST:$KERNEL_PORT/process \
 --header 'Content-Type: application/json' \
 --data '{
     "pid": 2,
-    "path": "/home/utnso/tp-2024-1c-Panza_confianza/prueba/scripts_memoria/FS2"
+    "path": "/home/utnso/tp-2024-1c-Panza_confianza/prueba/scripts_memoria/FS_2"
 }'
