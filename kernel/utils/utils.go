@@ -99,9 +99,6 @@ type Syscall struct {
 	TIME int `json:"time"`
 }
 
-//map que matchea pid con recurso
-pidXRecursoMap := make(map[int][]string)
-
 type KernelRequest struct {
 	PcbUpdated     ExecutionContext `json:"pcbUpdated"`
 	MotivoDesalojo string           `json:"motivoDesalojo"`
@@ -195,6 +192,8 @@ var mutexes = make(map[string]*sync.Mutex)
 
 var quantumMapGlobal = make(map[int]int)
 
+var pidXRecursoMap = make(map[int][]string)
+
 // --------------------------------------------------------
 
 // ----------DECLARACION DE PROCESO EN EJECUCION----------------
@@ -277,6 +276,7 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	procesoEXEC.PCB.CpuReg = CPURequest.PcbUpdated.CpuReg
 	procesoEXEC.PCB.Pid = CPURequest.PcbUpdated.Pid
 	procesoEXEC.PCB.State = CPURequest.PcbUpdated.State
+
 	switch CPURequest.MotivoDesalojo {
 	case "FINALIZADO":
 		log.Printf("Finaliza el proceso %v - Motivo: SUCCESS", CPURequest.PcbUpdated.Pid)
@@ -471,11 +471,16 @@ func RecieveWait(w http.ResponseWriter, r *http.Request) {
 	recursoExistente, index := resourceExists(request.Recurso)
 	if recursoExistente {
 		// le asigna el recurso al pid
-		pidXRecursoMap[request.Pid] = []string{request.Recurso}	
-		
+		if recursos, exists := pidXRecursoMap[request.Pid]; exists {
+			// Añadir el nuevo valor al arreglo existente
+			pidXRecursoMap[request.Pid] = append(recursos, request.Recurso)
+		} else {
+			// Crear un nuevo arreglo con el valor y asignarlo a la clave
+			pidXRecursoMap[request.Pid] = []string{request.Recurso}
+		}
 		// resto 1 si existe
 		globals.ClientConfig.InstanciasRecursos[index] -= 1
-		fmt.Println("Instancias recursos: ", globals.ClientConfig.InstanciasRecursos, request.Recurso)
+		//fmt.Println("Instancias recursos: ", globals.ClientConfig.InstanciasRecursos, request.Recurso)
 		// Check if the number of instances is less than 0
 		if globals.ClientConfig.InstanciasRecursos[index] < 0 {
 			w.Write([]byte(`{"success": "false"}`))
@@ -489,31 +494,31 @@ func RecieveWait(w http.ResponseWriter, r *http.Request) {
 
 	// Return execution to the process that requests the WAIT
 	w.Write([]byte(`{"success": "true"}`))
-}   
+}
 
 func waitHandler(pcb PCB, recurso string) {
 
 	enqueueBlockedProcess(pcb, recurso)
 }
 
-func liberarRecursosMap(int pid, string recurso){
-	recursos, exists := pidXRecursoMap[request.Pid]
-    	if exists {
-        // Buscar el recurso y eliminarlo si existe
-        index := -1
-        for i, recurso := range recursos {
-            if recurso == request.Recurso {
-                index = i
-                break
-            }
-        }
-
-        if index != -1 {
-            // Recurso encontrado, eliminarlo
-            recursos = append(recursos[:index], recursos[index+1:]...)
-            pidXRecursoMap[request.Pid] = recursos
+func liberarRecursosMap(pid int, recursoAbuscar string) {
+	recursos, exists := pidXRecursoMap[pid]
+	if exists {
+		// Buscar el recurso y eliminarlo si existe
+		index := -1
+		for i, recurso := range recursos {
+			if recursoAbuscar == recurso {
+				index = i
+				break
+			}
 		}
-}
+
+		if index != -1 {
+			// Recurso encontrado, eliminarlo
+			recursos = append(recursos[:index], recursos[index+1:]...)
+			pidXRecursoMap[pid] = recursos
+		}
+	}
 }
 
 func HandleSignal(w http.ResponseWriter, r *http.Request) {
@@ -532,7 +537,7 @@ func HandleSignal(w http.ResponseWriter, r *http.Request) {
 	// Check if the resource exists
 	recursoExistente, index := resourceExists(recurso)
 	if recursoExistente {
-		liberarRecursosMap(pid, recursoExistente)
+		liberarRecursosMap(request.Pid, recurso)
 		// Add 1 to the number of resource instances
 		globals.ClientConfig.InstanciasRecursos[index]++
 		if len(colaBlocked[recurso]) > 0 {
@@ -555,23 +560,24 @@ func HandleSignal(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"success": "true"}`))
 }
 
-func liberarRecursosExit(int pidFinalizado){
-	recursos, exists := pidXRecursoMap[request.Pid]
-	if(exists){
-		for recurso in recursos {
-			_, index = resourceExists(recurso)
+func liberarRecursosExit(pidFinalizado int) {
+	recursos, exists := pidXRecursoMap[pidFinalizado]
+	if exists {
+		for _, recurso := range recursos {
+			_, index := resourceExists(recurso)
 			globals.ClientConfig.InstanciasRecursos[index]++
+
+			liberarRecursosMap(pidFinalizado, recurso)
+
 			if len(colaBlocked[recurso]) > 0 {
 				// Unblock the first process in the blocked queue
-				waitIfPaused()
 				proceso := colaBlocked[recurso][0]
 				mutexBlocked.Lock()
 				colaBlocked[recurso] = colaBlocked[recurso][1:]
 				mutexBlocked.Unlock()
-	
 				enqueueReadyProcess(proceso)
 			}
-		} 
+		}
 	}
 }
 
@@ -836,7 +842,7 @@ func RecievePortOfInterfaceFromIO(w http.ResponseWriter, r *http.Request) {
 	interfaz.Name = requestPort.Nombre
 	interfaz.Port = requestPort.Port
 	interfaz.Type = requestPort.Type
-	log.Printf("Port received: %d, Name: %s, type: %s", requestPort.Port, requestPort.Nombre, requestPort.Type)
+	// log.Printf("Port received: %d, Name: %s, type: %s", requestPort.Port, requestPort.Nombre, requestPort.Type)
 
 	interfaces = append(interfaces, interfaz)
 	SendPortOfInterfaceToMemory(interfaz.Name, interfaz.Port)
@@ -863,7 +869,7 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 
 		processData, ok := getProcessData(pid)
 		if !ok {
-			log.Printf("No se encontraron datos para el PID: %d", payload.Pid)
+			// log.Printf("No se encontraron datos para el PID: %d", payload.Pid)
 			// Manejar el caso donde no hay datos para el PID
 		}
 
@@ -896,7 +902,7 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 		if err != nil {
 			return fmt.Errorf("error al serializar el payload: %v", err)
 		}
-		log.Printf("LA URL ES: %s", entradasalidaURL)
+		// log.Printf("LA URL ES: %s", entradasalidaURL)
 
 		resp, err := http.Post(entradasalidaURL, "application/json", bytes.NewBuffer(ioResponseTest))
 		if err != nil {
