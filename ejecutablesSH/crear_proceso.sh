@@ -14,7 +14,7 @@ if [ -z "$KERNEL_HOST" ]; then
     KERNEL_HOST=localhost
 fi
 
-KERNEL_URL="http://$KERNEL_HOST:$KERNEL_PORT"
+KERNEL_URL="http://$KERNEL_HOST:$KERNEL_PORT/process"
 
 # Verificar si se pasaron los argumentos necesarios
 if [ "$#" -ne 2 ]; then
@@ -25,10 +25,12 @@ fi
 PID="$1"
 PATH="$2"
 
-BODY="{\"pid\": $PID, \"path\": \"$PATH\"}"
+# Cuerpo JSON
+BODY="{\"pid\": $PID, \"path\": \"$FILE_PATH\"}"
 
 echo "URL: $KERNEL_URL"
 echo "Cuerpo JSON: $BODY"
 
-# Realizar la petición POST con curl
-curl -X POST "$KERNEL_URL" -H "Content-Type: application/json" -d "$BODY"
+# Realizar la petición PUT con curl
+curl -X PUT "${KERNEL_URL}" -H "Content-Type: application/json" -d "${BODY}"
+
