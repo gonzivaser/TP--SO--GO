@@ -99,6 +99,9 @@ type Syscall struct {
 	TIME int `json:"time"`
 }
 
+//map que matchea pid con recurso
+pidXRecursoMap := make(map[int][]string)
+
 type KernelRequest struct {
 	PcbUpdated     ExecutionContext `json:"pcbUpdated"`
 	MotivoDesalojo string           `json:"motivoDesalojo"`
@@ -467,6 +470,9 @@ func RecieveWait(w http.ResponseWriter, r *http.Request) {
 	// Check if the resource exists
 	recursoExistente, index := resourceExists(request.Recurso)
 	if recursoExistente {
+		// le asigna el recurso al pid
+		pidXRecursoMap[request.Pid] = []string{request.Recurso}	
+		
 		// resto 1 si existe
 		globals.ClientConfig.InstanciasRecursos[index] -= 1
 		fmt.Println("Instancias recursos: ", globals.ClientConfig.InstanciasRecursos, request.Recurso)
@@ -483,10 +489,31 @@ func RecieveWait(w http.ResponseWriter, r *http.Request) {
 
 	// Return execution to the process that requests the WAIT
 	w.Write([]byte(`{"success": "true"}`))
-}
+}   
 
 func waitHandler(pcb PCB, recurso string) {
+
 	enqueueBlockedProcess(pcb, recurso)
+}
+
+func liberarRecursosMap(int pid, string recurso){
+	recursos, exists := pidXRecursoMap[request.Pid]
+    	if exists {
+        // Buscar el recurso y eliminarlo si existe
+        index := -1
+        for i, recurso := range recursos {
+            if recurso == request.Recurso {
+                index = i
+                break
+            }
+        }
+
+        if index != -1 {
+            // Recurso encontrado, eliminarlo
+            recursos = append(recursos[:index], recursos[index+1:]...)
+            pidXRecursoMap[request.Pid] = recursos
+		}
+}
 }
 
 func HandleSignal(w http.ResponseWriter, r *http.Request) {
@@ -505,6 +532,7 @@ func HandleSignal(w http.ResponseWriter, r *http.Request) {
 	// Check if the resource exists
 	recursoExistente, index := resourceExists(recurso)
 	if recursoExistente {
+		liberarRecursosMap(pid, recursoExistente)
 		// Add 1 to the number of resource instances
 		globals.ClientConfig.InstanciasRecursos[index]++
 		if len(colaBlocked[recurso]) > 0 {
@@ -525,6 +553,26 @@ func HandleSignal(w http.ResponseWriter, r *http.Request) {
 
 	// Return execution to the process that requests the WAIT
 	w.Write([]byte(`{"success": "true"}`))
+}
+
+func liberarRecursosExit(int pidFinalizado){
+	recursos, exists := pidXRecursoMap[request.Pid]
+	if(exists){
+		for recurso in recursos {
+			_, index = resourceExists(recurso)
+			globals.ClientConfig.InstanciasRecursos[index]++
+			if len(colaBlocked[recurso]) > 0 {
+				// Unblock the first process in the blocked queue
+				waitIfPaused()
+				proceso := colaBlocked[recurso][0]
+				mutexBlocked.Lock()
+				colaBlocked[recurso] = colaBlocked[recurso][1:]
+				mutexBlocked.Unlock()
+	
+				enqueueReadyProcess(proceso)
+			}
+		} 
+	}
 }
 
 func handleSyscallIO(pcb PCB, timeIo int, ioInterface string, ioType string) {
@@ -608,6 +656,7 @@ func listarIds(cola []PCB) []int {
 
 func enqueueExitProcess(pcb PCB) {
 	log.Printf("PID: %d - Estado Anterior: %s - Estado Actual: EXIT", pcb.Pid, pcb.State)
+	liberarRecursosExit(pcb.Pid)
 	pcb.State = "EXIT"
 	mutexExit.Lock()
 	<-multiProgramacion
