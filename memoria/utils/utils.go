@@ -303,15 +303,12 @@ func ResizeProcess(pid int, newSize int) error {
 	}
 	currentSize := len(pages)
 	if newSize/pageSize > currentSize { //Comparo el tamaño actual con el nuevo tamaño
+		log.Printf("PID: %d - Tamaño Actual: %d - Tamaño a Ampliar: %d", pid, currentSize, newSize)
 		freespace := counterMemoryFree()
 		if freespace < (newSize/pageSize)-currentSize { //Verifico si hay suficiente espacio en memoria despues de la ampliacion
-			log.Printf("Out of Memory")
-			NotifyOutOfMemory(pid)
 			FinalizarProceso(pid)
-			var err1 error
-			return err1
+			return nil
 		}
-		log.Printf("PID: %d - Tamaño Actual: %d - Tamaño a Ampliar: %d", pid, currentSize, newSize)
 
 		for i := currentSize; i < newSize/pageSize; i++ { //Asigno nuevos marcos a la ampliacion
 			indiceLibre := proximoLugarLibre()
@@ -544,7 +541,7 @@ func NotifyOutOfMemory(pid int) {
 }
 
 func FinalizarProceso(pid int) {
-	kernelURL := fmt.Sprintf("http://%s:%d/process?pid=%d", globals.ClientConfig.IpKernel, globals.ClientConfig.PuertoKernel, pid)
+	kernelURL := fmt.Sprintf("http://%s:%d/process?pid=%d&motivo=OUT_OF_MEMORY", globals.ClientConfig.IpKernel, globals.ClientConfig.PuertoKernel, pid)
 	req, err := http.NewRequest("DELETE", kernelURL, nil)
 	if err != nil {
 		log.Fatalf("Error al crear la solicitud: %v", err)

@@ -35,6 +35,5 @@ func main() {
 	http.HandleFunc("PUT /plani", utils.IniciarPlanificacion)
 	http.HandleFunc("DELETE /plani", utils.DetenerPlanificacion)
 	http.HandleFunc("GET /process", utils.ListarProcesos)
-	http.HandleFunc("/outOfMemory", utils.HandleOutOfMemory)
 	http.ListenAndServe(":"+strconv.Itoa(puerto), nil)
 }

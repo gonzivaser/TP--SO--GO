@@ -290,7 +290,7 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 		go waitHandler(procesoEXEC.PCB, CPURequest.Recurso)
 
 	case "INTERRUPTED_BY_USER":
-		log.Printf("Finaliza el proceso %v - Motivo: INTERRUPTED_BY_USER", CPURequest.PcbUpdated.Pid)
+		//log.Printf("Finaliza el proceso %v - Motivo: INTERRUPTED_BY_USER", CPURequest.PcbUpdated.Pid)
 		enqueueExitProcess(procesoEXEC.PCB)
 
 	case "INVALID_RESOURCE":
@@ -1065,14 +1065,6 @@ func findPCB(pid int) (PCB, error) {
 	return PCB{}, fmt.Errorf("PID not found")
 }
 
-func HandleOutOfMemory(w http.ResponseWriter, r *http.Request) {
-	pid := r.URL.Query().Get("pid")
-	if pid != "" {
-		OutOfMemory = true
-	}
-	w.WriteHeader(http.StatusOK)
-}
-
 func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "DELETE" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -1089,6 +1081,8 @@ func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "PID debe ser un número", http.StatusBadRequest)
 		return
 	}
+	motivo := r.URL.Query().Get("motivo")
+
 	PausarKernel()
 	// Use pidExists to check if the PID exists in any of the queues
 	pcb, err := findPCB(pid)
@@ -1099,19 +1093,18 @@ func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
 	//log.Printf("Finalizing process %v - Reason: <SUCCESS / INVALID_RESOURCE / INVALID_WRITE> con estado %v", pcb.Pid, pcb.State)
 
 	//Llamar a funcion que finalioza el proceso
-	if OutOfMemory {
-		eliminarProcesoCola(pcb.Pid)
-		deletePagesmemory(pcb.Pid)
-		enqueueExitProcess(pcb)
-		log.Printf("Finaliza el proceso %d - Motivo: OUT_OF_MEMORY", pcb.Pid)
-	} else if pcb.State == "EXEC" {
+	if motivo == "OUT_OF_MEMORY" {
+		log.Printf("Finaliza el proceso %v - Motivo: OUT_OF_MEMORY", pcb.Pid)
+	} else {
+		log.Printf("Finaliza el proceso %v - Motivo: INTERRUPTED_BY_USER", pcb.Pid)
+	}
+	if pcb.State == "EXEC" {
 		SendInterrupt(pcb.Pid, "INTERRUPTED_BY_USER")
 		deletePagesmemory(pcb.Pid)
 	} else {
 		eliminarProcesoCola(pcb.Pid)
 		deletePagesmemory(pcb.Pid)
 		enqueueExitProcess(pcb)
-		log.Printf("Finaliza el proceso %v - Motivo: INTERRUPTED_BY_USER", pcb.Pid)
 
 	}
 	ReanudarKernel()
