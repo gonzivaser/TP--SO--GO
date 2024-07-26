@@ -9,9 +9,11 @@ fi
 if [ -z "$KERNEL_HOST" ]; then
     echo "No se ha definido la variable KERNEL_HOST"
     echo "Usando HOST por defecto localhost"
-    KERNEL_PORT=localhost
+    KERNEL_HOST=localhost
 fi
 
-KERNEL_URL="http://$KERNEL_HOST:$KERNEL_PORT"
+KERNEL_URL="http://$KERNEL_HOST:$KERNEL_PORT/process"
 
-curl -X GET ${KERNEL_URL}/process
+echo "URL: $KERNEL_URL"
+
+curl -X GET "$KERNEL_URL"
