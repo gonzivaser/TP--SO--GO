@@ -16,26 +16,26 @@ curl --location --request PUT http://$KERNEL_HOST:$KERNEL_PORT/process \
 --header 'Content-Type: application/json' \
 --data '{
     "pid": 1,
-    "path": "/scripts_memoria/PLANI_1"
+    "path": "/home/utnso/tp-2024-1c-Panza_confianza/prueba/scripts_memoria/PLANI_1"
 }'
 
 curl --location --request PUT http://$KERNEL_HOST:$KERNEL_PORT/process \
 --header 'Content-Type: application/json' \
 --data '{
     "pid": 2,
-    "path": "/scripts_memoria/PLANI_2"
+    "path": "/home/utnso/tp-2024-1c-Panza_confianza/prueba/scripts_memoria/PLANI_2"
 }'
 
 curl --location --request PUT http://$KERNEL_HOST:$KERNEL_PORT/process \
 --header 'Content-Type: application/json' \
 --data '{
     "pid": 3,
-    "path": "/scripts_memoria/PLANI_3"
+    "path": "/home/utnso/tp-2024-1c-Panza_confianza/prueba/scripts_memoria/PLANI_3"
 }'
 
 curl --location --request PUT http://$KERNEL_HOST:$KERNEL_PORT/process \
 --header 'Content-Type: application/json' \
 --data '{
     "pid": 4,
-    "path": "/scripts_memoria/PLANI_4"
+    "path": "/home/utnso/tp-2024-1c-Panza_confianza/prueba/scripts_memoria/PLANI_4"
 }'
