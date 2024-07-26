@@ -19,13 +19,31 @@ import (
 	"github.com/sisoputnfrba/tp-golang/entradasalida/globals"
 )
 
-func ConfigurarLogger() {
-	logFile, err := os.OpenFile("entradasalida.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
-	if err != nil {
-		panic(err)
+func ConfigurarLogger(interfazNombre string, config *globals.Config) {
+	var logFile *os.File
+	var err error
+
+	if config.Tipo == "DialFS" {
+		// Para DialFS, crear un archivo de log específico
+		logFileName := fmt.Sprintf("%s_DialFS.log", interfazNombre)
+		logFile, err = os.OpenFile(logFileName, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		// Para otros tipos, usar el archivo de log general
+		logFile, err = os.OpenFile("entradasalida.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+		if err != nil {
+			panic(err)
+		}
 	}
+
 	mw := io.MultiWriter(os.Stdout, logFile)
 	log.SetOutput(mw)
+
+	// Configurar el prefijo del log para incluir el nombre de la interfaz
+	log.SetPrefix(fmt.Sprintf("[%s] ", interfazNombre))
+	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
 }
 
 func IniciarConfiguracion(filePath string) *globals.Config {

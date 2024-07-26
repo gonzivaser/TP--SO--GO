@@ -11,8 +11,6 @@ import (
 )
 
 func main() {
-	utils.ConfigurarLogger()
-
 	interfaceName := os.Args[1]
 	log.Printf("Nombre de la interfaz: %s", interfaceName)
 	pathToConfig := os.Args[2]
@@ -22,6 +20,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error al cargar la configuración desde '%s': %v", pathToConfig, err)
 	}
+	utils.ConfigurarLogger(interfaceName, config)
 	utils.SendPortOfInterfaceToKernel(interfaceName, config)
 	Puerto := config.Puerto
 
