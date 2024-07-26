@@ -172,8 +172,6 @@ func SetInstructionsFromFileToMap(w http.ResponseWriter, r *http.Request) {
 	}
 	mapInstructions[pid] = arrInstructions
 
-	fmt.Fprintln(os.Stdout, []any{"%v\n", mapInstructions[pid]}...)
-	fmt.Println(mapInstructions)
 	defer readFile.Close()
 
 	w.WriteHeader(http.StatusOK)
@@ -191,7 +189,6 @@ func GetInstruction(w http.ResponseWriter, r *http.Request) {
 	instructionResponse := InstructionResposne{
 		Instruction: instruction,
 	}
-	fmt.Printf("Esto es la instruction %+v\n", instructionResponse)
 
 	json.NewEncoder(w).Encode(instructionResponse)
 
@@ -221,49 +218,18 @@ func CreateProcess(pid int, pages int) error {
 	defer mu.Unlock()
 
 	if len(memory)/pageSize < pages { // Verifico si hay suficiente espacio en memoria en base a las paginas solicitadas
-		log.Printf("No hay suficiente espacio en memoria")
+		FinalizarProceso(pid)
 	}
 
 	if _, exists := pageTable[pid]; exists { //Verifico si ya existe un proceso con ese pid
 		log.Printf("Error: PID %d already has pages assigned", pid)
 	} else {
 		pageTable[pid] = make([]int, pages) // Creo un slice de paginas para el proceso
-		println("Proceso creado")
 	}
 
 	log.Printf("PID: %d - Tamaño: %d", pid, pages)
-	fmt.Println(pageTable)
-	fmt.Println(memoryMap)
 
 	return nil
-}
-
-// Pasado un dato de IO a memoria, le asigno la direccion fisica del dato a la pagina del proceso
-func AssignAddressToProcess(pid int, address int) error {
-	mu.Lock()
-	defer mu.Unlock()
-
-	if _, exists := pageTable[pid]; !exists { // Verifico si el proceso existe
-		log.Printf("Process not found")
-	}
-
-	if contains(pageTable[pid], address) { // Verifico si la direccion ya fue asignada
-		log.Printf("Address already assigned")
-	} else {
-		memoryMap[address] = true
-	}
-	fmt.Println(pageTable)
-	fmt.Println(memoryMap)
-	return nil
-}
-
-func contains(slice []int, element int) bool {
-	for _, a := range slice {
-		if a == element {
-			return true
-		}
-	}
-	return false
 }
 
 func TerminateProcessHandler(w http.ResponseWriter, r *http.Request) {
@@ -282,8 +248,6 @@ func TerminateProcessHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	fmt.Println(pageTable)
-	fmt.Println(memory)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -302,11 +266,7 @@ func TerminateProcess(pid int) error {
 		}
 		log.Printf("PID: %d - Tamaño: %d", pid, len(pageTable))
 		delete(pageTable, pid) //Funcion que viene con map, libera los marcos asignados a un pid
-		log.Println("Proceso terminado")
 	}
-	fmt.Println(pageTable)
-	fmt.Println(memoryMap)
-
 	return nil
 }
 
@@ -358,10 +318,8 @@ func ResizeProcess(pid int, newSize int) error {
 
 				pageTable[pid] = append(pageTable[pid], indiceLibre)
 				memoryMap[indiceLibre] = true
-				//fmt.Println("Proceso ampliado")
 
 			} else {
-				log.Printf("No more free spots in memory")
 				break
 			}
 		}
@@ -373,8 +331,6 @@ func ResizeProcess(pid int, newSize int) error {
 		//fmt.Println("Proceso reducido")
 		log.Printf("PID: %d - Tamaño Actual: %d - Tamaño a Reducir: %d", pid, currentSize, newSize)
 	}
-	fmt.Println(pageTable)
-	fmt.Println(memoryMap)
 	return nil
 }
 
@@ -437,8 +393,6 @@ func sendDataToCPU(content []byte) error {
 		log.Fatalf("Error al serializar el Input: %v", err)
 	}
 
-	log.Println("Enviando solicitud con contenido:", ContentResponseTest)
-
 	resp, err := http.Post(CPUurl, "application/json", bytes.NewBuffer(ContentResponseTest))
 	if err != nil {
 		log.Fatalf("Error al enviar la solicitud al módulo de memoria: %v", err)
@@ -489,28 +443,8 @@ func WriteMemory(pid int, addresses []int, data []byte) error {
 		}
 	}
 	log.Printf("PID: %d - Accion: ESCRIBIR - Direccion fisica: %d - Tamaño %d", pid, addresses[0], len(addresses))
-	fmt.Println(pageTable)
-	fmt.Println(memory)
 	return nil
 }
-
-/*func RecievePortOfInterfaceFromKernel(w http.ResponseWriter, r *http.Request) {
-	var requestPort BodyRequestPort
-	var interfaz interfaz
-	err := json.NewDecoder(r.Body).Decode(&requestPort)
-	if err != nil {
-		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
-		return
-	}
-	interfaz.Name = requestPort.Nombre
-	interfaz.Port = requestPort.Port
-
-	interfacesGLOBAL = append(interfacesGLOBAL, interfaz)
-	log.Printf("Received data: %+v", interfacesGLOBAL)
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("Port received: %d", requestPort.Port)))
-}*/
 
 func SendContentToIO(content string, Puerto int) error {
 	var BodyContent BodyContent
@@ -520,8 +454,6 @@ func SendContentToIO(content string, Puerto int) error {
 	if err != nil {
 		log.Fatalf("Error al serializar el Input: %v", err)
 	}
-
-	log.Println("Enviando solicitud con contenido:", ContentResponseTest)
 
 	resp, err := http.Post(IOurl, "application/json", bytes.NewBuffer(ContentResponseTest))
 	if err != nil {
@@ -567,7 +499,6 @@ func sendFrameToCPU(pid int, page int) error {
 	if err != nil {
 		log.Fatalf("Error al serializar el frame: %v", err)
 	}
-	log.Println("Enviando solicitud con contenido:", FrameResponseTest)
 
 	resp, err := http.Post(CPUurl, "application/json", bytes.NewBuffer(FrameResponseTest))
 	if err != nil {
@@ -586,19 +517,6 @@ func proximoLugarLibre() int {
 	return -1
 }
 
-/*func verificarTopeDeMemoria(pid int, address int) {
-	contador := 0
-	for i := 0; i < len(pageTable[pid]); i++ {
-		if pageTable[pid][i]*globals.ClientConfig.PageSize <= address && address <= ((pageTable[pid][i]+1)*globals.ClientConfig.PageSize)-1 {
-			log.Printf("Proceso dentro de espacio memoria")
-			contador++
-		}
-	}
-	if contador == 0 {
-		log.Printf("Proceso fuera de espacio memoria")
-	}
-}*/
-
 func SendPageTamToCPU(tamPage int) {
 	CPUurl := fmt.Sprintf("http://%s:%d/recievePageTam", globals.ClientConfig.IpCPU, globals.ClientConfig.PuertoCPU)
 	var body BodyPageTam
@@ -607,7 +525,6 @@ func SendPageTamToCPU(tamPage int) {
 	if err != nil {
 		log.Fatalf("Error al serializar el tamPage: %v", err)
 	}
-	log.Println("Enviando solicitud con contenido:", PageTamResponseTest)
 
 	resp, err := http.Post(CPUurl, "application/json", bytes.NewBuffer(PageTamResponseTest))
 	if err != nil {
