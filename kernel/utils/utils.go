@@ -357,7 +357,7 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 func init() {
 	globals.ClientConfig = IniciarConfiguracion(os.Args[1]) // tiene que prender la confi cuando arranca
 	readyChannel = make(chan PCB, 1)
-	newChannel = make(chan PCB, 1)
+	newChannel = make(chan PCB, globals.ClientConfig.Multiprogramacion)
 	multiProgramacion = make(chan int, globals.ClientConfig.Multiprogramacion)
 	pauseChan = make(chan struct{})
 	resumeChan = make(chan struct{})
