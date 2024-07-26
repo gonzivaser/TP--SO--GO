@@ -24,7 +24,7 @@ fi
 PID="$1"
 
 # Construir la URL completa
-URL="$BASE_URL/process/$PID"
+URL="$KERNEL_URL/process/$PID"
 
-# Realizar la petición DELETE con curl
+# Realizar la petición GET con curl
 curl -X GET "$URL"
