@@ -24,11 +24,11 @@ fi
 PID="$1"
 
 # URL del servidor
-KERNEL_URL="http://$KERNEL_HOST:$KERNEL_PORT/process/$PID"
+KERNEL_URL="http://$KERNEL_HOST:$KERNEL_PORT/process?pid=$PID"
 
 
 # Imprimir la URL y el cuerpo JSON para depuración
 echo "URL: $KERNEL_URL"
 
-# Realizar la petición PUT con curl
+# Realizar la petición DELETE con curl
 curl -X DELETE "$KERNEL_URL"
