@@ -388,6 +388,7 @@ func getProcessData(pid int) (ProcessData, bool) {
 	}
 	return data.(ProcessData), true
 }
+
 func handelMultiProg() {
 	for {
 		proceso := <-newChannel
@@ -479,26 +480,24 @@ func RecieveWait(w http.ResponseWriter, r *http.Request) {
 			// Crear un nuevo arreglo con el valor y asignarlo a la clave
 			pidXRecursoMap[request.Pid] = []string{request.Recurso}
 		}
+
 		// resto 1 si existe
 		globals.ClientConfig.InstanciasRecursos[index] -= 1
 		//fmt.Println("Instancias recursos: ", globals.ClientConfig.InstanciasRecursos, request.Recurso)
-		// Check if the number of instances is less than 0
+
 		if globals.ClientConfig.InstanciasRecursos[index] < 0 {
 			w.Write([]byte(`{"success": "false"}`))
 			return
 		}
 	} else {
-		// If the resource does not exist, send the process to EXIT
 		w.Write([]byte(`{"success": "exit"}`))
 		return
 	}
 
-	// Return execution to the process that requests the WAIT
 	w.Write([]byte(`{"success": "true"}`))
 }
 
 func waitHandler(pcb PCB, recurso string) {
-
 	enqueueBlockedProcess(pcb, recurso)
 }
 
@@ -535,14 +534,14 @@ func HandleSignal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var recurso = request.Recurso
-	// Check if the resource exists
+
 	recursoExistente, index := resourceExists(recurso)
 	if recursoExistente {
 		liberarRecursosMap(request.Pid, recurso)
-		// Add 1 to the number of resource instances
+
 		globals.ClientConfig.InstanciasRecursos[index]++
 		if len(colaBlocked[recurso]) > 0 {
-			// Unblock the first process in the blocked queue
+
 			waitIfPaused()
 			proceso := colaBlocked[recurso][0]
 			mutexBlocked.Lock()
@@ -552,12 +551,11 @@ func HandleSignal(w http.ResponseWriter, r *http.Request) {
 			enqueueReadyProcess(proceso)
 		}
 	} else {
-		// If the resource does not exist, send the process to EXIT
+
 		w.Write([]byte(`{"success": "exit"}`))
 		return
 	}
 
-	// Return execution to the process that requests the WAIT
 	w.Write([]byte(`{"success": "true"}`))
 }
 
@@ -571,7 +569,6 @@ func liberarRecursosExit(pidFinalizado int) {
 			liberarRecursosMap(pidFinalizado, recurso)
 
 			if len(colaBlocked[recurso]) > 0 {
-				// Unblock the first process in the blocked queue
 				proceso := colaBlocked[recurso][0]
 				mutexBlocked.Lock()
 				colaBlocked[recurso] = colaBlocked[recurso][1:]
