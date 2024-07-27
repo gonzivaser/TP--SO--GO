@@ -43,7 +43,7 @@ func ConfigurarLogger(interfazNombre string, config *globals.Config) {
 
 	// Configurar el prefijo del log para incluir el nombre de la interfaz
 	log.SetPrefix(fmt.Sprintf("[%s] ", interfazNombre))
-	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
+	log.SetFlags(log.Ldate | log.Ltime)
 }
 
 func IniciarConfiguracion(filePath string) *globals.Config {
@@ -173,8 +173,6 @@ func LoadConfig(filename string) (*globals.Config, error) {
 }
 
 func Iniciar(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Recibiendo solicitud de I/O desde el kernel")
-
 	var payload Payload
 	err := json.NewDecoder(r.Body).Decode(&payload)
 	if err != nil {
@@ -186,12 +184,10 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 	pidExecutionProcess := payload.Pid
 
 	interfaceName := os.Args[1]
-	log.Printf("Nombre de la interfaz: %s", interfaceName)
 
 	processData, _ := getProcessData(payload.Pid)
 
 	pathToConfig := os.Args[2]
-	log.Printf("Path al archivo de configuración: %s", pathToConfig)
 
 	config, err = LoadConfig(pathToConfig)
 	if err != nil {
@@ -207,19 +203,15 @@ func Iniciar(w http.ResponseWriter, r *http.Request) {
 	case "GENERICA":
 		log.Printf("PID: %d - Operacion: IO_GEN_SLEEP", pidExecutionProcess)
 		duracion := Interfaz.IO_GEN_SLEEP(N)
-		log.Printf("La espera por %d unidades para la interfaz '%s' es de %v\n", N, Interfaz.Nombre, duracion)
 		time.Sleep(duracion)
-		log.Printf("Termino de esperar por la interfaz genérica '%s' es de %v\n", Interfaz.Nombre, duracion)
 
 	case "STDIN":
 		log.Printf("PID: %d - Operacion: IO_STDIN_READ", pidExecutionProcess)
 		Interfaz.IO_STDIN_READ(processData.DireccionFisica, processData.LengthREG, pidExecutionProcess)
-		log.Printf("Termino de leer desde la interfaz '%s'\n", Interfaz.Nombre)
 
 	case "STDOUT":
 		log.Printf("PID: %d - Operacion: IO_STDOUT_WRITE", pidExecutionProcess)
 		Interfaz.IO_STDOUT_WRITE(processData.DireccionFisica, processData.LengthREG, pidExecutionProcess)
-		log.Printf("Termino de escribir en la interfaz '%s'\n", Interfaz.Nombre)
 
 	case "DialFS":
 		createDirectory(Interfaz.Config.PathDialFS)
@@ -278,7 +270,6 @@ func SendPortOfInterfaceToKernel(nombreInterfaz string, config *globals.Config) 
 		return fmt.Errorf("error en la respuesta del módulo kernel: %v", resp.StatusCode)
 	}
 
-	log.Println("Respuesta del módulo de kernel recibida correctamente.")
 	return nil
 }
 
@@ -349,8 +340,6 @@ func RecieveREG(w http.ResponseWriter, r *http.Request) {
 	}
 	processDataMap.Store(requestRegister.Pid, processData)
 
-	log.Printf("Received Register for PID %d: %v", requestRegister.Pid, processData)
-
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("length received: %d", requestRegister.Length)))
 }
@@ -363,12 +352,6 @@ func RecieveFSDataFromKernel(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error decoding JSON data", http.StatusInternalServerError)
 		return
 	}
-
-	log.Printf("Received fileName: %s", fsStructure.FileName)
-	log.Printf("Received fsInstruction: %s", fsStructure.FSInstruction)
-	log.Printf("Received fsRegistroTamano: %d", fsStructure.FSRegTam)
-	log.Printf("Received fsRegistroDireccion: %d", fsStructure.FSRegDirec)
-	log.Printf("Received fsRegistroPuntero: %d", fsStructure.FSRegPuntero)
 
 	fileName = fsStructure.FileName
 	fsInstruction = fsStructure.FSInstruction
@@ -409,13 +392,6 @@ func getProcessData(pid int) (ProcessData, bool) {
 
 // INTERFAZ STDOUT (IO_STDOUT_WRITE)
 func (Interfaz *InterfazIO) IO_STDOUT_WRITE(address []int, length int, pid int) {
-	pathToConfig := os.Args[2]
-	log.Printf("Path al archivo de configuración: %s", pathToConfig)
-
-	config, err := LoadConfig(pathToConfig)
-	if err != nil {
-		log.Fatalf("Error al cargar la configuración desde '%s': %v", pathToConfig, err)
-	}
 
 	//var Bodyadress BodyAdress
 	req := MemoryRequest{
@@ -428,7 +404,7 @@ func (Interfaz *InterfazIO) IO_STDOUT_WRITE(address []int, length int, pid int) 
 
 	err1 := SendAdressToMemory(req)
 	if err1 != nil {
-		log.Fatalf("Error al leer desde la memoria: %v", err)
+		log.Fatalf("Error al leer desde la memoria: %v", err1)
 	}
 
 	time.Sleep(time.Duration(config.UnidadDeTiempo) * time.Millisecond)
@@ -483,7 +459,6 @@ func (interfaz *InterfazIO) IO_GEN_SLEEP(n int) time.Duration {
 
 // INTERFAZ FILE SYSTEM
 func (interfaz *InterfazIO) FILE_SYSTEM(pid int) {
-	log.Printf("La interfaz '%s' es de tipo FILE SYSTEM", interfaz.Nombre)
 
 	pathDialFS := interfaz.Config.PathDialFS + "/FS"
 	blocksSize := interfaz.Config.TamanioBloqueDialFS
@@ -498,35 +473,32 @@ func (interfaz *InterfazIO) FILE_SYSTEM(pid int) {
 
 	switch fsInstruction {
 	case "IO_FS_CREATE":
-		IO_FS_CREATE(pathDialFS, fileName)
 		log.Printf("PID: %d - Crear Archivo: %s", pid, fileName)
+		IO_FS_CREATE(pathDialFS, fileName)
 
 	case "IO_FS_DELETE":
-		IO_FS_DELETE(pathDialFS, fileName)
 		log.Printf("PID: %d - Eliminar Archivo: %s", pid, fileName)
+		IO_FS_DELETE(pathDialFS, fileName)
 
 	case "IO_FS_WRITE":
-		IO_FS_WRITE(pathDialFS, fileName, fsRegDirec, fsRegTam, fsRegPuntero, pid)
 		log.Printf("PID: %d - Operacion: IO_FS_WRITE - Escribir Archivo: %s - Tamaño a Escribir: %d - Puntero Archivo: %d", pid, fileName, fsRegTam, fsRegPuntero)
+		IO_FS_WRITE(pathDialFS, fileName, fsRegDirec, fsRegTam, fsRegPuntero, pid)
 
 	case "IO_FS_TRUNCATE":
-		IO_FS_TRUNCATE(pathDialFS, fileName, fsRegTam)
 		log.Printf("PID: %d - Operacion: IO_FS_TRUNCATE", pid)
+		IO_FS_TRUNCATE(pathDialFS, fileName, fsRegTam)
 
 	case "IO_FS_READ":
-		IO_FS_READ(pathDialFS, fileName, fsRegDirec, fsRegTam, fsRegPuntero, pid)
 		log.Printf("PID: %d - Operacion: IO_FS_READ - Leer Archivo: %s - Tamaño a Leer: %d - Puntero Archivo: %d", pid, fileName, fsRegTam, fsRegPuntero)
+		IO_FS_READ(pathDialFS, fileName, fsRegDirec, fsRegTam, fsRegPuntero, pid)
 	}
 
-	log.Printf("La duración de la operación de FILE SYSTEM es de %d unidades de tiempo", unitWorkTimeFS)
 	time.Sleep(time.Duration(unitWorkTimeFS) * time.Millisecond)
 }
 
 /* -------------------------------------------- FUNCIONES DE FS_CREATE ------------------------------------------------------ */
 
 func IO_FS_CREATE(pathDialFS string, fileName string) {
-	log.Printf("Creando archivo %s en %s", fileName, pathDialFS)
-
 	// CREO ARCHIVO
 	crearArchivo(pathDialFS, fileName)
 
@@ -545,15 +517,13 @@ func IO_FS_CREATE(pathDialFS string, fileName string) {
 		// SETEO EL PRIMER BIT LIBRE EN 1
 		bitmap.Set(firstFreeBlock)
 
-		showBitmap(bitmap)
+		//showBitmap(bitmap)
 
 		updateBitMap(bitmap, bitmapFilePath)
 
 		// ACTUALIZO EL TAMAÑO A 0 Y EL METADATA
 		fileSize := 0
 		updateMetaDataFile(pathDialFS, fileName, firstFreeBlock, fileSize)
-
-		fmt.Printf("Archivo '%s' creado y escrito exitosamente.\n", fileName)
 	}
 }
 
@@ -561,12 +531,10 @@ func firstBitFree(bitmap *Bitmap) int {
 	for i := 0; i < config.CantidadBloquesDialFS; i++ {
 		isFree := !bitmap.Get(i)
 		if isFree {
-			fmt.Printf("Found free bit at index %d\n", i)
 			return i
 		}
 
 	}
-	fmt.Println("No free bits found")
 	return -1
 }
 
@@ -582,8 +550,6 @@ func crearArchivo(path string, fileName string) {
 /* ------------------------------------------- FUNCIONES DE FS_DELETE ------------------------------------------------------ */
 
 func IO_FS_DELETE(pathDialFS string, fileName string) {
-	log.Printf("Eliminando el archivo %s en %s", fileName, pathDialFS)
-
 	// PRIMERO ELIMINO EL ARCHIVO
 	eliminarArchivo(fileName, pathDialFS)
 
@@ -610,7 +576,7 @@ func IO_FS_DELETE(pathDialFS string, fileName string) {
 		bitmap.Remove(i)
 	}
 
-	showBitmap(bitmap)
+	//showBitmap(bitmap)
 
 	updateBitMap(bitmap, bitmapFilePath)
 
@@ -628,8 +594,6 @@ func eliminarArchivo(fileName string, pathDialFS string) {
 /* ----------------------------------------- FUNCIONES DE FS_TRUNCATE ------------------------------------------------------ */
 
 func IO_FS_TRUNCATE(pathDialFS string, fileName string, length int) {
-	log.Printf("Truncando el archivo %s en %s", fileName, pathDialFS)
-
 	// VERIFICO EXISTENCIA DE ARCHIVO
 	verificarExistenciaDeArchivo(pathDialFS, fileName)
 
@@ -647,29 +611,24 @@ func IO_FS_TRUNCATE(pathDialFS string, fileName string, length int) {
 	totalFreeBlocks := getTotalFreeBlocks(bitmap)
 
 	if length > fileData.Size {
-		log.Printf("El tamaño a truncar es mayor al tamaño actual del archivo")
 		areFree := lookForContiguousBlocks(cantBloques, fileData.InitialBlock, pathDialFS)
 		if areFree {
-			log.Printf("Los bloques solicitados están libres")
 			assignBlocks(bitmap, fileData.InitialBlock, cantBloques)
-			showBitmap(bitmap)
+			//showBitmap(bitmap)
 			updateBitMap(bitmap, bitmapFilePath)
 			updateMetaDataFile(pathDialFS, fileName, fileData.InitialBlock, length)
 		} else {
-			log.Printf("Los bloques solicitados no están libres")
 			truncateBitmap(bitmap, fileData.InitialBlock, bitmapFilePath, pathDialFS, fileName, fileData.Size)
 			firstFreeBlock := firstBitFree(bitmap)
 			assignBlocks(bitmap, firstFreeBlock, cantBloques)
-			showBitmap(bitmap)
+			//showBitmap(bitmap)
 			updateBitMap(bitmap, bitmapFilePath)
-			log.Printf("firstFreeBlock: %d", firstFreeBlock)
 			updateMetaDataFile(pathDialFS, fileName, firstFreeBlock, length)
 		}
 	} else if length < fileData.Size {
-		log.Printf("El tamaño a truncar es menor al tamaño actual del archivo")
 		totalBlocks := fileData.Size / config.TamanioBloqueDialFS
 		removeBlocks(bitmap, fileData.InitialBlock, totalBlocks, cantBloques)
-		showBitmap(bitmap)
+		//showBitmap(bitmap)
 		updateBitMap(bitmap, bitmapFilePath)
 		updateMetaDataFile(pathDialFS, fileName, fileData.InitialBlock, length)
 	} else if length == fileData.Size {
@@ -710,7 +669,6 @@ func removeBlocks(bitmap *Bitmap, initialBlock int, totalBlocks int, blocksToRem
 }
 
 func lookForContiguousBlocks(cantBloques int, initialBlock int, pathDialFS string) bool {
-	log.Printf("Buscando %d bloques contiguos desde el bloque %d", cantBloques, initialBlock)
 	// Abrir el archivo de bitmap para lectura
 	bitmapFilePath := pathDialFS + "/bitmap.dat"
 
@@ -729,19 +687,15 @@ func lookForContiguousBlocks(cantBloques int, initialBlock int, pathDialFS strin
 
 	// Verificar si el rango está dentro de los límites del bitmap
 	if initialBlock+cantBloques > config.CantidadBloquesDialFS {
-		fmt.Printf("El rango solicitado excede el tamaño del bitmap\n")
 		return false
 	}
 
 	// Verificar si todos los bloques en el rango están libres
 	for i := initialBlock + 1; i < initialBlock+cantBloques; i++ {
 		if bitmap.Get(i) {
-			fmt.Printf("Bloque %d está ocupado\n", i)
 			return false
 		}
 	}
-
-	fmt.Printf("Todos los bloques desde %d hasta %d están libres\n", initialBlock+1, initialBlock+cantBloques)
 	return true
 }
 
@@ -759,7 +713,6 @@ func truncateBitmap(bitmap *Bitmap, initialBlock int, bitmapFilePath string, pat
 
 	for _, fileContent := range metaDataStructure {
 		blocksPerFile := getBlocksFile(fileContent.FileName)
-		fmt.Printf("File: %s, tiene estos bloques: %d\n", fileContent.FileName, blocksPerFile)
 		newInitialBlock := moveZeros(bitmap, fileContent.InitialBlock, blocksPerFile, bitmapFilePath)
 		updateMetaDataFile(pathDialFS, fileContent.FileName, newInitialBlock, fileContent.Size)
 	}
@@ -781,7 +734,6 @@ func moveZeros(bitmap *Bitmap, initialBlock int, cantBloques int, bitmapFilePath
 			}
 		}
 	}
-	log.Printf("snakeSize: %d", snakeSize)
 	updateBitMap(bitmap, bitmapFilePath)
 
 	return newInitialBlock
@@ -799,8 +751,6 @@ func getBlocksFile(fileName string) int {
 /* ----------------------------------------- FUNCIONES DE FS_WRITE ------------------------------------------------------ */
 
 func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, regPuntero int, pid int) {
-	log.Printf("Escribiendo en el archivo %s en %s", fileName, pathDialFS)
-
 	// VERIFICO EXISTENCIA DE ARCHIVO
 	verificarExistenciaDeArchivo(pathDialFS, fileName)
 
@@ -856,7 +806,7 @@ func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, r
 	}
 
 	// Leer el contenido del archivo
-	fileContent := make([]byte, config.TamanioBloqueDialFS*config.CantidadBloquesDialFS) // Asumiendo que el archivo ocupa un bloque
+	/*fileContent := make([]byte, config.TamanioBloqueDialFS*config.CantidadBloquesDialFS) // Asumiendo que el archivo ocupa un bloque
 	bytesRead, err := blocksFile.Read(fileContent)
 	if err != nil && err != io.EOF {
 		log.Fatalf("Error al leer el contenido del archivo: %v", err)
@@ -864,16 +814,12 @@ func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, r
 
 	// Mostrar el contenido del archivo
 	fmt.Printf("Contenido del archivo %s después de la escritura:\n", fileName)
-	fmt.Println(string(fileContent[:bytesRead]))
-
-	log.Printf("Archivo %s escrito exitosamente", fileName)
+	fmt.Println(string(fileContent[:bytesRead]))*/
 }
 
 /* ------------------------------------------ FUNCIONES DE FS_READ ------------------------------------------------------ */
 
 func IO_FS_READ(pathDialFS string, fileName string, address []int, length int, regPuntero int, pid int) {
-	log.Printf("Leyendo el archivo %s en %s", fileName, pathDialFS)
-
 	// VERIFICO EXISTENCIA DE ARCHIVO
 	verificarExistenciaDeArchivo(pathDialFS, fileName)
 
@@ -965,19 +911,13 @@ func EnsureIfFileExists(pathDialFS string, blocksSize int, blocksCount int, size
 	// pathDialFS completa para bloques.dat
 	blockFilePath := pathDialFS + "/bloques.dat"
 	if _, err := os.Stat(blockFilePath); os.IsNotExist(err) {
-		log.Printf("El archivo de bloques no existe, creando: %s", blockFilePath)
 		CreateBlockFile(pathDialFS, blocksSize, blocksCount, sizeFile)
-	} else {
-		log.Printf("El archivo de bloques ya existe: %s", blockFilePath)
 	}
 
 	// pathDialFS completa para bitmap.dat
 	bitmapFilePath := pathDialFS + "/bitmap.dat"
 	if _, err := os.Stat(bitmapFilePath); os.IsNotExist(err) {
-		log.Printf("El archivo bitmap no existe, creando: %s", bitmapFilePath)
 		CreateBitmapFile(pathDialFS, blocksCount, bitmapSize)
-	} else {
-		log.Printf("El archivo bitmap ya existe: %s", bitmapFilePath)
 	}
 }
 
@@ -1087,7 +1027,6 @@ func updateBitMap(bitmap *Bitmap, bitmapFilePath string) {
 		log.Fatalf("Error al escribir el archivo de bitmap modificado '%s': %v", bitmapFilePath, err)
 	}
 
-	fmt.Println("Bitmap file updated successfully.")
 }
 
 /* --------------------------------------------- FUNCIONES DE METADATA ------------------------------------------------------ */
@@ -1131,9 +1070,9 @@ func ensureExistingMetaDataFiles(pathDialFS string) {
 		metaDataStructure = readFilesThatWereInDirectory(pathDialFS)
 
 		// Display filesContent
-		for i, fileContent := range metaDataStructure {
+		/*for i, fileContent := range metaDataStructure {
 			fmt.Printf("MetaStructure %d: FileName %s InitialBlock: %d, Size: %d\n", i, fileContent.FileName, fileContent.InitialBlock, fileContent.Size)
-		}
+		}*/
 	}
 }
 
@@ -1165,12 +1104,9 @@ func checkFilesInDirectoryThatWereInDirectory(pathDialFS string) bool {
 
 	for _, file := range files {
 		if !file.IsDir() && strings.HasSuffix(file.Name(), ".txt") {
-			log.Printf("Found .txt file in %s", pathDialFS)
 			return true
 		}
 	}
-
-	log.Printf("No .txt files found in %s", pathDialFS)
 	return false
 }
 

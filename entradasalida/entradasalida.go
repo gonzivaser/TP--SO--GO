@@ -12,9 +12,7 @@ import (
 
 func main() {
 	interfaceName := os.Args[1]
-	log.Printf("Nombre de la interfaz: %s", interfaceName)
 	pathToConfig := os.Args[2]
-	log.Printf("Path al archivo de configuración: %s", pathToConfig)
 
 	config, err := utils.LoadConfig(pathToConfig)
 	if err != nil {
