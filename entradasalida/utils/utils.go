@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"sync"
 
 	"path/filepath"
@@ -517,7 +518,7 @@ func IO_FS_CREATE(pathDialFS string, fileName string) {
 		// SETEO EL PRIMER BIT LIBRE EN 1
 		bitmap.Set(firstFreeBlock)
 
-		//showBitmap(bitmap)
+		showBitmap(bitmap)
 
 		updateBitMap(bitmap, bitmapFilePath)
 
@@ -562,8 +563,8 @@ func IO_FS_DELETE(pathDialFS string, fileName string) {
 	}
 
 	var blocksToDelete int
-	if fileData.Size > 0 {
-		blocksToDelete = fileData.Size / config.TamanioBloqueDialFS
+	if fileData.Size > config.TamanioBloqueDialFS {
+		blocksToDelete = (fileData.Size + config.TamanioBloqueDialFS - 1) / config.TamanioBloqueDialFS
 	} else {
 		blocksToDelete = 1
 	}
@@ -576,7 +577,7 @@ func IO_FS_DELETE(pathDialFS string, fileName string) {
 		bitmap.Remove(i)
 	}
 
-	//showBitmap(bitmap)
+	showBitmap(bitmap)
 
 	updateBitMap(bitmap, bitmapFilePath)
 
@@ -596,6 +597,13 @@ func eliminarArchivo(fileName string, pathDialFS string) {
 func IO_FS_TRUNCATE(pathDialFS string, fileName string, length int) {
 	// VERIFICO EXISTENCIA DE ARCHIVO
 	verificarExistenciaDeArchivo(pathDialFS, fileName)
+	for i, fileContent := range metaDataStructure {
+		log.Printf("Archivo: %d ", i)
+		log.Printf("Archivo: %s ", fileContent.FileName)
+		blocksPerFile := getBlocksFile(fileContent.FileName)
+		log.Printf("Bloques del archivo: %d", blocksPerFile)
+		log.Printf("Posicion Bloque inicial: %d", fileContent.InitialBlock)
+	}
 
 	// SACO LA CANTIDAD DE BLOQUES NECESARIOS
 	var fileData FileContent
@@ -607,28 +615,30 @@ func IO_FS_TRUNCATE(pathDialFS string, fileName string, length int) {
 	}
 	bitmapFilePath := pathDialFS + "/bitmap.dat"
 	bitmap := readAndCopyBitMap(bitmapFilePath)
-	cantBloques := length / config.TamanioBloqueDialFS
+	cantBloques := (length + config.TamanioBloqueDialFS - 1) / config.TamanioBloqueDialFS
+	log.Printf("Cantidad de bloques necesarios: %d para el archivo %s", cantBloques, fileName)
 	totalFreeBlocks := getTotalFreeBlocks(bitmap)
 
 	if length > fileData.Size {
 		areFree := lookForContiguousBlocks(cantBloques, fileData.InitialBlock, pathDialFS)
 		if areFree {
 			assignBlocks(bitmap, fileData.InitialBlock, cantBloques)
-			//showBitmap(bitmap)
+			showBitmap(bitmap)
 			updateBitMap(bitmap, bitmapFilePath)
 			updateMetaDataFile(pathDialFS, fileName, fileData.InitialBlock, length)
 		} else {
+			log.Printf("No hay bloques contiguos disponibles")
 			truncateBitmap(bitmap, fileData.InitialBlock, bitmapFilePath, pathDialFS, fileName, fileData.Size)
 			firstFreeBlock := firstBitFree(bitmap)
 			assignBlocks(bitmap, firstFreeBlock, cantBloques)
-			//showBitmap(bitmap)
+			showBitmap(bitmap)
 			updateBitMap(bitmap, bitmapFilePath)
 			updateMetaDataFile(pathDialFS, fileName, firstFreeBlock, length)
 		}
 	} else if length < fileData.Size {
-		totalBlocks := fileData.Size / config.TamanioBloqueDialFS
+		totalBlocks := (fileData.Size + config.TamanioBloqueDialFS - 1) / config.TamanioBloqueDialFS
 		removeBlocks(bitmap, fileData.InitialBlock, totalBlocks, cantBloques)
-		//showBitmap(bitmap)
+		showBitmap(bitmap)
 		updateBitMap(bitmap, bitmapFilePath)
 		updateMetaDataFile(pathDialFS, fileName, fileData.InitialBlock, length)
 	} else if length == fileData.Size {
@@ -703,17 +713,22 @@ func truncateBitmap(bitmap *Bitmap, initialBlock int, bitmapFilePath string, pat
 	//eliminamos los bloques que tiene asignado el archivo
 
 	var blocksToDelete int
-	if fileSize > 0 {
-		blocksToDelete = fileSize / config.TamanioBloqueDialFS
+	if fileSize > config.TamanioBloqueDialFS {
+		blocksToDelete = (fileSize + config.TamanioBloqueDialFS - 1) / config.TamanioBloqueDialFS
 	} else {
 		blocksToDelete = 1
 	}
 	removeBlocks(bitmap, initialBlock, blocksToDelete, blocksToDelete)
+	log.Printf("Bloques eliminados de mi archivo: %d", blocksToDelete)
+	showBitmap(bitmap)
 	deleteInMetaDataStructure(fileName)
 
 	for _, fileContent := range metaDataStructure {
+		log.Printf("Archivo: %s ", fileContent.FileName)
 		blocksPerFile := getBlocksFile(fileContent.FileName)
+		log.Printf("Bloques del archivo: %d", blocksPerFile)
 		newInitialBlock := moveZeros(bitmap, fileContent.InitialBlock, blocksPerFile, bitmapFilePath)
+		log.Printf("Nuevo bloque inicial, de %s: %d \n", fileContent.FileName, newInitialBlock)
 		updateMetaDataFile(pathDialFS, fileContent.FileName, newInitialBlock, fileContent.Size)
 	}
 }
@@ -730,6 +745,7 @@ func moveZeros(bitmap *Bitmap, initialBlock int, cantBloques int, bitmapFilePath
 				bitmap.Set(i - snakeSize)
 				if i-snakeSize < newInitialBlock {
 					newInitialBlock = i - snakeSize
+
 				}
 			}
 		}
@@ -740,9 +756,16 @@ func moveZeros(bitmap *Bitmap, initialBlock int, cantBloques int, bitmapFilePath
 }
 
 func getBlocksFile(fileName string) int {
+	var blocksToDelete int
 	for _, fileContent := range metaDataStructure {
 		if fileContent.FileName == fileName {
-			return fileContent.InitialBlock + (fileContent.Size / config.TamanioBloqueDialFS) - 1
+			if fileContent.Size > config.TamanioBloqueDialFS {
+				blocksToDelete = (fileContent.Size + config.TamanioBloqueDialFS - 1) / config.TamanioBloqueDialFS
+				return blocksToDelete
+			} else {
+				blocksToDelete = 1
+				return blocksToDelete
+			}
 		}
 	}
 	return -1
@@ -1091,6 +1114,9 @@ func readFilesThatWereInDirectory(directoryPath string) []FileContent {
 			filesContent = append(filesContent, fileContent)
 		}
 	}
+	sort.Slice(filesContent, func(i, j int) bool {
+		return filesContent[i].InitialBlock < filesContent[j].InitialBlock
+	})
 
 	return filesContent
 }

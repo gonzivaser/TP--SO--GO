@@ -190,3 +190,1595 @@
 2024/07/26 19:24:08 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
 2024/07/26 19:24:08 Finaliza el proceso 2 - Motivo: SUCCESS
 2024/07/26 19:24:08 PID: 2 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 13:10:32 Se crea el proceso 1 en NEW
+2024/07/27 13:10:32 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 13:10:32 Cola Ready: [1]
+2024/07/27 13:10:32 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:10:32 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:10:32 PID: 1 - Bloqueado por: FS
+2024/07/27 13:10:34 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:10:34 Cola Ready: [1]
+2024/07/27 13:10:34 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:10:34 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:10:34 PID: 1 - Bloqueado por: FS
+2024/07/27 13:10:36 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:10:36 Cola Ready: [1]
+2024/07/27 13:10:36 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:10:36 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:10:36 PID: 1 - Bloqueado por: FS
+2024/07/27 13:10:38 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:10:38 Cola Ready: [1]
+2024/07/27 13:10:38 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:10:38 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:10:38 PID: 1 - Bloqueado por: FS
+2024/07/27 13:10:40 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:10:40 Cola Ready: [1]
+2024/07/27 13:10:40 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:10:41 Finaliza el proceso 1 - Motivo: SUCCESS
+2024/07/27 13:10:41 PID: 1 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 13:13:48 Se crea el proceso 1 en NEW
+2024/07/27 13:13:48 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 13:13:48 Cola Ready: [1]
+2024/07/27 13:13:48 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:13:49 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:13:49 PID: 1 - Bloqueado por: FS
+2024/07/27 13:13:51 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:13:51 Cola Ready: [1]
+2024/07/27 13:13:51 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:13:51 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:13:51 PID: 1 - Bloqueado por: FS
+2024/07/27 13:13:53 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:13:53 Cola Ready: [1]
+2024/07/27 13:13:53 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:13:53 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:13:53 PID: 1 - Bloqueado por: FS
+2024/07/27 13:13:55 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:13:55 Cola Ready: [1]
+2024/07/27 13:13:55 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:13:55 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:13:55 PID: 1 - Bloqueado por: FS
+2024/07/27 13:13:57 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:13:57 Cola Ready: [1]
+2024/07/27 13:13:57 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:13:57 Finaliza el proceso 1 - Motivo: SUCCESS
+2024/07/27 13:13:57 PID: 1 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 13:18:18 Se crea el proceso 1 en NEW
+2024/07/27 13:18:18 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 13:18:18 Cola Ready: [1]
+2024/07/27 13:18:18 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:18:18 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:18:18 PID: 1 - Bloqueado por: FS
+2024/07/27 13:18:20 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:18:20 Cola Ready: [1]
+2024/07/27 13:18:20 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:18:20 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:18:20 PID: 1 - Bloqueado por: FS
+2024/07/27 13:18:22 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:18:22 Cola Ready: [1]
+2024/07/27 13:18:22 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:18:23 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:18:23 PID: 1 - Bloqueado por: FS
+2024/07/27 13:18:25 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:18:25 Cola Ready: [1]
+2024/07/27 13:18:25 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:18:25 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:18:25 PID: 1 - Bloqueado por: FS
+2024/07/27 13:18:27 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:18:27 Cola Ready: [1]
+2024/07/27 13:18:27 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:18:27 Finaliza el proceso 1 - Motivo: SUCCESS
+2024/07/27 13:18:27 PID: 1 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 13:21:12 Se crea el proceso 1 en NEW
+2024/07/27 13:21:12 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 13:21:12 Cola Ready: [1]
+2024/07/27 13:21:12 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:21:13 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:21:13 PID: 1 - Bloqueado por: FS
+2024/07/27 13:21:15 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:21:15 Cola Ready: [1]
+2024/07/27 13:21:15 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:21:15 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:21:15 PID: 1 - Bloqueado por: FS
+2024/07/27 13:21:17 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:21:17 Cola Ready: [1]
+2024/07/27 13:21:17 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:21:17 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:21:17 PID: 1 - Bloqueado por: FS
+2024/07/27 13:21:19 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:21:19 Cola Ready: [1]
+2024/07/27 13:21:19 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:21:19 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:21:19 PID: 1 - Bloqueado por: FS
+2024/07/27 13:21:21 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:21:21 Cola Ready: [1]
+2024/07/27 13:21:21 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:21:21 Finaliza el proceso 1 - Motivo: SUCCESS
+2024/07/27 13:21:21 PID: 1 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 13:24:16 Se crea el proceso 1 en NEW
+2024/07/27 13:24:16 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 13:24:16 Cola Ready: [1]
+2024/07/27 13:24:16 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:24:16 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:24:16 PID: 1 - Bloqueado por: FS
+2024/07/27 13:24:19 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:24:19 Cola Ready: [1]
+2024/07/27 13:24:19 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:24:19 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:24:19 PID: 1 - Bloqueado por: FS
+2024/07/27 13:24:21 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:24:21 Cola Ready: [1]
+2024/07/27 13:24:21 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:24:21 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:24:21 PID: 1 - Bloqueado por: FS
+2024/07/27 13:24:23 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:24:23 Cola Ready: [1]
+2024/07/27 13:24:23 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:24:23 Finaliza el proceso 1 - Motivo: SUCCESS
+2024/07/27 13:24:23 PID: 1 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 13:25:45 Se crea el proceso 1 en NEW
+2024/07/27 13:25:45 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 13:25:45 Cola Ready: [1]
+2024/07/27 13:25:45 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:25:45 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:25:45 PID: 1 - Bloqueado por: FS
+2024/07/27 13:25:47 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:25:47 Cola Ready: [1]
+2024/07/27 13:25:47 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:25:47 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:25:47 PID: 1 - Bloqueado por: FS
+2024/07/27 13:25:49 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:25:49 Cola Ready: [1]
+2024/07/27 13:25:49 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:25:49 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:25:49 PID: 1 - Bloqueado por: FS
+2024/07/27 13:25:51 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:25:51 Cola Ready: [1]
+2024/07/27 13:25:51 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:25:51 Finaliza el proceso 1 - Motivo: SUCCESS
+2024/07/27 13:25:51 PID: 1 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 13:28:03 Se crea el proceso 1 en NEW
+2024/07/27 13:28:03 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 13:28:03 Cola Ready: [1]
+2024/07/27 13:28:03 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:28:03 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:28:03 PID: 1 - Bloqueado por: FS
+2024/07/27 13:28:05 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:28:05 Cola Ready: [1]
+2024/07/27 13:28:05 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:28:05 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:28:05 PID: 1 - Bloqueado por: FS
+2024/07/27 13:28:07 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:28:07 Cola Ready: [1]
+2024/07/27 13:28:07 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:28:07 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:28:07 PID: 1 - Bloqueado por: FS
+2024/07/27 13:28:09 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:28:09 Cola Ready: [1]
+2024/07/27 13:28:09 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:28:09 Finaliza el proceso 1 - Motivo: SUCCESS
+2024/07/27 13:28:09 PID: 1 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 13:29:57 Se crea el proceso 1 en NEW
+2024/07/27 13:29:57 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 13:29:57 Cola Ready: [1]
+2024/07/27 13:29:57 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:29:58 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:29:58 PID: 1 - Bloqueado por: FS
+2024/07/27 13:30:00 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:30:00 Cola Ready: [1]
+2024/07/27 13:30:00 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:30:00 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:30:00 PID: 1 - Bloqueado por: FS
+2024/07/27 13:30:02 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:30:02 Cola Ready: [1]
+2024/07/27 13:30:02 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:30:02 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:30:02 PID: 1 - Bloqueado por: FS
+2024/07/27 13:30:04 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:30:04 Cola Ready: [1]
+2024/07/27 13:30:04 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:30:04 Finaliza el proceso 1 - Motivo: SUCCESS
+2024/07/27 13:30:04 PID: 1 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 13:31:18 Se crea el proceso 1 en NEW
+2024/07/27 13:31:18 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 13:31:18 Cola Ready: [1]
+2024/07/27 13:31:18 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:31:18 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:31:18 PID: 1 - Bloqueado por: FS
+2024/07/27 13:31:20 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:31:20 Cola Ready: [1]
+2024/07/27 13:31:20 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:31:20 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:31:20 PID: 1 - Bloqueado por: FS
+2024/07/27 13:31:22 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:31:22 Cola Ready: [1]
+2024/07/27 13:31:22 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:31:22 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:31:22 PID: 1 - Bloqueado por: FS
+2024/07/27 13:31:24 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:31:24 Cola Ready: [1]
+2024/07/27 13:31:24 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:31:25 Finaliza el proceso 1 - Motivo: SUCCESS
+2024/07/27 13:31:25 PID: 1 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 13:39:45 Se crea el proceso 1 en NEW
+2024/07/27 13:39:45 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 13:39:45 Cola Ready: [1]
+2024/07/27 13:39:45 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:39:46 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:39:46 PID: 1 - Bloqueado por: FS
+2024/07/27 13:39:48 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:39:48 Cola Ready: [1]
+2024/07/27 13:39:48 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:39:48 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:39:48 PID: 1 - Bloqueado por: FS
+2024/07/27 13:39:50 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:39:50 Cola Ready: [1]
+2024/07/27 13:39:50 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:39:50 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:39:50 PID: 1 - Bloqueado por: FS
+2024/07/27 13:39:52 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:39:52 Cola Ready: [1]
+2024/07/27 13:39:52 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:39:52 Finaliza el proceso 1 - Motivo: SUCCESS
+2024/07/27 13:39:52 PID: 1 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 13:41:01 Se crea el proceso 1 en NEW
+2024/07/27 13:41:01 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 13:41:01 Cola Ready: [1]
+2024/07/27 13:41:01 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:41:01 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:41:01 PID: 1 - Bloqueado por: FS
+2024/07/27 13:41:03 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:41:03 Cola Ready: [1]
+2024/07/27 13:41:03 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:41:03 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:41:03 PID: 1 - Bloqueado por: FS
+2024/07/27 13:41:05 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:41:05 Cola Ready: [1]
+2024/07/27 13:41:05 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:41:06 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:41:06 PID: 1 - Bloqueado por: FS
+2024/07/27 13:41:08 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:41:08 Cola Ready: [1]
+2024/07/27 13:41:08 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:41:08 Finaliza el proceso 1 - Motivo: SUCCESS
+2024/07/27 13:41:08 PID: 1 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 13:48:04 Se crea el proceso 1 en NEW
+2024/07/27 13:48:04 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 13:48:04 Cola Ready: [1]
+2024/07/27 13:48:04 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:48:05 Se crea el proceso 2 en NEW
+2024/07/27 13:48:05 PID: 2 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 13:48:05 Cola Ready: [2]
+2024/07/27 13:48:05 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:48:05 PID: 1 - Bloqueado por: FS
+2024/07/27 13:48:05 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:48:05 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:48:05 PID: 2 - Bloqueado por: FS
+2024/07/27 13:48:07 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:48:07 Cola Ready: [1]
+2024/07/27 13:48:07 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:48:07 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:48:07 PID: 1 - Bloqueado por: FS
+2024/07/27 13:48:09 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:48:09 Cola Ready: [2]
+2024/07/27 13:48:09 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:48:09 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:48:09 PID: 2 - Bloqueado por: FS
+2024/07/27 13:48:11 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:48:11 Cola Ready: [1]
+2024/07/27 13:48:11 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:48:11 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:48:11 PID: 1 - Bloqueado por: FS
+2024/07/27 13:48:13 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:48:13 Cola Ready: [2]
+2024/07/27 13:48:13 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:48:13 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:48:13 PID: 2 - Bloqueado por: FS
+2024/07/27 13:48:15 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:48:15 Cola Ready: [1]
+2024/07/27 13:48:15 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:48:15 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:48:15 PID: 1 - Bloqueado por: FS
+2024/07/27 13:48:17 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:48:17 Cola Ready: [2]
+2024/07/27 13:48:17 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:48:17 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:48:17 PID: 2 - Bloqueado por: FS
+2024/07/27 13:48:19 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:48:19 Cola Ready: [1]
+2024/07/27 13:48:19 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:48:20 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:48:20 PID: 1 - Bloqueado por: TECLADO
+2024/07/27 13:48:21 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:48:21 Cola Ready: [2]
+2024/07/27 13:48:21 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:48:21 Finaliza el proceso 2 - Motivo: SUCCESS
+2024/07/27 13:48:21 PID: 2 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 13:48:23 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:48:23 Cola Ready: [1]
+2024/07/27 13:48:23 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:48:25 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:48:25 PID: 1 - Bloqueado por: FS
+2024/07/27 13:48:27 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:48:27 Cola Ready: [1]
+2024/07/27 13:48:27 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:48:29 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:48:29 PID: 1 - Bloqueado por: FS
+2024/07/27 13:48:31 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:48:31 Cola Ready: [1]
+2024/07/27 13:48:31 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:48:31 Finaliza el proceso 1 - Motivo: SUCCESS
+2024/07/27 13:48:31 PID: 1 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 13:52:32 Se crea el proceso 3 en NEW
+2024/07/27 13:52:32 PID: 3 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 13:52:32 Cola Ready: [3]
+2024/07/27 13:52:32 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:52:32 Se crea el proceso 4 en NEW
+2024/07/27 13:52:32 PID: 4 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 13:52:32 Cola Ready: [4]
+2024/07/27 13:52:33 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:52:33 PID: 3 - Bloqueado por: FS
+2024/07/27 13:52:33 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:52:33 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:52:33 PID: 4 - Bloqueado por: FS
+2024/07/27 13:52:35 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:52:35 Cola Ready: [3]
+2024/07/27 13:52:35 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:52:35 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:52:35 PID: 3 - Bloqueado por: MONITOR
+2024/07/27 13:52:35 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:52:35 Cola Ready: [3]
+2024/07/27 13:52:35 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:52:36 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:52:36 PID: 3 - Bloqueado por: FS
+2024/07/27 13:52:37 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:52:37 Cola Ready: [4]
+2024/07/27 13:52:37 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:52:37 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:52:37 PID: 4 - Bloqueado por: FS
+2024/07/27 13:52:39 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:52:39 Cola Ready: [3]
+2024/07/27 13:52:39 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:52:39 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:52:39 PID: 3 - Bloqueado por: MONITOR
+2024/07/27 13:52:40 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:52:40 Cola Ready: [3]
+2024/07/27 13:52:40 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:52:40 Finaliza el proceso 3 - Motivo: SUCCESS
+2024/07/27 13:52:40 PID: 3 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 13:52:41 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:52:41 Cola Ready: [4]
+2024/07/27 13:52:41 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:52:41 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:52:41 PID: 4 - Bloqueado por: FS
+2024/07/27 13:52:43 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:52:43 Cola Ready: [4]
+2024/07/27 13:52:43 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:52:43 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 13:52:43 PID: 4 - Bloqueado por: FS
+2024/07/27 13:52:45 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 13:52:45 Cola Ready: [4]
+2024/07/27 13:52:45 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 13:52:46 Finaliza el proceso 4 - Motivo: SUCCESS
+2024/07/27 13:52:46 PID: 4 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 15:45:04 Se crea el proceso 1 en NEW
+2024/07/27 15:45:04 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 15:45:04 Cola Ready: [1]
+2024/07/27 15:45:04 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:45:05 Se crea el proceso 2 en NEW
+2024/07/27 15:45:05 PID: 2 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 15:45:05 Cola Ready: [2]
+2024/07/27 15:45:05 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:45:05 PID: 1 - Bloqueado por: FS
+2024/07/27 15:45:05 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:45:05 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:45:05 PID: 2 - Bloqueado por: FS
+2024/07/27 15:45:07 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:45:07 Cola Ready: [1]
+2024/07/27 15:45:07 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:45:07 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:45:07 PID: 1 - Bloqueado por: FS
+2024/07/27 15:46:29 Se crea el proceso 1 en NEW
+2024/07/27 15:46:29 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 15:46:29 Cola Ready: [1]
+2024/07/27 15:46:29 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:46:29 Se crea el proceso 2 en NEW
+2024/07/27 15:46:29 PID: 2 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 15:46:29 Cola Ready: [2]
+2024/07/27 15:46:30 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:46:30 PID: 1 - Bloqueado por: FS
+2024/07/27 15:46:30 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:46:30 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:46:30 PID: 2 - Bloqueado por: FS
+2024/07/27 15:46:32 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:46:32 Cola Ready: [1]
+2024/07/27 15:46:32 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:46:32 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:46:32 PID: 1 - Bloqueado por: FS
+2024/07/27 15:46:34 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:46:34 Cola Ready: [2]
+2024/07/27 15:46:34 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:46:34 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:46:34 PID: 2 - Bloqueado por: FS
+2024/07/27 15:46:36 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:46:36 Cola Ready: [1]
+2024/07/27 15:46:36 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:46:36 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:46:36 PID: 1 - Bloqueado por: FS
+2024/07/27 15:46:38 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:46:38 Cola Ready: [2]
+2024/07/27 15:46:38 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:46:38 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:46:38 PID: 2 - Bloqueado por: FS
+2024/07/27 15:46:40 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:46:40 Cola Ready: [1]
+2024/07/27 15:46:40 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:46:40 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:46:40 PID: 1 - Bloqueado por: FS
+2024/07/27 15:46:42 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:46:42 Cola Ready: [2]
+2024/07/27 15:46:42 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:46:42 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:46:42 PID: 2 - Bloqueado por: FS
+2024/07/27 15:46:44 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:46:44 Cola Ready: [1]
+2024/07/27 15:46:44 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:46:45 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:46:45 PID: 1 - Bloqueado por: TECLADO
+2024/07/27 15:46:46 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:46:46 Cola Ready: [2]
+2024/07/27 15:46:46 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:46:46 Finaliza el proceso 2 - Motivo: SUCCESS
+2024/07/27 15:46:46 PID: 2 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 15:50:39 Se crea el proceso 1 en NEW
+2024/07/27 15:50:39 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 15:50:39 Cola Ready: [1]
+2024/07/27 15:50:39 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:50:39 Se crea el proceso 2 en NEW
+2024/07/27 15:50:39 PID: 2 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 15:50:39 Cola Ready: [2]
+2024/07/27 15:50:39 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:50:39 PID: 1 - Bloqueado por: FS
+2024/07/27 15:50:39 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:50:40 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:50:40 PID: 2 - Bloqueado por: FS
+2024/07/27 15:50:41 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:50:41 Cola Ready: [1]
+2024/07/27 15:50:41 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:50:41 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:50:41 PID: 1 - Bloqueado por: FS
+2024/07/27 15:50:43 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:50:43 Cola Ready: [2]
+2024/07/27 15:50:43 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:50:43 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:50:43 PID: 2 - Bloqueado por: FS
+2024/07/27 15:50:45 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:50:45 Cola Ready: [1]
+2024/07/27 15:50:45 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:50:45 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:50:45 PID: 1 - Bloqueado por: FS
+2024/07/27 15:50:47 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:50:47 Cola Ready: [2]
+2024/07/27 15:50:47 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:50:47 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:50:47 PID: 2 - Bloqueado por: FS
+2024/07/27 15:50:49 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:50:49 Cola Ready: [1]
+2024/07/27 15:50:49 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:50:50 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:50:50 PID: 1 - Bloqueado por: FS
+2024/07/27 15:50:51 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:50:51 Cola Ready: [2]
+2024/07/27 15:50:51 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:50:52 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:50:52 PID: 2 - Bloqueado por: FS
+2024/07/27 15:50:53 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:50:53 Cola Ready: [1]
+2024/07/27 15:50:53 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:50:54 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:50:54 PID: 1 - Bloqueado por: TECLADO
+2024/07/27 15:50:56 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:50:56 Cola Ready: [2]
+2024/07/27 15:50:56 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:50:56 Finaliza el proceso 2 - Motivo: SUCCESS
+2024/07/27 15:50:56 PID: 2 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 15:51:00 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:51:00 Cola Ready: [1]
+2024/07/27 15:51:00 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:51:02 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:51:02 PID: 1 - Bloqueado por: FS
+2024/07/27 15:51:04 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:51:04 Cola Ready: [1]
+2024/07/27 15:51:04 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:51:06 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:51:06 PID: 1 - Bloqueado por: FS
+2024/07/27 15:51:08 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:51:08 Cola Ready: [1]
+2024/07/27 15:51:08 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:51:08 Finaliza el proceso 1 - Motivo: SUCCESS
+2024/07/27 15:51:08 PID: 1 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 15:55:10 Se crea el proceso 1 en NEW
+2024/07/27 15:55:10 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 15:55:10 Cola Ready: [1]
+2024/07/27 15:55:10 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:55:10 Se crea el proceso 2 en NEW
+2024/07/27 15:55:10 PID: 2 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 15:55:10 Cola Ready: [2]
+2024/07/27 15:55:11 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:55:11 PID: 1 - Bloqueado por: FS
+2024/07/27 15:55:11 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:55:11 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:55:11 PID: 2 - Bloqueado por: FS
+2024/07/27 15:55:13 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:55:13 Cola Ready: [1]
+2024/07/27 15:55:13 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:55:13 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:55:13 PID: 1 - Bloqueado por: FS
+2024/07/27 15:55:15 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:55:15 Cola Ready: [2]
+2024/07/27 15:55:15 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:55:15 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:55:15 PID: 2 - Bloqueado por: FS
+2024/07/27 15:55:17 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:55:17 Cola Ready: [1]
+2024/07/27 15:55:17 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:55:17 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:55:17 PID: 1 - Bloqueado por: FS
+2024/07/27 15:55:19 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:55:19 Cola Ready: [2]
+2024/07/27 15:55:19 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:55:19 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:55:19 PID: 2 - Bloqueado por: FS
+2024/07/27 15:55:21 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:55:21 Cola Ready: [1]
+2024/07/27 15:55:21 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:55:21 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:55:21 PID: 1 - Bloqueado por: FS
+2024/07/27 15:55:23 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:55:23 Cola Ready: [2]
+2024/07/27 15:55:23 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:55:23 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:55:23 PID: 2 - Bloqueado por: FS
+2024/07/27 15:55:25 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:55:25 Cola Ready: [1]
+2024/07/27 15:55:25 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:55:26 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:55:26 PID: 1 - Bloqueado por: TECLADO
+2024/07/27 15:55:27 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:55:27 Cola Ready: [2]
+2024/07/27 15:55:27 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:55:27 Finaliza el proceso 2 - Motivo: SUCCESS
+2024/07/27 15:55:27 PID: 2 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 15:55:38 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:55:38 Cola Ready: [1]
+2024/07/27 15:55:38 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:55:40 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:55:40 PID: 1 - Bloqueado por: FS
+2024/07/27 15:55:42 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:55:42 Cola Ready: [1]
+2024/07/27 15:55:42 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:55:44 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:55:44 PID: 1 - Bloqueado por: FS
+2024/07/27 15:55:46 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:55:46 Cola Ready: [1]
+2024/07/27 15:55:46 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:55:46 Finaliza el proceso 1 - Motivo: SUCCESS
+2024/07/27 15:55:46 PID: 1 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 15:57:05 Se crea el proceso 3 en NEW
+2024/07/27 15:57:05 PID: 3 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 15:57:05 Cola Ready: [3]
+2024/07/27 15:57:05 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:57:05 Se crea el proceso 4 en NEW
+2024/07/27 15:57:05 PID: 4 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 15:57:05 Cola Ready: [4]
+2024/07/27 15:57:06 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:57:06 PID: 3 - Bloqueado por: FS
+2024/07/27 15:57:06 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:57:06 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:57:06 PID: 4 - Bloqueado por: FS
+2024/07/27 15:57:08 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:57:08 Cola Ready: [3]
+2024/07/27 15:57:08 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:57:08 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:57:08 PID: 3 - Bloqueado por: MONITOR
+2024/07/27 15:57:09 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:57:09 Cola Ready: [3]
+2024/07/27 15:57:09 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:57:09 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:57:09 PID: 3 - Bloqueado por: FS
+2024/07/27 15:57:10 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:57:10 Cola Ready: [4]
+2024/07/27 15:57:10 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:57:10 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:57:10 PID: 4 - Bloqueado por: FS
+2024/07/27 15:57:12 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:57:12 Cola Ready: [3]
+2024/07/27 15:57:12 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:57:13 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:57:13 PID: 3 - Bloqueado por: MONITOR
+2024/07/27 15:57:13 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:57:13 Cola Ready: [3]
+2024/07/27 15:57:13 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:57:13 Finaliza el proceso 3 - Motivo: SUCCESS
+2024/07/27 15:57:13 PID: 3 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 15:57:14 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:57:14 Cola Ready: [4]
+2024/07/27 15:57:14 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:57:15 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:57:15 PID: 4 - Bloqueado por: FS
+2024/07/27 15:57:17 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:57:17 Cola Ready: [4]
+2024/07/27 15:57:17 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:57:17 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 15:57:17 PID: 4 - Bloqueado por: FS
+2024/07/27 15:57:19 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 15:57:19 Cola Ready: [4]
+2024/07/27 15:57:19 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 15:57:19 Finaliza el proceso 4 - Motivo: SUCCESS
+2024/07/27 15:57:19 PID: 4 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 16:01:08 Se crea el proceso 1 en NEW
+2024/07/27 16:01:08 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 16:01:08 Cola Ready: [1]
+2024/07/27 16:01:08 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:01:08 Se crea el proceso 2 en NEW
+2024/07/27 16:01:08 PID: 2 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 16:01:08 Cola Ready: [2]
+2024/07/27 16:01:08 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:01:08 PID: 1 - Bloqueado por: FS
+2024/07/27 16:01:08 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:01:08 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:01:08 PID: 2 - Bloqueado por: FS
+2024/07/27 16:01:10 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:01:10 Cola Ready: [1]
+2024/07/27 16:01:10 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:01:10 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:01:10 PID: 1 - Bloqueado por: FS
+2024/07/27 16:01:12 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:01:12 Cola Ready: [2]
+2024/07/27 16:01:12 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:01:12 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:01:12 PID: 2 - Bloqueado por: FS
+2024/07/27 16:01:14 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:01:14 Cola Ready: [1]
+2024/07/27 16:01:14 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:01:14 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:01:14 PID: 1 - Bloqueado por: FS
+2024/07/27 16:01:16 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:01:16 Cola Ready: [2]
+2024/07/27 16:01:16 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:01:16 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:01:16 PID: 2 - Bloqueado por: FS
+2024/07/27 16:01:18 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:01:18 Cola Ready: [1]
+2024/07/27 16:01:18 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:01:18 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:01:18 PID: 1 - Bloqueado por: FS
+2024/07/27 16:01:20 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:01:20 Cola Ready: [2]
+2024/07/27 16:01:20 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:01:20 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:01:20 PID: 2 - Bloqueado por: FS
+2024/07/27 16:01:22 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:01:22 Cola Ready: [1]
+2024/07/27 16:01:22 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:01:23 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:01:23 PID: 1 - Bloqueado por: TECLADO
+2024/07/27 16:01:24 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:01:24 Cola Ready: [2]
+2024/07/27 16:01:24 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:01:25 Finaliza el proceso 2 - Motivo: SUCCESS
+2024/07/27 16:01:25 PID: 2 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 16:01:29 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:01:29 Cola Ready: [1]
+2024/07/27 16:01:29 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:01:31 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:01:31 PID: 1 - Bloqueado por: FS
+2024/07/27 16:01:33 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:01:33 Cola Ready: [1]
+2024/07/27 16:01:33 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:01:35 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:01:35 PID: 1 - Bloqueado por: FS
+2024/07/27 16:01:37 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:01:37 Cola Ready: [1]
+2024/07/27 16:01:37 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:01:37 Finaliza el proceso 1 - Motivo: SUCCESS
+2024/07/27 16:01:37 PID: 1 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 16:02:55 Se crea el proceso 3 en NEW
+2024/07/27 16:02:55 PID: 3 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 16:02:55 Cola Ready: [3]
+2024/07/27 16:02:55 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:02:55 Se crea el proceso 4 en NEW
+2024/07/27 16:02:55 PID: 4 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 16:02:55 Cola Ready: [4]
+2024/07/27 16:02:56 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:02:56 PID: 3 - Bloqueado por: FS
+2024/07/27 16:02:56 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:02:56 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:02:56 PID: 4 - Bloqueado por: FS
+2024/07/27 16:02:58 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:02:58 Cola Ready: [3]
+2024/07/27 16:02:58 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:02:58 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:02:58 PID: 3 - Bloqueado por: MONITOR
+2024/07/27 16:02:58 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:02:58 Cola Ready: [3]
+2024/07/27 16:02:58 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:02:59 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:02:59 PID: 3 - Bloqueado por: FS
+2024/07/27 16:03:00 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:03:00 Cola Ready: [4]
+2024/07/27 16:03:00 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:03:00 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:03:00 PID: 4 - Bloqueado por: FS
+2024/07/27 16:03:02 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:03:02 Cola Ready: [3]
+2024/07/27 16:03:02 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:03:02 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:03:02 PID: 3 - Bloqueado por: MONITOR
+2024/07/27 16:03:03 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:03:03 Cola Ready: [3]
+2024/07/27 16:03:03 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:03:03 Finaliza el proceso 3 - Motivo: SUCCESS
+2024/07/27 16:03:03 PID: 3 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 16:03:04 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:03:04 Cola Ready: [4]
+2024/07/27 16:03:04 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:03:04 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:03:04 PID: 4 - Bloqueado por: FS
+2024/07/27 16:03:06 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:03:06 Cola Ready: [4]
+2024/07/27 16:03:06 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:03:06 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:03:06 PID: 4 - Bloqueado por: FS
+2024/07/27 16:03:08 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:03:08 Cola Ready: [4]
+2024/07/27 16:03:08 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:03:09 Finaliza el proceso 4 - Motivo: SUCCESS
+2024/07/27 16:03:09 PID: 4 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 16:13:53 Se crea el proceso 1 en NEW
+2024/07/27 16:13:53 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 16:13:53 Cola Ready: [1]
+2024/07/27 16:13:53 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:13:54 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:13:54 PID: 1 - Bloqueado por: FS
+2024/07/27 16:13:56 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:13:56 Cola Ready: [1]
+2024/07/27 16:13:56 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:13:56 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:13:56 PID: 1 - Bloqueado por: FS
+2024/07/27 16:13:58 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:13:58 Cola Ready: [1]
+2024/07/27 16:13:58 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:13:58 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:13:58 PID: 1 - Bloqueado por: FS
+2024/07/27 16:14:00 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:14:00 Cola Ready: [1]
+2024/07/27 16:14:00 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:14:00 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:14:00 PID: 1 - Bloqueado por: FS
+2024/07/27 16:14:02 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:14:02 Cola Ready: [1]
+2024/07/27 16:14:02 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:14:02 Finaliza el proceso 1 - Motivo: SUCCESS
+2024/07/27 16:14:02 PID: 1 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 16:18:59 Se crea el proceso 1 en NEW
+2024/07/27 16:19:00 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 16:19:00 Cola Ready: [1]
+2024/07/27 16:19:00 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:19:00 Se crea el proceso 2 en NEW
+2024/07/27 16:19:00 PID: 2 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 16:19:00 Cola Ready: [2]
+2024/07/27 16:19:00 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:19:00 PID: 1 - Bloqueado por: FS
+2024/07/27 16:19:00 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:19:00 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:19:00 PID: 2 - Bloqueado por: FS
+2024/07/27 16:19:02 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:19:02 Cola Ready: [1]
+2024/07/27 16:19:02 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:19:02 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:19:02 PID: 1 - Bloqueado por: FS
+2024/07/27 16:19:04 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:19:04 Cola Ready: [2]
+2024/07/27 16:19:04 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:19:04 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:19:04 PID: 2 - Bloqueado por: FS
+2024/07/27 16:19:06 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:19:06 Cola Ready: [1]
+2024/07/27 16:19:06 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:19:06 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:19:06 PID: 1 - Bloqueado por: FS
+2024/07/27 16:19:08 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:19:08 Cola Ready: [2]
+2024/07/27 16:19:08 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:19:08 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:19:08 PID: 2 - Bloqueado por: FS
+2024/07/27 16:19:10 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:19:10 Cola Ready: [1]
+2024/07/27 16:19:10 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:19:10 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:19:10 PID: 1 - Bloqueado por: FS
+2024/07/27 16:19:12 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:19:12 Cola Ready: [2]
+2024/07/27 16:19:12 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:19:12 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:19:12 PID: 2 - Bloqueado por: FS
+2024/07/27 16:19:14 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:19:14 Cola Ready: [1]
+2024/07/27 16:19:14 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:19:15 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:19:15 PID: 1 - Bloqueado por: TECLADO
+2024/07/27 16:19:16 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:19:16 Cola Ready: [2]
+2024/07/27 16:19:16 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:19:16 Finaliza el proceso 2 - Motivo: SUCCESS
+2024/07/27 16:19:16 PID: 2 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 16:22:24 Se crea el proceso 1 en NEW
+2024/07/27 16:22:24 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 16:22:24 Cola Ready: [1]
+2024/07/27 16:22:24 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:22:25 Se crea el proceso 2 en NEW
+2024/07/27 16:22:25 PID: 2 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 16:22:25 Cola Ready: [2]
+2024/07/27 16:22:25 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:22:25 PID: 1 - Bloqueado por: FS
+2024/07/27 16:22:25 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:22:25 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:22:25 PID: 2 - Bloqueado por: FS
+2024/07/27 16:22:27 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:22:27 Cola Ready: [1]
+2024/07/27 16:22:27 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:22:27 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:22:27 PID: 1 - Bloqueado por: FS
+2024/07/27 16:22:29 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:22:29 Cola Ready: [2]
+2024/07/27 16:22:29 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:22:29 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:22:29 PID: 2 - Bloqueado por: FS
+2024/07/27 16:22:31 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:22:31 Cola Ready: [1]
+2024/07/27 16:22:31 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:22:31 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:22:31 PID: 1 - Bloqueado por: FS
+2024/07/27 16:22:33 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:22:33 Cola Ready: [2]
+2024/07/27 16:22:33 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:22:33 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:22:33 PID: 2 - Bloqueado por: FS
+2024/07/27 16:22:35 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:22:35 Cola Ready: [1]
+2024/07/27 16:22:35 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:22:35 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:22:35 PID: 1 - Bloqueado por: FS
+2024/07/27 16:22:37 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:22:37 Cola Ready: [2]
+2024/07/27 16:22:37 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:22:37 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:22:37 PID: 2 - Bloqueado por: FS
+2024/07/27 16:22:39 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:22:39 Cola Ready: [1]
+2024/07/27 16:22:39 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:22:40 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:22:40 PID: 1 - Bloqueado por: TECLADO
+2024/07/27 16:22:41 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:22:41 Cola Ready: [2]
+2024/07/27 16:22:41 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:22:41 Finaliza el proceso 2 - Motivo: SUCCESS
+2024/07/27 16:22:41 PID: 2 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 16:22:46 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:22:46 Cola Ready: [1]
+2024/07/27 16:22:46 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:22:47 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:22:47 PID: 1 - Bloqueado por: FS
+2024/07/27 16:22:50 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:22:50 Cola Ready: [1]
+2024/07/27 16:22:50 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:22:51 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:22:51 PID: 1 - Bloqueado por: FS
+2024/07/27 16:22:54 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:22:54 Cola Ready: [1]
+2024/07/27 16:22:54 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:22:54 Finaliza el proceso 1 - Motivo: SUCCESS
+2024/07/27 16:22:54 PID: 1 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 16:23:30 Se crea el proceso 3 en NEW
+2024/07/27 16:23:30 PID: 3 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 16:23:30 Cola Ready: [3]
+2024/07/27 16:23:30 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:23:30 Se crea el proceso 4 en NEW
+2024/07/27 16:23:30 PID: 4 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 16:23:30 Cola Ready: [4]
+2024/07/27 16:23:31 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:23:31 PID: 3 - Bloqueado por: FS
+2024/07/27 16:23:31 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:23:31 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:23:31 PID: 4 - Bloqueado por: FS
+2024/07/27 16:23:33 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:23:33 Cola Ready: [3]
+2024/07/27 16:23:33 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:23:33 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:23:33 PID: 3 - Bloqueado por: MONITOR
+2024/07/27 16:23:33 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:23:33 Cola Ready: [3]
+2024/07/27 16:23:33 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:23:34 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:23:34 PID: 3 - Bloqueado por: FS
+2024/07/27 16:23:35 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:23:35 Cola Ready: [4]
+2024/07/27 16:23:35 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:23:35 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:23:35 PID: 4 - Bloqueado por: FS
+2024/07/27 16:23:37 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:23:37 Cola Ready: [3]
+2024/07/27 16:23:37 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:23:37 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:23:37 PID: 3 - Bloqueado por: MONITOR
+2024/07/27 16:23:38 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:23:38 Cola Ready: [3]
+2024/07/27 16:23:38 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:23:38 Finaliza el proceso 3 - Motivo: SUCCESS
+2024/07/27 16:23:38 PID: 3 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 16:23:39 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:23:39 Cola Ready: [4]
+2024/07/27 16:23:39 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:23:39 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:23:39 PID: 4 - Bloqueado por: FS
+2024/07/27 16:23:41 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:23:41 Cola Ready: [4]
+2024/07/27 16:23:41 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:23:41 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:23:41 PID: 4 - Bloqueado por: FS
+2024/07/27 16:23:43 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:23:43 Cola Ready: [4]
+2024/07/27 16:23:43 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:23:44 Finaliza el proceso 4 - Motivo: SUCCESS
+2024/07/27 16:23:44 PID: 4 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 16:27:17 Se crea el proceso 1 en NEW
+2024/07/27 16:27:17 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 16:27:17 Cola Ready: [1]
+2024/07/27 16:27:17 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:27:18 Se crea el proceso 2 en NEW
+2024/07/27 16:27:18 PID: 2 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 16:27:18 Cola Ready: [2]
+2024/07/27 16:27:18 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:27:18 PID: 1 - Bloqueado por: FS
+2024/07/27 16:27:18 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:27:18 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:27:18 PID: 2 - Bloqueado por: FS
+2024/07/27 16:27:20 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:27:20 Cola Ready: [1]
+2024/07/27 16:27:20 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:27:20 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:27:20 PID: 1 - Bloqueado por: FS
+2024/07/27 16:27:22 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:27:22 Cola Ready: [2]
+2024/07/27 16:27:22 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:27:22 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:27:22 PID: 2 - Bloqueado por: FS
+2024/07/27 16:27:24 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:27:24 Cola Ready: [1]
+2024/07/27 16:27:24 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:27:24 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:27:24 PID: 1 - Bloqueado por: FS
+2024/07/27 16:27:26 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:27:26 Cola Ready: [2]
+2024/07/27 16:27:26 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:27:26 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:27:26 PID: 2 - Bloqueado por: FS
+2024/07/27 16:27:28 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:27:28 Cola Ready: [1]
+2024/07/27 16:27:28 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:27:28 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:27:28 PID: 1 - Bloqueado por: FS
+2024/07/27 16:27:30 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:27:30 Cola Ready: [2]
+2024/07/27 16:27:30 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:27:30 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:27:30 PID: 2 - Bloqueado por: FS
+2024/07/27 16:27:32 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:27:32 Cola Ready: [1]
+2024/07/27 16:27:32 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:27:33 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:27:33 PID: 1 - Bloqueado por: TECLADO
+2024/07/27 16:27:34 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:27:34 Cola Ready: [2]
+2024/07/27 16:27:34 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:27:34 Finaliza el proceso 2 - Motivo: SUCCESS
+2024/07/27 16:27:34 PID: 2 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 16:27:43 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:27:43 Cola Ready: [1]
+2024/07/27 16:27:43 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:27:45 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:27:45 PID: 1 - Bloqueado por: FS
+2024/07/27 16:27:47 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:27:47 Cola Ready: [1]
+2024/07/27 16:27:47 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:27:49 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:27:49 PID: 1 - Bloqueado por: FS
+2024/07/27 16:27:51 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:27:51 Cola Ready: [1]
+2024/07/27 16:27:51 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:27:51 Finaliza el proceso 1 - Motivo: SUCCESS
+2024/07/27 16:27:51 PID: 1 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 16:28:10 Se crea el proceso 3 en NEW
+2024/07/27 16:28:10 PID: 3 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 16:28:10 Cola Ready: [3]
+2024/07/27 16:28:10 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:28:11 Se crea el proceso 4 en NEW
+2024/07/27 16:28:11 PID: 4 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 16:28:11 Cola Ready: [4]
+2024/07/27 16:28:11 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:28:11 PID: 3 - Bloqueado por: FS
+2024/07/27 16:28:11 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:28:12 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:28:12 PID: 4 - Bloqueado por: FS
+2024/07/27 16:28:13 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:28:13 Cola Ready: [3]
+2024/07/27 16:28:13 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:28:13 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:28:13 PID: 3 - Bloqueado por: MONITOR
+2024/07/27 16:28:14 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:28:14 Cola Ready: [3]
+2024/07/27 16:28:14 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:28:14 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:28:14 PID: 3 - Bloqueado por: FS
+2024/07/27 16:28:15 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:28:15 Cola Ready: [4]
+2024/07/27 16:28:15 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:28:15 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:28:15 PID: 4 - Bloqueado por: FS
+2024/07/27 16:28:17 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:28:17 Cola Ready: [3]
+2024/07/27 16:28:17 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:28:18 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:28:18 PID: 3 - Bloqueado por: MONITOR
+2024/07/27 16:28:18 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:28:18 Cola Ready: [3]
+2024/07/27 16:28:18 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:28:18 Finaliza el proceso 3 - Motivo: SUCCESS
+2024/07/27 16:28:18 PID: 3 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 16:28:19 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:28:19 Cola Ready: [4]
+2024/07/27 16:28:19 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:28:20 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:28:20 PID: 4 - Bloqueado por: FS
+2024/07/27 16:28:22 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:28:22 Cola Ready: [4]
+2024/07/27 16:28:22 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:28:22 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:28:22 PID: 4 - Bloqueado por: FS
+2024/07/27 16:28:24 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:28:24 Cola Ready: [4]
+2024/07/27 16:28:24 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:28:24 Finaliza el proceso 4 - Motivo: SUCCESS
+2024/07/27 16:28:24 PID: 4 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 16:33:24 Se crea el proceso 1 en NEW
+2024/07/27 16:33:24 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 16:33:24 Cola Ready: [1]
+2024/07/27 16:33:24 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:33:24 Se crea el proceso 2 en NEW
+2024/07/27 16:33:24 PID: 2 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 16:33:24 Cola Ready: [2]
+2024/07/27 16:33:24 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:33:24 PID: 1 - Bloqueado por: FS
+2024/07/27 16:33:24 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:33:24 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:33:24 PID: 2 - Bloqueado por: FS
+2024/07/27 16:33:26 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:33:26 Cola Ready: [1]
+2024/07/27 16:33:26 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:33:26 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:33:26 PID: 1 - Bloqueado por: FS
+2024/07/27 16:33:28 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:33:28 Cola Ready: [2]
+2024/07/27 16:33:28 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:33:28 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:33:28 PID: 2 - Bloqueado por: FS
+2024/07/27 16:33:30 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:33:30 Cola Ready: [1]
+2024/07/27 16:33:30 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:33:30 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:33:30 PID: 1 - Bloqueado por: FS
+2024/07/27 16:33:32 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:33:32 Cola Ready: [2]
+2024/07/27 16:33:32 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:33:32 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:33:32 PID: 2 - Bloqueado por: FS
+2024/07/27 16:33:34 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:33:34 Cola Ready: [1]
+2024/07/27 16:33:34 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:33:34 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:33:34 PID: 1 - Bloqueado por: FS
+2024/07/27 16:33:36 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:33:36 Cola Ready: [2]
+2024/07/27 16:33:36 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:33:36 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:33:36 PID: 2 - Bloqueado por: FS
+2024/07/27 16:33:38 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:33:38 Cola Ready: [1]
+2024/07/27 16:33:38 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:33:39 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:33:39 PID: 1 - Bloqueado por: TECLADO
+2024/07/27 16:33:40 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:33:40 Cola Ready: [2]
+2024/07/27 16:33:40 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:33:40 Finaliza el proceso 2 - Motivo: SUCCESS
+2024/07/27 16:33:40 PID: 2 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 16:33:48 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:33:48 Cola Ready: [1]
+2024/07/27 16:33:48 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:33:49 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:33:49 PID: 1 - Bloqueado por: FS
+2024/07/27 16:33:51 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:33:51 Cola Ready: [1]
+2024/07/27 16:33:51 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:33:53 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:33:53 PID: 1 - Bloqueado por: FS
+2024/07/27 16:33:55 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:33:55 Cola Ready: [1]
+2024/07/27 16:33:55 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:33:55 Finaliza el proceso 1 - Motivo: SUCCESS
+2024/07/27 16:33:55 PID: 1 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 16:34:17 Se crea el proceso 3 en NEW
+2024/07/27 16:34:17 PID: 3 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 16:34:17 Cola Ready: [3]
+2024/07/27 16:34:17 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:34:17 Se crea el proceso 4 en NEW
+2024/07/27 16:34:17 PID: 4 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 16:34:17 Cola Ready: [4]
+2024/07/27 16:34:17 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:34:17 PID: 3 - Bloqueado por: FS
+2024/07/27 16:34:17 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:34:18 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:34:18 PID: 4 - Bloqueado por: FS
+2024/07/27 16:34:19 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:34:19 Cola Ready: [3]
+2024/07/27 16:34:19 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:34:20 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:34:20 PID: 3 - Bloqueado por: MONITOR
+2024/07/27 16:34:20 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:34:20 Cola Ready: [3]
+2024/07/27 16:34:20 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:34:20 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:34:20 PID: 3 - Bloqueado por: FS
+2024/07/27 16:34:22 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:34:22 Cola Ready: [4]
+2024/07/27 16:34:22 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:34:22 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:34:22 PID: 4 - Bloqueado por: FS
+2024/07/27 16:34:24 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:34:24 Cola Ready: [3]
+2024/07/27 16:34:24 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:34:24 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:34:24 PID: 3 - Bloqueado por: MONITOR
+2024/07/27 16:34:24 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:34:24 Cola Ready: [3]
+2024/07/27 16:34:24 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:34:24 Finaliza el proceso 3 - Motivo: SUCCESS
+2024/07/27 16:34:24 PID: 3 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 16:34:26 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:34:26 Cola Ready: [4]
+2024/07/27 16:34:26 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:34:26 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:34:26 PID: 4 - Bloqueado por: FS
+2024/07/27 16:34:28 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:34:28 Cola Ready: [4]
+2024/07/27 16:34:28 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:34:28 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:34:28 PID: 4 - Bloqueado por: FS
+2024/07/27 16:34:30 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:34:30 Cola Ready: [4]
+2024/07/27 16:34:30 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:34:30 Finaliza el proceso 4 - Motivo: SUCCESS
+2024/07/27 16:34:30 PID: 4 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 16:51:53 Se crea el proceso 1 en NEW
+2024/07/27 16:51:53 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 16:51:53 Cola Ready: [1]
+2024/07/27 16:51:53 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:51:53 Se crea el proceso 2 en NEW
+2024/07/27 16:51:53 PID: 2 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 16:51:53 Cola Ready: [2]
+2024/07/27 16:51:53 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:51:53 PID: 1 - Bloqueado por: FS
+2024/07/27 16:51:53 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:51:53 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:51:53 PID: 2 - Bloqueado por: FS
+2024/07/27 16:51:55 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:51:55 Cola Ready: [1]
+2024/07/27 16:51:55 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:51:55 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:51:55 PID: 1 - Bloqueado por: FS
+2024/07/27 16:51:57 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:51:57 Cola Ready: [2]
+2024/07/27 16:51:57 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:51:57 Se crea el proceso 3 en NEW
+2024/07/27 16:51:57 PID: 3 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 16:51:57 Cola Ready: [3]
+2024/07/27 16:51:57 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:51:57 PID: 2 - Bloqueado por: FS
+2024/07/27 16:51:57 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:51:58 Se crea el proceso 4 en NEW
+2024/07/27 16:51:58 PID: 4 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 16:51:58 Cola Ready: [4]
+2024/07/27 16:51:58 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:51:58 PID: 3 - Bloqueado por: FS
+2024/07/27 16:51:58 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:51:58 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:51:58 PID: 4 - Bloqueado por: FS
+2024/07/27 16:51:59 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:51:59 Cola Ready: [1]
+2024/07/27 16:51:59 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:51:59 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:51:59 PID: 1 - Bloqueado por: FS
+2024/07/27 16:52:01 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:52:01 Cola Ready: [2]
+2024/07/27 16:52:01 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:52:01 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:52:01 PID: 2 - Bloqueado por: FS
+2024/07/27 16:52:03 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:52:03 Cola Ready: [3]
+2024/07/27 16:52:03 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:52:03 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:52:03 PID: 3 - Bloqueado por: FS
+2024/07/27 16:52:05 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:52:05 Cola Ready: [4]
+2024/07/27 16:52:05 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:52:05 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:52:05 PID: 4 - Bloqueado por: FS
+2024/07/27 16:52:07 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:52:07 Cola Ready: [1]
+2024/07/27 16:52:07 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:52:08 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:52:08 PID: 1 - Bloqueado por: FS
+2024/07/27 16:53:16 Se crea el proceso 1 en NEW
+2024/07/27 16:53:16 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 16:53:16 Cola Ready: [1]
+2024/07/27 16:53:16 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:53:16 Se crea el proceso 2 en NEW
+2024/07/27 16:53:16 PID: 2 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 16:53:16 Cola Ready: [2]
+2024/07/27 16:53:17 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:53:17 PID: 1 - Bloqueado por: FS
+2024/07/27 16:53:17 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:53:17 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:53:17 PID: 2 - Bloqueado por: FS
+2024/07/27 16:53:19 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:53:19 Cola Ready: [1]
+2024/07/27 16:53:19 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:53:19 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:53:19 PID: 1 - Bloqueado por: FS
+2024/07/27 16:53:21 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:53:21 Cola Ready: [2]
+2024/07/27 16:53:21 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:53:21 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:53:21 PID: 2 - Bloqueado por: FS
+2024/07/27 16:53:23 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:53:23 Cola Ready: [1]
+2024/07/27 16:53:23 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:53:23 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:53:23 PID: 1 - Bloqueado por: FS
+2024/07/27 16:53:25 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:53:25 Cola Ready: [2]
+2024/07/27 16:53:25 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:53:25 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:53:25 PID: 2 - Bloqueado por: FS
+2024/07/27 16:53:27 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:53:27 Cola Ready: [1]
+2024/07/27 16:53:27 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:53:27 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:53:27 PID: 1 - Bloqueado por: FS
+2024/07/27 16:53:29 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:53:29 Cola Ready: [2]
+2024/07/27 16:53:29 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:53:29 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:53:29 PID: 2 - Bloqueado por: FS
+2024/07/27 16:53:31 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:53:31 Cola Ready: [1]
+2024/07/27 16:53:31 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:53:32 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 16:53:32 PID: 1 - Bloqueado por: TECLADO
+2024/07/27 16:53:33 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 16:53:33 Cola Ready: [2]
+2024/07/27 16:53:33 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 16:53:33 Finaliza el proceso 2 - Motivo: SUCCESS
+2024/07/27 16:53:33 PID: 2 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 17:00:04 Se crea el proceso 1 en NEW
+2024/07/27 17:00:04 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 17:00:04 Cola Ready: [1]
+2024/07/27 17:00:04 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:00:04 Se crea el proceso 2 en NEW
+2024/07/27 17:00:04 PID: 2 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 17:00:04 Cola Ready: [2]
+2024/07/27 17:00:04 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:00:04 PID: 1 - Bloqueado por: FS
+2024/07/27 17:00:04 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:00:04 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:00:04 PID: 2 - Bloqueado por: FS
+2024/07/27 17:00:06 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:00:06 Cola Ready: [1]
+2024/07/27 17:00:06 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:00:06 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:00:06 PID: 1 - Bloqueado por: FS
+2024/07/27 17:00:08 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:00:08 Cola Ready: [2]
+2024/07/27 17:00:08 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:00:08 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:00:08 PID: 2 - Bloqueado por: FS
+2024/07/27 17:00:10 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:00:10 Cola Ready: [1]
+2024/07/27 17:00:10 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:00:10 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:00:10 PID: 1 - Bloqueado por: FS
+2024/07/27 17:00:12 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:00:12 Cola Ready: [2]
+2024/07/27 17:00:12 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:00:12 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:00:12 PID: 2 - Bloqueado por: FS
+2024/07/27 17:00:14 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:00:14 Cola Ready: [1]
+2024/07/27 17:00:14 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:00:14 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:00:14 PID: 1 - Bloqueado por: FS
+2024/07/27 17:00:16 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:00:16 Cola Ready: [2]
+2024/07/27 17:00:16 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:00:16 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:00:16 PID: 2 - Bloqueado por: FS
+2024/07/27 17:00:18 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:00:18 Cola Ready: [1]
+2024/07/27 17:00:18 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:00:19 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:00:19 PID: 1 - Bloqueado por: TECLADO
+2024/07/27 17:00:20 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:00:20 Cola Ready: [2]
+2024/07/27 17:00:20 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:00:21 Finaliza el proceso 2 - Motivo: SUCCESS
+2024/07/27 17:00:21 PID: 2 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 17:13:27 Se crea el proceso 1 en NEW
+2024/07/27 17:13:27 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 17:13:27 Cola Ready: [1]
+2024/07/27 17:13:27 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:13:27 Se crea el proceso 2 en NEW
+2024/07/27 17:13:27 PID: 2 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 17:13:27 Cola Ready: [2]
+2024/07/27 17:13:27 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:13:27 PID: 1 - Bloqueado por: FS
+2024/07/27 17:13:27 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:13:27 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:13:27 PID: 2 - Bloqueado por: FS
+2024/07/27 17:14:20 Se crea el proceso 1 en NEW
+2024/07/27 17:14:20 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 17:14:20 Cola Ready: [1]
+2024/07/27 17:14:20 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:14:20 Se crea el proceso 2 en NEW
+2024/07/27 17:14:20 PID: 2 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 17:14:20 Cola Ready: [2]
+2024/07/27 17:14:20 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:14:20 PID: 1 - Bloqueado por: FS
+2024/07/27 17:14:20 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:14:20 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:14:20 PID: 2 - Bloqueado por: FS
+2024/07/27 17:14:22 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:14:22 Cola Ready: [1]
+2024/07/27 17:14:22 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:14:22 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:14:22 PID: 1 - Bloqueado por: FS
+2024/07/27 17:14:24 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:14:24 Cola Ready: [2]
+2024/07/27 17:14:24 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:14:24 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:14:24 PID: 2 - Bloqueado por: FS
+2024/07/27 17:14:26 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:14:26 Cola Ready: [1]
+2024/07/27 17:14:26 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:14:26 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:14:26 PID: 1 - Bloqueado por: FS
+2024/07/27 17:14:28 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:14:28 Cola Ready: [2]
+2024/07/27 17:14:28 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:14:28 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:14:28 PID: 2 - Bloqueado por: FS
+2024/07/27 17:14:30 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:14:30 Cola Ready: [1]
+2024/07/27 17:14:30 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:14:30 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:14:30 PID: 1 - Bloqueado por: FS
+2024/07/27 17:14:32 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:14:32 Cola Ready: [2]
+2024/07/27 17:14:32 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:14:32 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:14:32 PID: 2 - Bloqueado por: FS
+2024/07/27 17:14:35 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:14:35 Cola Ready: [1]
+2024/07/27 17:14:35 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:14:35 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:14:35 PID: 1 - Bloqueado por: TECLADO
+2024/07/27 17:14:37 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:14:37 Cola Ready: [2]
+2024/07/27 17:14:37 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:14:37 Finaliza el proceso 2 - Motivo: SUCCESS
+2024/07/27 17:14:37 PID: 2 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 17:16:29 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:16:29 Cola Ready: [1]
+2024/07/27 17:16:29 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:16:31 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:16:31 PID: 1 - Bloqueado por: FS
+2024/07/27 17:16:33 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:16:33 Cola Ready: [1]
+2024/07/27 17:16:33 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:16:35 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:16:35 PID: 1 - Bloqueado por: FS
+2024/07/27 17:16:37 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:16:37 Cola Ready: [1]
+2024/07/27 17:16:37 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:16:37 Finaliza el proceso 1 - Motivo: SUCCESS
+2024/07/27 17:16:37 PID: 1 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 17:17:19 Se crea el proceso 3 en NEW
+2024/07/27 17:17:19 PID: 3 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 17:17:19 Cola Ready: [3]
+2024/07/27 17:17:19 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:17:19 Se crea el proceso 4 en NEW
+2024/07/27 17:17:19 PID: 4 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 17:17:19 Cola Ready: [4]
+2024/07/27 17:17:20 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:17:20 PID: 3 - Bloqueado por: FS
+2024/07/27 17:17:20 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:17:20 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:17:20 PID: 4 - Bloqueado por: FS
+2024/07/27 17:17:22 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:17:22 Cola Ready: [3]
+2024/07/27 17:17:22 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:17:22 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:17:22 PID: 3 - Bloqueado por: MONITOR
+2024/07/27 17:17:22 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:17:22 Cola Ready: [3]
+2024/07/27 17:17:22 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:17:22 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:17:22 PID: 3 - Bloqueado por: FS
+2024/07/27 17:17:24 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:17:24 Cola Ready: [4]
+2024/07/27 17:17:24 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:17:24 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:17:24 PID: 4 - Bloqueado por: FS
+2024/07/27 17:17:26 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:17:26 Cola Ready: [3]
+2024/07/27 17:17:26 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:17:26 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:17:26 PID: 3 - Bloqueado por: MONITOR
+2024/07/27 17:17:26 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:17:26 Cola Ready: [3]
+2024/07/27 17:17:26 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:17:27 Finaliza el proceso 3 - Motivo: SUCCESS
+2024/07/27 17:17:27 PID: 3 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 17:17:28 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:17:28 Cola Ready: [4]
+2024/07/27 17:17:28 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:17:28 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:17:28 PID: 4 - Bloqueado por: FS
+2024/07/27 17:17:30 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:17:30 Cola Ready: [4]
+2024/07/27 17:17:30 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:17:30 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:17:30 PID: 4 - Bloqueado por: FS
+2024/07/27 17:17:33 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:17:33 Cola Ready: [4]
+2024/07/27 17:17:33 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:17:33 Finaliza el proceso 4 - Motivo: SUCCESS
+2024/07/27 17:17:33 PID: 4 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 17:33:10 Se crea el proceso 1 en NEW
+2024/07/27 17:33:10 PID: 1 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 17:33:10 Cola Ready: [1]
+2024/07/27 17:33:10 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:33:10 Se crea el proceso 2 en NEW
+2024/07/27 17:33:10 PID: 2 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 17:33:10 Cola Ready: [2]
+2024/07/27 17:33:10 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:33:10 PID: 1 - Bloqueado por: FS
+2024/07/27 17:33:10 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:33:10 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:33:10 PID: 2 - Bloqueado por: FS
+2024/07/27 17:33:12 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:33:12 Cola Ready: [1]
+2024/07/27 17:33:12 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:33:12 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:33:12 PID: 1 - Bloqueado por: FS
+2024/07/27 17:33:14 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:33:14 Cola Ready: [2]
+2024/07/27 17:33:14 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:33:14 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:33:14 PID: 2 - Bloqueado por: FS
+2024/07/27 17:33:16 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:33:16 Cola Ready: [1]
+2024/07/27 17:33:16 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:33:16 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:33:16 PID: 1 - Bloqueado por: FS
+2024/07/27 17:33:18 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:33:18 Cola Ready: [2]
+2024/07/27 17:33:18 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:33:18 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:33:18 PID: 2 - Bloqueado por: FS
+2024/07/27 17:33:20 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:33:20 Cola Ready: [1]
+2024/07/27 17:33:20 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:33:20 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:33:20 PID: 1 - Bloqueado por: FS
+2024/07/27 17:33:22 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:33:22 Cola Ready: [2]
+2024/07/27 17:33:22 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:33:22 PID: 2 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:33:22 PID: 2 - Bloqueado por: FS
+2024/07/27 17:33:24 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:33:24 Cola Ready: [1]
+2024/07/27 17:33:24 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:33:25 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:33:25 PID: 1 - Bloqueado por: TECLADO
+2024/07/27 17:33:26 PID: 2 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:33:26 Cola Ready: [2]
+2024/07/27 17:33:26 PID: 2 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:33:27 Finaliza el proceso 2 - Motivo: SUCCESS
+2024/07/27 17:33:27 PID: 2 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 17:33:36 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:33:36 Cola Ready: [1]
+2024/07/27 17:33:36 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:33:38 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:33:38 PID: 1 - Bloqueado por: FS
+2024/07/27 17:33:40 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:33:40 Cola Ready: [1]
+2024/07/27 17:33:40 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:33:42 PID: 1 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:33:42 PID: 1 - Bloqueado por: FS
+2024/07/27 17:33:44 PID: 1 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:33:44 Cola Ready: [1]
+2024/07/27 17:33:44 PID: 1 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:33:44 Finaliza el proceso 1 - Motivo: SUCCESS
+2024/07/27 17:33:44 PID: 1 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 17:34:54 Se crea el proceso 3 en NEW
+2024/07/27 17:34:54 PID: 3 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 17:34:54 Cola Ready: [3]
+2024/07/27 17:34:54 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:34:55 Se crea el proceso 4 en NEW
+2024/07/27 17:34:55 PID: 4 - Estado Anterior: NEW - Estado Actual: READY
+2024/07/27 17:34:55 Cola Ready: [4]
+2024/07/27 17:34:55 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:34:55 PID: 3 - Bloqueado por: FS
+2024/07/27 17:34:55 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:34:56 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:34:56 PID: 4 - Bloqueado por: FS
+2024/07/27 17:34:57 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:34:57 Cola Ready: [3]
+2024/07/27 17:34:57 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:34:57 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:34:57 PID: 3 - Bloqueado por: MONITOR
+2024/07/27 17:34:58 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:34:58 Cola Ready: [3]
+2024/07/27 17:34:58 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:34:58 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:34:58 PID: 3 - Bloqueado por: FS
+2024/07/27 17:34:59 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:34:59 Cola Ready: [4]
+2024/07/27 17:34:59 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:35:00 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:35:00 PID: 4 - Bloqueado por: FS
+2024/07/27 17:35:02 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:35:02 Cola Ready: [3]
+2024/07/27 17:35:02 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:35:02 PID: 3 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:35:02 PID: 3 - Bloqueado por: MONITOR
+2024/07/27 17:35:02 PID: 3 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:35:02 Cola Ready: [3]
+2024/07/27 17:35:02 PID: 3 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:35:02 Finaliza el proceso 3 - Motivo: SUCCESS
+2024/07/27 17:35:02 PID: 3 - Estado Anterior: EXEC - Estado Actual: EXIT
+2024/07/27 17:35:04 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:35:04 Cola Ready: [4]
+2024/07/27 17:35:04 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:35:04 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:35:04 PID: 4 - Bloqueado por: FS
+2024/07/27 17:35:06 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:35:06 Cola Ready: [4]
+2024/07/27 17:35:06 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:35:06 PID: 4 - Estado Anterior: EXEC - Estado Actual: BLOCKED
+2024/07/27 17:35:06 PID: 4 - Bloqueado por: FS
+2024/07/27 17:35:08 PID: 4 - Estado Anterior: EXEC - Estado Actual: READY
+2024/07/27 17:35:08 Cola Ready: [4]
+2024/07/27 17:35:08 PID: 4 - Estado Anterior: READY - Estado Actual: EXEC
+2024/07/27 17:35:08 Finaliza el proceso 4 - Motivo: SUCCESS
+2024/07/27 17:35:08 PID: 4 - Estado Anterior: EXEC - Estado Actual: EXIT
