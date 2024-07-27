@@ -664,6 +664,7 @@ func listarIds(cola []PCB) []int {
 func enqueueExitProcess(pcb PCB) {
 	log.Printf("PID: %d - Estado Anterior: %s - Estado Actual: EXIT", pcb.Pid, pcb.State)
 	liberarRecursosExit(pcb.Pid)
+	deletePagesmemory(pcb.Pid)
 	pcb.State = "EXIT"
 	mutexExit.Lock()
 	<-multiProgramacion
@@ -1155,10 +1156,8 @@ func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
 	}
 	if pcb.State == "EXEC" {
 		SendInterrupt(pcb.Pid, "INTERRUPTED_BY_USER")
-		deletePagesmemory(pcb.Pid)
 	} else {
 		eliminarProcesoCola(pcb.Pid)
-		deletePagesmemory(pcb.Pid)
 		enqueueExitProcess(pcb)
 
 	}

@@ -258,13 +258,14 @@ func TerminateProcess(pid int) error {
 
 	if _, exists := pageTable[pid]; !exists {
 		log.Printf("Proceso no encontrado")
+		return nil
 	} else {
 		if addresses, exists := pageTable[pid]; exists {
 			for _, address := range addresses {
 				memoryMap[address] = false //Marca las addresses del pid como libres
 			}
 		}
-		log.Printf("PID: %d - Tamaño: %d", pid, len(pageTable))
+		log.Printf("PID: %d - Tamaño: %d", pid, len(pageTable[pid]))
 		delete(pageTable, pid) //Funcion que viene con map, libera los marcos asignados a un pid
 	}
 	return nil
