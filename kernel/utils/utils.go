@@ -631,16 +631,16 @@ func enqueueReadyProcess(pcb PCB) {
 	if quantumMapGlobal[pcb.Pid] > 0 && globals.ClientConfig.AlgoritmoPlanificacion == "VRR" {
 		mutexReadyVRR.Lock()
 		colaReadyVRR = append(colaReadyVRR, pcb)
+		log.Printf("Cola Ready VRR: %+v", listarIds(colaReadyVRR))
 		mutexReadyVRR.Unlock()
 		readyChannel <- pcb
-		log.Printf("Cola Ready VRR: %+v", listarIds(colaReadyVRR))
 	} else {
 		pcb.Quantum = 0
 		mutexReady.Lock()
 		colaReady = append(colaReady, pcb)
+		log.Printf("Cola Ready: %+v", listarIds(colaReady))
 		mutexReady.Unlock()
 		readyChannel <- pcb
-		log.Printf("Cola Ready: %+v", listarIds(colaReady))
 	}
 }
 
