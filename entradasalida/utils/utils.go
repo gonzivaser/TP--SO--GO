@@ -800,10 +800,10 @@ func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, r
 	}
 
 	// Mover el cursor al inicio del bloque para leer el contenido
-	_, err = blocksFile.Seek(int64(bloqueInicialDelArchivo*config.TamanioBloqueDialFS), 0)
+	/*_, err = blocksFile.Seek(int64(bloqueInicialDelArchivo*config.TamanioBloqueDialFS), 0)
 	if err != nil {
 		log.Fatalf("Error al mover el cursor para leer: %v", err)
-	}
+	}*/
 
 	// Leer el contenido del archivo
 	/*fileContent := make([]byte, config.TamanioBloqueDialFS*config.CantidadBloquesDialFS) // Asumiendo que el archivo ocupa un bloque
