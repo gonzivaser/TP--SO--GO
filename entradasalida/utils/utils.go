@@ -719,6 +719,7 @@ func truncateBitmap(bitmap *Bitmap, initialBlock int, bitmapFilePath string, pat
 		blocksToDelete = 1
 	}
 	removeBlocks(bitmap, initialBlock, blocksToDelete, blocksToDelete)
+	removeBlocksFromFile(pathDialFS, blocksToDelete, initialBlock)
 	log.Printf("Bloques eliminados de mi archivo: %d", blocksToDelete)
 	showBitmap(bitmap)
 	deleteInMetaDataStructure(fileName)
@@ -754,6 +755,38 @@ func moveZeros(bitmap *Bitmap, initialBlock int, cantBloques int, bitmapFilePath
 	updateBitMap(bitmap, bitmapFilePath)
 
 	return newInitialBlock
+}
+
+func removeBlocksFromFile(pathDialFS string, blocksToDelete int, initialBlock int) error {
+	// Abro el archivo bloques.dat en modo lectura/escritura
+	blocksFilePath := filepath.Join(pathDialFS, "bloques.dat")
+	blocksFile, err := os.OpenFile(blocksFilePath, os.O_RDWR, 0644)
+	if err != nil {
+		log.Fatalf("Error al abrir el archivo de bloques '%s': %v", blocksFilePath, err)
+	}
+	defer blocksFile.Close()
+
+	// Calcula la posición inicial para comenzar a eliminar
+	startPosition := initialBlock * config.TamanioBloqueDialFS
+
+	// Recorre la cantidad de bloques a eliminar
+	for i := 0; i < blocksToDelete; i++ {
+		// Mueve el cursor al bloque actual
+		_, err := blocksFile.Seek(int64(startPosition+i*config.TamanioBloqueDialFS), 0)
+		if err != nil {
+			log.Fatalf("Error al mover el cursor del archivo de bloques '%s': %v", blocksFilePath, err)
+		}
+
+		// Escribe ceros en el bloque (o marca como libre)
+		zeroBlock := make([]byte, config.TamanioBloqueDialFS)
+		_, err = blocksFile.Write(zeroBlock)
+		if err != nil {
+			log.Fatalf("Error al escribir en el archivo de bloques '%s': %v", blocksFilePath, err)
+		}
+	}
+
+	return nil
+
 }
 
 func getBlocksFile(fileName string) int {
