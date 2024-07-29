@@ -143,15 +143,15 @@ var (
 	kernelPaused bool
 	pauseMutex   sync.RWMutex
 
-	interfaces     []interfaz
-	processDataMap sync.Map
-	DirFisica      []int
-	LengthREG      int
+	global_interfaces []interfaz
+	processDataMap    sync.Map
+	DirFisica         []int
+	LengthREG         int
 
-	procesoEXEC Proceso // este proceso es el que se esta ejecutando
+	global_executionProcess Proceso // este proceso es el que se esta ejecutando
 
-	quantumMapGlobal = make(map[int]int)
-	pidXRecursoMap   = make(map[int][]string)
+	global_quantumMap      = make(map[int]int)
+	global_resourcesPIDMap = make(map[int][]string)
 )
 
 // ----------DECLARACION DE COLAS POR ESTADO---------------- //
@@ -247,7 +247,7 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 	pcb := createPCB()
 	createStructuresMemory(pcb.Pid, 0)
 	IniciarPlanificacionDeProcesos(request, pcb)
-	quantumMapGlobal[pcb.Pid] = 0
+	global_quantumMap[pcb.Pid] = 0
 	newChannel <- pcb
 	// Response with the PID
 	w.Header().Set("Content-Type", "application/json")
@@ -397,8 +397,8 @@ func executeProcessVRR() {
 		if len(queueReadyVRR) > 0 {
 			mutexExecutionCPU.Lock()
 			proceso = queueReadyVRR[0]
-			//log.Printf("PID %d (VRR)- Quantum iniciado %d", proceso.Pid, quantumMapGlobal[proceso.Pid])
-			go startQuantum(quantumMapGlobal[proceso.Pid], proceso.Pid)
+			//log.Printf("PID %d (VRR)- Quantum iniciado %d", proceso.Pid, global_quantumMap[proceso.Pid])
+			go startQuantum(global_quantumMap[proceso.Pid], proceso.Pid)
 			executeTask(proceso)
 
 		} else if len(queueReady) > 0 {
@@ -415,12 +415,12 @@ func executeProcessVRR() {
 
 func executeTask(pcb PCB) {
 	//sacar de Ready y lo mando a execution
-	if len(queueReady) > 0 && quantumMapGlobal[pcb.Pid] == 0 { // aca lo saco de la cola ready y lo mando a execution
+	if len(queueReady) > 0 && global_quantumMap[pcb.Pid] == 0 { // aca lo saco de la cola ready y lo mando a execution
 		mutexReady.Lock()
 		queueReady = append(queueReady[:0], queueReady[1:]...)
 		//log.Printf("Cola R desalojada  %+v", queueReady)
 		mutexReady.Unlock()
-	} else if len(queueReadyVRR) > 0 && quantumMapGlobal[pcb.Pid] > 0 {
+	} else if len(queueReadyVRR) > 0 && global_quantumMap[pcb.Pid] > 0 {
 		mutexReadyVRR.Lock()
 		queueReadyVRR = append(queueReadyVRR[:0], queueReadyVRR[1:]...)
 		//log.Printf("Cola VRR desalojada  %+v", queueReadyVRR)
@@ -442,7 +442,7 @@ func executeTask(pcb PCB) {
 func startQuantum(quantum int, pid int) {
 	//log.Printf("PID %d - Quantum iniciado %d", pid, quantum)
 	mutexQuantum.Lock()
-	quantumMapGlobal[pid] = 0
+	global_quantumMap[pid] = 0
 	defer mutexQuantum.Unlock()
 	quantumChannel = make(chan struct{})
 	timer := time.NewTimer(time.Duration(quantum) * time.Millisecond)
@@ -467,7 +467,7 @@ func startQuantum(quantum int, pid int) {
 			}
 			//log.Printf("PID %d - Proceso desalojado antes de que el quantum termine. Quantum restante %d", pid, remainingQuantum)
 			if globals.ClientConfig.AlgoritmoPlanificacion == "VRR" {
-				quantumMapGlobal[pid] = remainingQuantum
+				global_quantumMap[pid] = remainingQuantum
 			}
 			return
 		default:
@@ -557,31 +557,31 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	procesoEXEC.PCB.CpuReg = CPURequest.PcbUpdated.CpuReg
-	procesoEXEC.PCB.Pid = CPURequest.PcbUpdated.Pid
-	procesoEXEC.PCB.State = CPURequest.PcbUpdated.State
+	global_executionProcess.PCB.CpuReg = CPURequest.PcbUpdated.CpuReg
+	global_executionProcess.PCB.Pid = CPURequest.PcbUpdated.Pid
+	global_executionProcess.PCB.State = CPURequest.PcbUpdated.State
 
 	switch CPURequest.MotivoDesalojo {
 	case "FINALIZADO":
 		log.Printf("Finaliza el proceso %v - Motivo: SUCCESS", CPURequest.PcbUpdated.Pid)
-		enqueueExitProcess(procesoEXEC.PCB)
+		enqueueExitProcess(global_executionProcess.PCB)
 
 	case "INTERRUPCION POR IO":
-		go handleSyscallIO(procesoEXEC.PCB, CPURequest.TimeIO, CPURequest.Interface, CPURequest.IoType)
+		go handleSyscallIO(global_executionProcess.PCB, CPURequest.TimeIO, CPURequest.Interface, CPURequest.IoType)
 
 	case "CLOCK":
 		log.Printf("PID: %v desalojado por fin de Quantum", CPURequest.PcbUpdated.Pid)
-		go enqueueReadyProcess(procesoEXEC.PCB)
+		go enqueueReadyProcess(global_executionProcess.PCB)
 	case "WAIT":
-		go waitHandler(procesoEXEC.PCB, CPURequest.Recurso)
+		go waitHandler(global_executionProcess.PCB, CPURequest.Recurso)
 
 	case "INTERRUPTED_BY_USER":
 		//log.Printf("Finaliza el proceso %v - Motivo: INTERRUPTED_BY_USER", CPURequest.PcbUpdated.Pid)
-		enqueueExitProcess(procesoEXEC.PCB)
+		enqueueExitProcess(global_executionProcess.PCB)
 
 	case "INVALID_RESOURCE":
 		log.Printf("Finaliza el proceso %v - Motivo: INVALID_RESOURCE", CPURequest.PcbUpdated.Pid)
-		enqueueExitProcess(procesoEXEC.PCB)
+		enqueueExitProcess(global_executionProcess.PCB)
 
 	default:
 		log.Printf("PID: %v desalojado desconocido por %v", CPURequest.PcbUpdated.Pid, CPURequest.MotivoDesalojo)
@@ -593,6 +593,8 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf("%v", CPURequest.PcbUpdated)))
 
 }
+
+/*------------------------------Entrada salida---------------------------------*/
 
 func RecievePortOfInterfaceFromIO(w http.ResponseWriter, r *http.Request) {
 	var requestPort BodyRequestPort
@@ -607,7 +609,7 @@ func RecievePortOfInterfaceFromIO(w http.ResponseWriter, r *http.Request) {
 	interfaz.Type = requestPort.Type
 	// log.Printf("Port received: %d, Name: %s, type: %s", requestPort.Port, requestPort.Nombre, requestPort.Type)
 
-	interfaces = append(interfaces, interfaz)
+	global_interfaces = append(global_interfaces, interfaz)
 	SendPortOfInterfaceToMemory(interfaz.Name, interfaz.Port)
 
 	w.WriteHeader(http.StatusOK)
@@ -649,7 +651,7 @@ func handleSyscallIO(pcb PCB, timeIo int, ioInterface string, ioType string) {
 }
 
 func InterfazExiste(nombre string, ioType string) bool {
-	for _, interfaz := range interfaces {
+	for _, interfaz := range global_interfaces {
 		if interfaz.Name == nombre && interfaz.Type == ioType {
 			return true
 		}
@@ -665,7 +667,7 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 	}
 	var interfazEncontrada interfaz // Asume que Interfaz es el tipo de tus interfaces
 
-	for _, interfaz := range interfaces {
+	for _, interfaz := range global_interfaces {
 		if interfaz.Name == payload.Nombre {
 			interfazEncontrada = interfaz
 			break
@@ -760,7 +762,7 @@ func getProcessData(pid int) (ProcessData, bool) {
 func enqueueReadyProcess(pcb PCB) {
 	log.Printf("PID: %d - Estado Anterior: %s - Estado Actual: READY", pcb.Pid, pcb.State)
 	pcb.State = "READY"
-	if quantumMapGlobal[pcb.Pid] > 0 && globals.ClientConfig.AlgoritmoPlanificacion == "VRR" {
+	if global_quantumMap[pcb.Pid] > 0 && globals.ClientConfig.AlgoritmoPlanificacion == "VRR" {
 		mutexReadyVRR.Lock()
 		queueReadyVRR = append(queueReadyVRR, pcb)
 		log.Printf("Cola Ready VRR: %+v", listarIds(queueReadyVRR))
@@ -831,12 +833,12 @@ func RecieveWait(w http.ResponseWriter, r *http.Request) {
 	recursoExistente, index := resourceExists(request.Recurso)
 	if recursoExistente {
 		// le asigna el recurso al pid
-		if recursos, exists := pidXRecursoMap[request.Pid]; exists {
+		if recursos, exists := global_resourcesPIDMap[request.Pid]; exists {
 			// Añadir el nuevo valor al arreglo existente
-			pidXRecursoMap[request.Pid] = append(recursos, request.Recurso)
+			global_resourcesPIDMap[request.Pid] = append(recursos, request.Recurso)
 		} else {
 			// Crear un nuevo arreglo con el valor y asignarlo a la clave
-			pidXRecursoMap[request.Pid] = []string{request.Recurso}
+			global_resourcesPIDMap[request.Pid] = []string{request.Recurso}
 		}
 
 		// resto 1 si existe
@@ -860,7 +862,7 @@ func waitHandler(pcb PCB, recurso string) {
 }
 
 func liberarRecursosMap(pid int, recursoAbuscar string) {
-	recursos, exists := pidXRecursoMap[pid]
+	recursos, exists := global_resourcesPIDMap[pid]
 	if exists {
 		// Buscar el recurso y eliminarlo si existe
 		index := -1
@@ -874,7 +876,7 @@ func liberarRecursosMap(pid int, recursoAbuscar string) {
 		if index != -1 {
 			// Recurso encontrado, eliminarlo
 			recursos = append(recursos[:index], recursos[index+1:]...)
-			pidXRecursoMap[pid] = recursos
+			global_resourcesPIDMap[pid] = recursos
 		}
 	}
 }
@@ -918,7 +920,7 @@ func HandleSignal(w http.ResponseWriter, r *http.Request) {
 }
 
 func liberarRecursosExit(pidFinalizado int) {
-	recursos, exists := pidXRecursoMap[pidFinalizado]
+	recursos, exists := global_resourcesPIDMap[pidFinalizado]
 	if exists {
 		for _, recurso := range recursos {
 			_, index := resourceExists(recurso)
