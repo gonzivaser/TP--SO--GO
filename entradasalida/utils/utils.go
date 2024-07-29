@@ -730,6 +730,7 @@ func truncateBitmap(bitmap *Bitmap, initialBlock int, bitmapFilePath string, pat
 		newInitialBlock := moveZeros(bitmap, fileContent.InitialBlock, blocksPerFile, bitmapFilePath)
 		log.Printf("Nuevo bloque inicial, de %s: %d \n", fileContent.FileName, newInitialBlock)
 		updateMetaDataFile(pathDialFS, fileContent.FileName, newInitialBlock, fileContent.Size)
+		updateBlocksFile(pathDialFS, newInitialBlock, fileContent.Size, fileContent.InitialBlock)
 	}
 }
 
@@ -769,6 +770,50 @@ func getBlocksFile(fileName string) int {
 		}
 	}
 	return -1
+}
+
+func updateBlocksFile(pathDialFS string, newInitialBlock int, fileSize int, initialBlock int) {
+	blocksFilePath := filepath.Join(pathDialFS, "bloques.dat")
+
+	// Abrir el archivo de bloques
+	blocksFile, err := os.OpenFile(blocksFilePath, os.O_RDWR, 0644)
+	if err != nil {
+		log.Fatalf("Error al abrir el archivo de bloques '%s': %v", blocksFilePath, err)
+	}
+	defer blocksFile.Close()
+
+	// Leer todo el contenido del archivo de bloques
+	contenidoCompleto, err := io.ReadAll(blocksFile)
+	if err != nil {
+		log.Fatalf("Error al leer el contenido del archivo de bloques: %v", err)
+	}
+
+	// Calcular posiciones en el archivo de bloques
+	posicionInicialOriginal := initialBlock * config.TamanioBloqueDialFS
+	posicionFinalOriginal := posicionInicialOriginal + fileSize
+	nuevaPosicionInicial := newInitialBlock * config.TamanioBloqueDialFS
+
+	// Crear un nuevo slice para el contenido reorganizado
+	nuevoContenido := make([]byte, len(contenidoCompleto))
+
+	// Copiar el contenido del archivo a su nueva posición
+	copy(nuevoContenido[nuevaPosicionInicial:], contenidoCompleto[posicionInicialOriginal:posicionFinalOriginal])
+
+	// Copiar el resto del contenido original
+	copy(nuevoContenido, contenidoCompleto[:posicionInicialOriginal])
+	copy(nuevoContenido[posicionFinalOriginal:], contenidoCompleto[posicionFinalOriginal:])
+
+	// Volver al inicio del archivo
+	_, err = blocksFile.Seek(0, 0)
+	if err != nil {
+		log.Fatalf("Error al volver al inicio del archivo de bloques: %v", err)
+	}
+
+	// Escribir el nuevo contenido reorganizado
+	_, err = blocksFile.Write(nuevoContenido)
+	if err != nil {
+		log.Fatalf("Error al escribir el nuevo contenido en el archivo de bloques: %v", err)
+	}
 }
 
 /* ----------------------------------------- FUNCIONES DE FS_WRITE ------------------------------------------------------ */
