@@ -806,6 +806,7 @@ func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, r
 	//fileData := dataFileInMetaDataStructure(fileName)
 
 	posicionInicialDeEscritura := (bloqueInicialDelArchivo * config.TamanioBloqueDialFS) + regPuntero
+	log.Printf("Posicion de escritura: %d", posicionInicialDeEscritura)
 
 	// ME MUEVO A LA POSICION INICIAL DE ESCRITURA
 	_, err = blocksFile.Seek(int64(posicionInicialDeEscritura), 0)
