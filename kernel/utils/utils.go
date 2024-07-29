@@ -128,64 +128,69 @@ type ProcessData struct {
 	DireccionFisica []int
 }
 
-/*---------------------------------------------------VAR GLOBALES------------------------------------------------*/
+// -------------------------------VAR GLOBALES------------------------------ //
 
 var (
-	readyChannel   chan PCB
-	newChannel     chan PCB
-	nextPid        = 1
-	DirFisica      []int
-	LengthREG      int
-	done           chan struct{}
-	pauseChan      chan struct{}
-	resumeChan     chan struct{}
-	kernelPaused   bool
-	pauseMutex     sync.RWMutex
+	readyChannel            chan PCB
+	newChannel              chan PCB
+	quantumChannel          chan struct{}
+	pauseChannel            chan struct{}
+	resumeChannel           chan struct{}
+	multiprogrammingChannel chan int
+
+	nextPid = 1
+
+	kernelPaused bool
+	pauseMutex   sync.RWMutex
+
 	interfaces     []interfaz
 	processDataMap sync.Map
-	OutOfMemory    bool = false
-	//CPURequest   KernelRequest
+	DirFisica      []int
+	LengthREG      int
 
+	procesoEXEC Proceso // este proceso es el que se esta ejecutando
+
+	quantumMapGlobal = make(map[int]int)
+	pidXRecursoMap   = make(map[int][]string)
 )
 
-// ----------DECLARACION DE COLAS POR ESTADO----------------
-var colaNew []PCB
-var colaReady []PCB
-var colaReadyVRR []PCB
-var colaExecution []PCB
-var colaBlocked = make(map[string][]PCB) // Tiene que ser un map string[]PCB[]
-var colaExit []PCB
+// ----------DECLARACION DE COLAS POR ESTADO---------------- //
+var (
+	queueNew       []PCB
+	queueReady     []PCB
+	queueReadyVRR  []PCB
+	queueExecution []PCB
+	queueExit      []PCB
+	queueBlocked   = make(map[string][]PCB) // Tiene que ser un map una key (interfaz/Recurso) y un array de PCBs
+)
 
-var multiProgramacion chan int
+// ----------DECLARACION DE MUTEX---------------- //
 
-// ----------DECLARACION DE MUTEX POR COLAS DE ESTADO----------------
-var mutexNew sync.Mutex
-var mutexReady sync.Mutex
-var mutexReadyVRR sync.Mutex
-var mutexExecution sync.Mutex
-var mutexBlocked sync.Mutex
-var mutexExit sync.Mutex
-var mutexQuantum sync.Mutex
+var (
+	mutexNew       sync.Mutex
+	mutexReady     sync.Mutex
+	mutexReadyVRR  sync.Mutex
+	mutexExecution sync.Mutex
+	mutexBlocked   sync.Mutex
+	mutexExit      sync.Mutex
 
-// ----------DECLARACION MUTEX MÓDULO----------------
-var mutexExecutionCPU sync.Mutex // este mutex es para que no se envie dos procesos al mismo tiempo a la cpu
-var mutexExecutionMEMORIA sync.Mutex
+	mutexExecutionCPU     sync.Mutex // este mutex es para que no se envie dos procesos al mismo tiempo a la cpu
+	mutexExecutionMEMORIA sync.Mutex
 
-var mutexes = make(map[string]*sync.Mutex)
+	mutexInterfacceMap = make(map[string]*sync.Mutex)
 
-var quantumMapGlobal = make(map[int]int)
+	mutexQuantum sync.Mutex // este mutex es para que espere a que termine el quantum del proceso anterio
+)
 
-var pidXRecursoMap = make(map[int][]string)
+// ---------FileName global----------------------- //
 
-// ----------DECLARACION DE PROCESO EN EJECUCION----------------
-var procesoEXEC Proceso // este proceso es el que se esta ejecutando
-
-// ---------FileName global-----------------------
-var fileName string
-var fsInstruction string
-var fsRegTam int
-var fsRegDirec []int
-var fsRegPuntero int
+var (
+	fileName      string
+	fsInstruction string
+	fsRegTam      int
+	fsRegDirec    []int
+	fsRegPuntero  int
+)
 
 type FSstructure struct {
 	FileName      string `json:"filename"`
@@ -210,9 +215,9 @@ func init() {
 	globals.ClientConfig = IniciarConfiguracion(os.Args[1]) // tiene que prender la confi cuando arranca
 	readyChannel = make(chan PCB, globals.ClientConfig.Multiprogramacion)
 	newChannel = make(chan PCB, globals.ClientConfig.Multiprogramacion)
-	multiProgramacion = make(chan int, globals.ClientConfig.Multiprogramacion)
-	pauseChan = make(chan struct{})
-	resumeChan = make(chan struct{})
+	multiprogrammingChannel = make(chan int, globals.ClientConfig.Multiprogramacion)
+	pauseChannel = make(chan struct{})
+	resumeChannel = make(chan struct{})
 
 	go handelMultiProg()
 
@@ -307,7 +312,7 @@ func IniciarPlanificacionDeProcesos(request BodyRequest, pcb PCB) {
 		PCB:     pcb,
 	}
 	mutexNew.Lock()
-	colaNew = append(colaNew, proceso.PCB)
+	queueNew = append(queueNew, proceso.PCB)
 	mutexNew.Unlock()
 
 	mutexExecutionMEMORIA.Lock()
@@ -344,11 +349,11 @@ func SendPathToMemory(request BodyRequest, pid int) error {
 func handelMultiProg() {
 	for {
 		proceso := <-newChannel
-		if len(colaNew) > 0 {
-			multiProgramacion <- 0
+		if len(queueNew) > 0 {
+			multiprogrammingChannel <- 0
 			mutexNew.Lock()
-			proceso = colaNew[0]
-			colaNew = append(colaNew[:0], colaNew[1:]...)
+			proceso = queueNew[0]
+			queueNew = append(queueNew[:0], queueNew[1:]...)
 			mutexNew.Unlock()
 			log.Printf("Se crea el proceso %d en NEW", proceso.Pid)
 			enqueueReadyProcess(proceso)
@@ -361,9 +366,9 @@ func executeProcessFIFO() {
 	var proceso PCB
 	for {
 		proceso = <-readyChannel
-		if len(colaReady) > 0 {
+		if len(queueReady) > 0 {
 			mutexExecutionCPU.Lock()
-			proceso = colaReady[0]
+			proceso = queueReady[0]
 			executeTask(proceso)
 		}
 	}
@@ -374,9 +379,9 @@ func executeProcessRR(quantum int) {
 	var proceso PCB
 	for {
 		proceso = <-readyChannel
-		if len(colaReady) > 0 {
+		if len(queueReady) > 0 {
 			mutexExecutionCPU.Lock()
-			proceso = colaReady[0]
+			proceso = queueReady[0]
 			go startQuantum(quantum, proceso.Pid)
 			executeTask(proceso)
 		}
@@ -389,16 +394,16 @@ func executeProcessVRR() {
 	var quantum int
 	for {
 		proceso = <-readyChannel
-		if len(colaReadyVRR) > 0 {
+		if len(queueReadyVRR) > 0 {
 			mutexExecutionCPU.Lock()
-			proceso = colaReadyVRR[0]
+			proceso = queueReadyVRR[0]
 			//log.Printf("PID %d (VRR)- Quantum iniciado %d", proceso.Pid, quantumMapGlobal[proceso.Pid])
 			go startQuantum(quantumMapGlobal[proceso.Pid], proceso.Pid)
 			executeTask(proceso)
 
-		} else if len(colaReady) > 0 {
+		} else if len(queueReady) > 0 {
 			mutexExecutionCPU.Lock()
-			proceso = colaReady[0]
+			proceso = queueReady[0]
 			quantum = globals.ClientConfig.Quantum
 			//log.Printf("PID %d (RR)- Quantum iniciado %d", proceso.Pid, globals.ClientConfig.Quantum)
 			go startQuantum(quantum, proceso.Pid)
@@ -410,22 +415,22 @@ func executeProcessVRR() {
 
 func executeTask(pcb PCB) {
 	//sacar de Ready y lo mando a execution
-	if len(colaReady) > 0 && quantumMapGlobal[pcb.Pid] == 0 { // aca lo saco de la cola ready y lo mando a execution
+	if len(queueReady) > 0 && quantumMapGlobal[pcb.Pid] == 0 { // aca lo saco de la cola ready y lo mando a execution
 		mutexReady.Lock()
-		colaReady = append(colaReady[:0], colaReady[1:]...)
-		//log.Printf("Cola R desalojada  %+v", colaReady)
+		queueReady = append(queueReady[:0], queueReady[1:]...)
+		//log.Printf("Cola R desalojada  %+v", queueReady)
 		mutexReady.Unlock()
-	} else if len(colaReadyVRR) > 0 && quantumMapGlobal[pcb.Pid] > 0 {
+	} else if len(queueReadyVRR) > 0 && quantumMapGlobal[pcb.Pid] > 0 {
 		mutexReadyVRR.Lock()
-		colaReadyVRR = append(colaReadyVRR[:0], colaReadyVRR[1:]...)
-		//log.Printf("Cola VRR desalojada  %+v", colaReadyVRR)
+		queueReadyVRR = append(queueReadyVRR[:0], queueReadyVRR[1:]...)
+		//log.Printf("Cola VRR desalojada  %+v", queueReadyVRR)
 		mutexReadyVRR.Unlock()
 	}
 	log.Printf("PID: %d - Estado Anterior: %s - Estado Actual: EXEC", pcb.Pid, pcb.State)
 	pcb.State = "EXEC"
 	//meter en execution
 	mutexExecution.Lock()
-	colaExecution = append(colaExecution, pcb)
+	queueExecution = append(queueExecution, pcb)
 	mutexExecution.Unlock()
 
 	if err := SendContextToCPU(pcb); err != nil {
@@ -439,7 +444,7 @@ func startQuantum(quantum int, pid int) {
 	mutexQuantum.Lock()
 	quantumMapGlobal[pid] = 0
 	defer mutexQuantum.Unlock()
-	done = make(chan struct{})
+	quantumChannel = make(chan struct{})
 	timer := time.NewTimer(time.Duration(quantum) * time.Millisecond)
 	start := time.Now()
 
@@ -451,7 +456,7 @@ func startQuantum(quantum int, pid int) {
 				//log.Printf("Error sending interrupt to CPU: %v", err)
 			}
 			return
-		case <-done:
+		case <-quantumChannel:
 			if !timer.Stop() {
 				<-timer.C
 			}
@@ -530,8 +535,8 @@ func SendContextToCPU(pcb PCB) error {
 func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 
 	if globals.ClientConfig.AlgoritmoPlanificacion != "FIFO" {
-		//log.Println("Se cierra el canal DONE ", globals.ClientConfig.AlgoritmoPlanificacion)
-		close(done)
+		//log.Println("Se cierra el canal quantumChannel ", globals.ClientConfig.AlgoritmoPlanificacion)
+		close(quantumChannel)
 	}
 	var CPURequest KernelRequest
 
@@ -544,9 +549,9 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 
 	EsperarSiPlaniPausado()
 
-	if len(colaExecution) > 0 { // aca lo saco de la cola exec
+	if len(queueExecution) > 0 { // aca lo saco de la cola exec
 		mutexExecution.Lock()
-		colaExecution = append(colaExecution[:0], colaExecution[1:]...)
+		queueExecution = append(queueExecution[:0], queueExecution[1:]...)
 		mutexExecution.Unlock()
 	} else {
 		return
@@ -620,10 +625,10 @@ func handleSyscallIO(pcb PCB, timeIo int, ioInterface string, ioType string) {
 	// meter en bloqueado
 	enqueueBlockedProcess(pcb, ioInterface)
 
-	mutex, ok := mutexes[ioInterface]
+	mutex, ok := mutexInterfacceMap[ioInterface]
 	if !ok {
 		mutex = &sync.Mutex{}
-		mutexes[ioInterface] = mutex
+		mutexInterfacceMap[ioInterface] = mutex
 	}
 
 	mutex.Lock()
@@ -632,9 +637,9 @@ func handleSyscallIO(pcb PCB, timeIo int, ioInterface string, ioType string) {
 
 	EsperarSiPlaniPausado()
 
-	if len(colaBlocked[ioInterface]) > 0 { // aca lo saco de la cola blocked
+	if len(queueBlocked[ioInterface]) > 0 { // aca lo saco de la cola blocked
 		mutexBlocked.Lock()
-		colaBlocked[ioInterface] = append(colaBlocked[ioInterface][:0], colaBlocked[ioInterface][1:]...)
+		queueBlocked[ioInterface] = append(queueBlocked[ioInterface][:0], queueBlocked[ioInterface][1:]...)
 		mutexBlocked.Unlock()
 
 		enqueueReadyProcess(pcb)
@@ -757,15 +762,15 @@ func enqueueReadyProcess(pcb PCB) {
 	pcb.State = "READY"
 	if quantumMapGlobal[pcb.Pid] > 0 && globals.ClientConfig.AlgoritmoPlanificacion == "VRR" {
 		mutexReadyVRR.Lock()
-		colaReadyVRR = append(colaReadyVRR, pcb)
-		log.Printf("Cola Ready VRR: %+v", listarIds(colaReadyVRR))
+		queueReadyVRR = append(queueReadyVRR, pcb)
+		log.Printf("Cola Ready VRR: %+v", listarIds(queueReadyVRR))
 		mutexReadyVRR.Unlock()
 		readyChannel <- pcb
 	} else {
 		pcb.Quantum = 0
 		mutexReady.Lock()
-		colaReady = append(colaReady, pcb)
-		log.Printf("Cola Ready: %+v", listarIds(colaReady))
+		queueReady = append(queueReady, pcb)
+		log.Printf("Cola Ready: %+v", listarIds(queueReady))
 		mutexReady.Unlock()
 		readyChannel <- pcb
 	}
@@ -775,7 +780,7 @@ func enqueueBlockedProcess(pcb PCB, key string) {
 	log.Printf("PID: %d - Estado Anterior: %s - Estado Actual: BLOCKED", pcb.Pid, pcb.State)
 	pcb.State = "BLOCKED"
 	mutexBlocked.Lock()
-	colaBlocked[key] = append(colaBlocked[key], pcb)
+	queueBlocked[key] = append(queueBlocked[key], pcb)
 	mutexBlocked.Unlock()
 	log.Printf("PID: %d - Bloqueado por: %s", pcb.Pid, key)
 }
@@ -794,8 +799,8 @@ func enqueueExitProcess(pcb PCB) {
 	deletePagesmemory(pcb.Pid)
 	pcb.State = "EXIT"
 	mutexExit.Lock()
-	<-multiProgramacion
-	colaExit = append(colaExit, pcb)
+	<-multiprogrammingChannel
+	queueExit = append(queueExit, pcb)
 	mutexExit.Unlock()
 }
 
@@ -893,12 +898,12 @@ func HandleSignal(w http.ResponseWriter, r *http.Request) {
 		liberarRecursosMap(request.Pid, recurso)
 
 		globals.ClientConfig.InstanciasRecursos[index]++
-		if len(colaBlocked[recurso]) > 0 {
+		if len(queueBlocked[recurso]) > 0 {
 
 			EsperarSiPlaniPausado()
-			proceso := colaBlocked[recurso][0]
+			proceso := queueBlocked[recurso][0]
 			mutexBlocked.Lock()
-			colaBlocked[recurso] = colaBlocked[recurso][1:]
+			queueBlocked[recurso] = queueBlocked[recurso][1:]
 			mutexBlocked.Unlock()
 
 			enqueueReadyProcess(proceso)
@@ -921,10 +926,10 @@ func liberarRecursosExit(pidFinalizado int) {
 
 			liberarRecursosMap(pidFinalizado, recurso)
 
-			if len(colaBlocked[recurso]) > 0 {
-				proceso := colaBlocked[recurso][0]
+			if len(queueBlocked[recurso]) > 0 {
+				proceso := queueBlocked[recurso][0]
 				mutexBlocked.Lock()
-				colaBlocked[recurso] = colaBlocked[recurso][1:]
+				queueBlocked[recurso] = queueBlocked[recurso][1:]
 				mutexBlocked.Unlock()
 				enqueueReadyProcess(proceso)
 			}
@@ -1102,13 +1107,13 @@ func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
 
 func findPCB(pid int) (PCB, error) {
 	queues := map[string][]PCB{
-		"New":       colaNew,
-		"Ready":     colaReady,
-		"Execution": colaExecution,
-		"Exit":      colaExit,
+		"New":       queueNew,
+		"Ready":     queueReady,
+		"Execution": queueExecution,
+		"Exit":      queueExit,
 	}
 
-	for state, queue := range colaBlocked {
+	for state, queue := range queueBlocked {
 		queues["Blocked "+state] = queue
 	}
 
@@ -1177,8 +1182,8 @@ func PausarPlani() {
 	defer pauseMutex.Unlock()
 	if !kernelPaused {
 		kernelPaused = true
-		close(pauseChan)
-		pauseChan = make(chan struct{})
+		close(pauseChannel)
+		pauseChannel = make(chan struct{})
 	}
 }
 
@@ -1187,8 +1192,8 @@ func ReanudarPlani() {
 	defer pauseMutex.Unlock()
 	if kernelPaused {
 		kernelPaused = false
-		close(resumeChan)
-		resumeChan = make(chan struct{})
+		close(resumeChannel)
+		resumeChannel = make(chan struct{})
 	}
 }
 
@@ -1200,18 +1205,18 @@ func EsperarSiPlaniPausado() {
 	}
 	pauseMutex.RUnlock()
 
-	<-resumeChan
+	<-resumeChannel
 }
 
 func findPID(pid int) string {
 	queues := map[string][]PCB{
-		"New":       colaNew,
-		"Ready":     colaReady,
-		"Execution": colaExecution,
-		"Exit":      colaExit,
+		"New":       queueNew,
+		"Ready":     queueReady,
+		"Execution": queueExecution,
+		"Exit":      queueExit,
 	}
 
-	for state, queue := range colaBlocked {
+	for state, queue := range queueBlocked {
 		queues["Blocked "+state] = queue
 	}
 
@@ -1228,7 +1233,7 @@ func findPID(pid int) string {
 
 func eliminarProcesoCola(pid int) error {
 	var findIt = false
-	colas := []*[]PCB{&colaNew, &colaReady, &colaReadyVRR}
+	colas := []*[]PCB{&queueNew, &queueReady, &queueReadyVRR}
 	for _, cola := range colas {
 		for i, proceso := range *cola {
 			if proceso.Pid == pid {
@@ -1241,12 +1246,12 @@ func eliminarProcesoCola(pid int) error {
 		}
 	}
 	if !findIt {
-		for key, cola := range colaBlocked {
+		for key, cola := range queueBlocked {
 			for i, proceso := range cola {
 				if proceso.Pid == pid {
 					// Eliminar el proceso de la cola
 					mutexBlocked.Lock()
-					colaBlocked[key] = append(cola[:i], cola[i+1:]...)
+					queueBlocked[key] = append(cola[:i], cola[i+1:]...)
 					mutexBlocked.Unlock()
 					//log.Printf("Proceso %v eliminado de la cola: %v", pid, key)
 					return nil
@@ -1261,14 +1266,14 @@ func ListarProcesos(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	queues := map[string][]PCB{
-		"New":       colaNew,
-		"Ready":     colaReady,
-		"Ready+":    colaReadyVRR,
-		"Execution": colaExecution,
-		"Exit":      colaExit,
+		"New":       queueNew,
+		"Ready":     queueReady,
+		"Ready+":    queueReadyVRR,
+		"Execution": queueExecution,
+		"Exit":      queueExit,
 	}
 
-	for state, queue := range colaBlocked {
+	for state, queue := range queueBlocked {
 		queues["Blocked "+state] = queue
 	}
 
