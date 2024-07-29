@@ -731,7 +731,7 @@ func truncateBitmap(bitmap *Bitmap, initialBlock int, bitmapFilePath string, pat
 		newInitialBlock := moveZeros(bitmap, fileContent.InitialBlock, blocksPerFile, bitmapFilePath)
 		log.Printf("Nuevo bloque inicial, de %s: %d \n", fileContent.FileName, newInitialBlock)
 		updateMetaDataFile(pathDialFS, fileContent.FileName, newInitialBlock, fileContent.Size)
-		updateBlocksFile(pathDialFS, newInitialBlock, fileContent.Size, fileContent.InitialBlock)
+		//updateBlocksFile(pathDialFS, newInitialBlock, fileContent.Size, fileContent.InitialBlock)
 	}
 }
 
