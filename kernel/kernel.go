@@ -20,20 +20,17 @@ func main() {
 
 	puerto := globals.ClientConfig.Puerto
 
-	http.HandleFunc("PUT /process", utils.IniciarProceso)
-
-	http.HandleFunc("POST /syscall", utils.ProcessSyscall)
+	http.HandleFunc("PUT /process", utils.InitializeProcess)
+	http.HandleFunc("POST /syscall", utils.ProcessSyscallFromCPU)
 	http.HandleFunc("POST /SendPortOfInterfaceToKernel", utils.RecievePortOfInterfaceFromIO)
 	http.HandleFunc("POST /recieveREG", utils.RecieveREGFromCPU)
-
 	http.HandleFunc("POST /recieveFSDATA", utils.RecieveFileNameFromCPU)
-
-	http.HandleFunc("DELETE /process", utils.FinalizarProceso)
-	http.HandleFunc("POST /wait", utils.RecieveWait)
-	http.HandleFunc("POST /signal", utils.HandleSignal)
-	http.HandleFunc("GET /process/{pid}", utils.EstadoProceso)
-	http.HandleFunc("PUT /plani", utils.IniciarPlanificacion)
-	http.HandleFunc("DELETE /plani", utils.DetenerPlanificacion)
-	http.HandleFunc("GET /process", utils.ListarProcesos)
+	http.HandleFunc("DELETE /process", utils.FinishProcess)
+	http.HandleFunc("POST /wait", utils.RecieveWaitFromCPU)
+	http.HandleFunc("POST /signal", utils.RecieveSignalFromCPU)
+	http.HandleFunc("GET /process/{pid}", utils.GetProcessState)
+	http.HandleFunc("PUT /plani", utils.RestopPlanification)
+	http.HandleFunc("DELETE /plani", utils.StopPlanification)
+	http.HandleFunc("GET /process", utils.ListProcesses)
 	http.ListenAndServe(":"+strconv.Itoa(puerto), nil)
 }

@@ -223,18 +223,18 @@ func init() {
 
 	if globals.ClientConfig != nil {
 		if globals.ClientConfig.AlgoritmoPlanificacion == "FIFO" {
-			go executeProcessFIFO()
+			go planFIFO()
 		} else if globals.ClientConfig.AlgoritmoPlanificacion == "RR" {
-			go executeProcessRR(globals.ClientConfig.Quantum)
+			go planRR(globals.ClientConfig.Quantum)
 		} else if globals.ClientConfig.AlgoritmoPlanificacion == "VRR" {
-			go executeProcessVRR()
+			go planVRR()
 		}
 	} else {
 		log.Fatal("ClientConfig is not initialized")
 	}
 }
 
-func IniciarProceso(w http.ResponseWriter, r *http.Request) {
+func InitializeProcess(w http.ResponseWriter, r *http.Request) {
 	var request BodyRequest
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
@@ -242,11 +242,11 @@ func IniciarProceso(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	EsperarSiPlaniPausado()
+	waitIfPaused()
 	// Create PCB
 	pcb := createPCB()
 	createStructuresMemory(pcb.Pid, 0)
-	IniciarPlanificacionDeProcesos(request, pcb)
+	planProcessNew(request, pcb)
 	global_quantumMap[pcb.Pid] = 0
 	newChannel <- pcb
 	// Response with the PID
@@ -306,24 +306,20 @@ func createStructuresMemory(pid int, pages int) error {
 	return nil
 }
 
-func IniciarPlanificacionDeProcesos(request BodyRequest, pcb PCB) {
-	proceso := Proceso{
-		Request: request,
-		PCB:     pcb,
-	}
+func planProcessNew(request BodyRequest, pcb PCB) {
 	mutexNew.Lock()
-	queueNew = append(queueNew, proceso.PCB)
+	queueNew = append(queueNew, pcb)
 	mutexNew.Unlock()
 
 	mutexExecutionMEMORIA.Lock()
-	if err := SendPathToMemory(proceso.Request, proceso.PCB.Pid); err != nil {
+	if err := sendPathToMemory(request, pcb.Pid); err != nil {
 		log.Printf("Error sending path to memory: %v", err)
 		return
 	}
 	mutexExecutionMEMORIA.Unlock()
 }
 
-func SendPathToMemory(request BodyRequest, pid int) error {
+func sendPathToMemory(request BodyRequest, pid int) error {
 	memoriaURL := fmt.Sprintf("http://%s:8085/setInstructionFromFileToMap?pid=%d&path=%s", globals.ClientConfig.IpMemoria, pid, request.Path)
 	savedPathJSON, err := json.Marshal(request)
 	if err != nil {
@@ -362,7 +358,7 @@ func handelMultiProg() {
 	}
 }
 
-func executeProcessFIFO() {
+func planFIFO() {
 	var proceso PCB
 	for {
 		proceso = <-readyChannel
@@ -375,7 +371,7 @@ func executeProcessFIFO() {
 
 }
 
-func executeProcessRR(quantum int) {
+func planRR(quantum int) {
 	var proceso PCB
 	for {
 		proceso = <-readyChannel
@@ -389,7 +385,7 @@ func executeProcessRR(quantum int) {
 
 }
 
-func executeProcessVRR() {
+func planVRR() {
 	var proceso PCB
 	var quantum int
 	for {
@@ -433,7 +429,7 @@ func executeTask(pcb PCB) {
 	queueExecution = append(queueExecution, pcb)
 	mutexExecution.Unlock()
 
-	if err := SendContextToCPU(pcb); err != nil {
+	if err := sendContextToCPU(pcb); err != nil {
 		log.Printf("Error sending context to CPU: %v", err)
 		return
 	}
@@ -452,8 +448,8 @@ func startQuantum(quantum int, pid int) {
 		select {
 		case <-timer.C:
 			//log.Printf("PID %d - Quantum terminado. Tiempo real transcurrido: %v", pid, elapsed)
-			if err := SendInterrupt(pid, "CLOCK"); err != nil {
-				//log.Printf("Error sending interrupt to CPU: %v", err)
+			if err := interruptToCPU(pid, "CLOCK"); err != nil {
+				log.Printf("Error sending interrupt to CPU: %v", err)
 			}
 			return
 		case <-quantumChannel:
@@ -477,7 +473,32 @@ func startQuantum(quantum int, pid int) {
 	}
 }
 
-func SendInterrupt(pid int, motivo string) error {
+func sendContextToCPU(pcb PCB) error {
+	cpuURL := fmt.Sprintf("http://%s:%d/receivePCB", globals.ClientConfig.IpCPU, globals.ClientConfig.PuertoCPU)
+
+	context := pcb
+	pcbResponseTest, err := json.Marshal(context)
+	if err != nil {
+		return fmt.Errorf("error al serializar el PCB: %v", err)
+	}
+
+	//log.Println("Enviando solicitud con contenido:", string(pcbResponseTest))
+
+	resp, err := http.Post(cpuURL, "application/json", bytes.NewBuffer(pcbResponseTest))
+	if err != nil {
+		return fmt.Errorf("error al enviar la solicitud al módulo de cpu: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("error en la respuesta del módulo de cpu: %v", resp.StatusCode)
+	}
+
+	//log.Println("Respuesta del módulo de cpu recibida correctamente.")
+	return nil
+}
+
+func interruptToCPU(pid int, motivo string) error {
 	cpuURL := fmt.Sprintf("http://%s:%d/interrupt", globals.ClientConfig.IpCPU, globals.ClientConfig.PuertoCPU)
 
 	RequestInterrupt := RequestInterrupt{
@@ -507,32 +528,7 @@ func SendInterrupt(pid int, motivo string) error {
 	return nil
 }
 
-func SendContextToCPU(pcb PCB) error {
-	cpuURL := fmt.Sprintf("http://%s:%d/receivePCB", globals.ClientConfig.IpCPU, globals.ClientConfig.PuertoCPU)
-
-	context := pcb
-	pcbResponseTest, err := json.Marshal(context)
-	if err != nil {
-		return fmt.Errorf("error al serializar el PCB: %v", err)
-	}
-
-	//log.Println("Enviando solicitud con contenido:", string(pcbResponseTest))
-
-	resp, err := http.Post(cpuURL, "application/json", bytes.NewBuffer(pcbResponseTest))
-	if err != nil {
-		return fmt.Errorf("error al enviar la solicitud al módulo de cpu: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("error en la respuesta del módulo de cpu: %v", resp.StatusCode)
-	}
-
-	//log.Println("Respuesta del módulo de cpu recibida correctamente.")
-	return nil
-}
-
-func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
+func ProcessSyscallFromCPU(w http.ResponseWriter, r *http.Request) {
 
 	if globals.ClientConfig.AlgoritmoPlanificacion != "FIFO" {
 		//log.Println("Se cierra el canal quantumChannel ", globals.ClientConfig.AlgoritmoPlanificacion)
@@ -547,7 +543,7 @@ func ProcessSyscall(w http.ResponseWriter, r *http.Request) {
 	}
 	//log.Printf("Recibido Motivo de desalojo: %+v", CPURequest.MotivoDesalojo)
 
-	EsperarSiPlaniPausado()
+	waitIfPaused()
 
 	if len(queueExecution) > 0 { // aca lo saco de la cola exec
 		mutexExecution.Lock()
@@ -610,14 +606,14 @@ func RecievePortOfInterfaceFromIO(w http.ResponseWriter, r *http.Request) {
 	// log.Printf("Port received: %d, Name: %s, type: %s", requestPort.Port, requestPort.Nombre, requestPort.Type)
 
 	global_interfaces = append(global_interfaces, interfaz)
-	SendPortOfInterfaceToMemory(interfaz.Name, interfaz.Port)
+	sendPortOfInterfaceToMemory(interfaz.Name, interfaz.Port)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf("Port received: %d", requestPort.Port)))
 }
 
 func handleSyscallIO(pcb PCB, timeIo int, ioInterface string, ioType string) {
-	if !InterfazExiste(ioInterface, ioType) {
+	if !interfaceExists(ioInterface, ioType) {
 		log.Printf("Finaliza el proceso %v - Motivo: INVALID_INTERFACE", pcb.Pid)
 		//Llamar a funcion que finalioza el proceso aca se esta terminando y no se porque
 		enqueueExitProcess(pcb)
@@ -634,10 +630,10 @@ func handleSyscallIO(pcb PCB, timeIo int, ioInterface string, ioType string) {
 	}
 
 	mutex.Lock()
-	SendIOToEntradaSalida(ioInterface, timeIo, pcb.Pid)
+	sendProcessToIO(ioInterface, timeIo, pcb.Pid)
 	mutex.Unlock()
 
-	EsperarSiPlaniPausado()
+	waitIfPaused()
 
 	if len(queueBlocked[ioInterface]) > 0 { // aca lo saco de la cola blocked
 		mutexBlocked.Lock()
@@ -647,10 +643,9 @@ func handleSyscallIO(pcb PCB, timeIo int, ioInterface string, ioType string) {
 		enqueueReadyProcess(pcb)
 	}
 	//log.Printf("Proceso %+v volvió de con. Quantum: %d", pcb.Pid, pcb.Quantum)
-
 }
 
-func InterfazExiste(nombre string, ioType string) bool {
+func interfaceExists(nombre string, ioType string) bool {
 	for _, interfaz := range global_interfaces {
 		if interfaz.Name == nombre && interfaz.Type == ioType {
 			return true
@@ -659,7 +654,7 @@ func InterfazExiste(nombre string, ioType string) bool {
 	return false
 }
 
-func SendIOToEntradaSalida(nombre string, io int, pid int) error {
+func sendProcessToIO(nombre string, io int, pid int) error {
 	payload := Payload{
 		Nombre: nombre,
 		IO:     io,
@@ -681,7 +676,7 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 			// Manejar el caso donde no hay datos para el PID
 		}
 
-		SendREGtoIO(processData.DireccionFisica, processData.LengthREG, interfazEncontrada.Port, pid) //envia los registros a IO
+		sendREGtoIO(processData.DireccionFisica, processData.LengthREG, interfazEncontrada.Port, pid) //envia los registros a IO
 
 		//envia el payload a IO
 		entradasalidaURL := fmt.Sprintf("http://%s:%d/interfaz", globals.ClientConfig.IpEntradaSalida, interfazEncontrada.Port)
@@ -725,7 +720,7 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 		//log.Println("Respuesta del módulo de IO recibida correctamente.")
 		return nil
 	} else if interfazEncontrada != (interfaz{}) && interfazEncontrada.Type == "DialFS" {
-		SendFSDataToIO(fileName, fsInstruction, interfazEncontrada.Port, fsRegTam, fsRegDirec, fsRegPuntero) //envia los registros a IO
+		sendFSDataToIO(fileName, fsInstruction, interfazEncontrada.Port, fsRegTam, fsRegDirec, fsRegPuntero) //envia los registros a IO
 		entradasalidaURL := fmt.Sprintf("http://%s:%d/interfaz", globals.ClientConfig.IpEntradaSalida, interfazEncontrada.Port)
 
 		ioResponseTest, err := json.Marshal(payload)
@@ -749,6 +744,32 @@ func SendIOToEntradaSalida(nombre string, io int, pid int) error {
 	return nil
 }
 
+func sendPortOfInterfaceToMemory(nombreInterfaz string, puerto int) error {
+	memoriaURL := fmt.Sprintf("http://%s:%d/SendPortOfInterfaceToMemory", globals.ClientConfig.IpMemoria, globals.ClientConfig.PuertoMemoria)
+	body := BodyRequestPort{
+		Nombre: nombreInterfaz,
+		Port:   puerto,
+	}
+
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("error al serializar el body: %v", err)
+	}
+
+	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(bodyBytes))
+	if err != nil {
+		return fmt.Errorf("error al enviar la solicitud al módulo de memoria: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("error en la respuesta del módulo de memoria en port of interface: %v, %v", resp.StatusCode, resp.Request.Response)
+	}
+
+	///log.Println("Respuesta del módulo de memoria recibida correctamente.")
+	return nil
+}
+
 func getProcessData(pid int) (ProcessData, bool) {
 	data, ok := processDataMap.Load(pid)
 	if !ok {
@@ -765,14 +786,14 @@ func enqueueReadyProcess(pcb PCB) {
 	if global_quantumMap[pcb.Pid] > 0 && globals.ClientConfig.AlgoritmoPlanificacion == "VRR" {
 		mutexReadyVRR.Lock()
 		queueReadyVRR = append(queueReadyVRR, pcb)
-		log.Printf("Cola Ready VRR: %+v", listarIds(queueReadyVRR))
+		log.Printf("Cola Ready VRR: %+v", listIds(queueReadyVRR))
 		mutexReadyVRR.Unlock()
 		readyChannel <- pcb
 	} else {
 		pcb.Quantum = 0
 		mutexReady.Lock()
 		queueReady = append(queueReady, pcb)
-		log.Printf("Cola Ready: %+v", listarIds(queueReady))
+		log.Printf("Cola Ready: %+v", listIds(queueReady))
 		mutexReady.Unlock()
 		readyChannel <- pcb
 	}
@@ -787,7 +808,7 @@ func enqueueBlockedProcess(pcb PCB, key string) {
 	log.Printf("PID: %d - Bloqueado por: %s", pcb.Pid, key)
 }
 
-func listarIds(cola []PCB) []int {
+func listIds(cola []PCB) []int {
 	pidSlice := make([]int, 0, len(cola))
 	for _, pcb := range cola {
 		pidSlice = append(pidSlice, pcb.Pid)
@@ -797,7 +818,7 @@ func listarIds(cola []PCB) []int {
 
 func enqueueExitProcess(pcb PCB) {
 	log.Printf("PID: %d - Estado Anterior: %s - Estado Actual: EXIT", pcb.Pid, pcb.State)
-	liberarRecursosExit(pcb.Pid)
+	releaseResources(pcb.Pid)
 	deletePagesmemory(pcb.Pid)
 	pcb.State = "EXIT"
 	mutexExit.Lock()
@@ -808,16 +829,7 @@ func enqueueExitProcess(pcb PCB) {
 
 /*------------------------------Manejo de recursos---------------------------------*/
 
-func resourceExists(recurso string) (bool, int) {
-	for i, r := range globals.ClientConfig.Recursos {
-		if r == recurso {
-			return true, i
-		}
-	}
-	return false, -1
-}
-
-func RecieveWait(w http.ResponseWriter, r *http.Request) {
+func RecieveWaitFromCPU(w http.ResponseWriter, r *http.Request) {
 	var request struct {
 		Pid     int    `json:"pid"`
 		Recurso string `json:"recurso"`
@@ -857,11 +869,20 @@ func RecieveWait(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"success": "true"}`))
 }
 
+func resourceExists(recurso string) (bool, int) {
+	for i, r := range globals.ClientConfig.Recursos {
+		if r == recurso {
+			return true, i
+		}
+	}
+	return false, -1
+}
+
 func waitHandler(pcb PCB, recurso string) {
 	enqueueBlockedProcess(pcb, recurso)
 }
 
-func liberarRecursosMap(pid int, recursoAbuscar string) {
+func releaseResource(pid int, recursoAbuscar string) {
 	recursos, exists := global_resourcesPIDMap[pid]
 	if exists {
 		// Buscar el recurso y eliminarlo si existe
@@ -881,7 +902,27 @@ func liberarRecursosMap(pid int, recursoAbuscar string) {
 	}
 }
 
-func HandleSignal(w http.ResponseWriter, r *http.Request) {
+func releaseResources(pidFinalizado int) {
+	recursos, exists := global_resourcesPIDMap[pidFinalizado]
+	if exists {
+		for _, recurso := range recursos {
+			_, index := resourceExists(recurso)
+			globals.ClientConfig.InstanciasRecursos[index]++
+
+			releaseResource(pidFinalizado, recurso)
+
+			if len(queueBlocked[recurso]) > 0 {
+				proceso := queueBlocked[recurso][0]
+				mutexBlocked.Lock()
+				queueBlocked[recurso] = queueBlocked[recurso][1:]
+				mutexBlocked.Unlock()
+				enqueueReadyProcess(proceso)
+			}
+		}
+	}
+}
+
+func RecieveSignalFromCPU(w http.ResponseWriter, r *http.Request) {
 	var request struct {
 		Pid     int    `json:"pid"`
 		Recurso string `json:"recurso"`
@@ -897,12 +938,12 @@ func HandleSignal(w http.ResponseWriter, r *http.Request) {
 
 	recursoExistente, index := resourceExists(recurso)
 	if recursoExistente {
-		liberarRecursosMap(request.Pid, recurso)
+		releaseResource(request.Pid, recurso)
 
 		globals.ClientConfig.InstanciasRecursos[index]++
 		if len(queueBlocked[recurso]) > 0 {
 
-			EsperarSiPlaniPausado()
+			waitIfPaused()
 			proceso := queueBlocked[recurso][0]
 			mutexBlocked.Lock()
 			queueBlocked[recurso] = queueBlocked[recurso][1:]
@@ -917,26 +958,6 @@ func HandleSignal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write([]byte(`{"success": "true"}`))
-}
-
-func liberarRecursosExit(pidFinalizado int) {
-	recursos, exists := global_resourcesPIDMap[pidFinalizado]
-	if exists {
-		for _, recurso := range recursos {
-			_, index := resourceExists(recurso)
-			globals.ClientConfig.InstanciasRecursos[index]++
-
-			liberarRecursosMap(pidFinalizado, recurso)
-
-			if len(queueBlocked[recurso]) > 0 {
-				proceso := queueBlocked[recurso][0]
-				mutexBlocked.Lock()
-				queueBlocked[recurso] = queueBlocked[recurso][1:]
-				mutexBlocked.Unlock()
-				enqueueReadyProcess(proceso)
-			}
-		}
-	}
 }
 
 /*------------------------------STDIN & STDOUT & FS---------------------------------*/
@@ -978,7 +999,7 @@ func RecieveFileNameFromCPU(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf("Registers received: %v", fileName)))
 }
 
-func SendREGtoIO(REGdireccion []int, lengthREG int, port int, pid int) error {
+func sendREGtoIO(REGdireccion []int, lengthREG int, port int, pid int) error {
 	ioURL := fmt.Sprintf("http://%s:%d/recieveREG", globals.ClientConfig.IpEntradaSalida, port)
 	var BodyRegister BodyRegisters
 	BodyRegister.DirFisica = REGdireccion
@@ -1004,7 +1025,7 @@ func SendREGtoIO(REGdireccion []int, lengthREG int, port int, pid int) error {
 	return nil
 }
 
-func SendFSDataToIO(filename string, instruction string, port int, regTam int, regDirec []int, regPuntero int) error {
+func sendFSDataToIO(filename string, instruction string, port int, regTam int, regDirec []int, regPuntero int) error {
 	ioURL := fmt.Sprintf("http://%s:%d/recieveFSDATA", globals.ClientConfig.IpEntradaSalida, port)
 	fsStructure := FSstructure{
 		FileName:      fileName,
@@ -1035,35 +1056,9 @@ func SendFSDataToIO(filename string, instruction string, port int, regTam int, r
 	return nil
 }
 
-func SendPortOfInterfaceToMemory(nombreInterfaz string, puerto int) error {
-	memoriaURL := fmt.Sprintf("http://%s:%d/SendPortOfInterfaceToMemory", globals.ClientConfig.IpMemoria, globals.ClientConfig.PuertoMemoria)
-	body := BodyRequestPort{
-		Nombre: nombreInterfaz,
-		Port:   puerto,
-	}
-
-	bodyBytes, err := json.Marshal(body)
-	if err != nil {
-		return fmt.Errorf("error al serializar el body: %v", err)
-	}
-
-	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(bodyBytes))
-	if err != nil {
-		return fmt.Errorf("error al enviar la solicitud al módulo de memoria: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("error en la respuesta del módulo de memoria en port of interface: %v, %v", resp.StatusCode, resp.Request.Response)
-	}
-
-	///log.Println("Respuesta del módulo de memoria recibida correctamente.")
-	return nil
-}
-
 /*------------------------------Endpoints Obligatorios---------------------------------*/
 
-func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
+func FinishProcess(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "DELETE" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -1081,7 +1076,7 @@ func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
 	}
 	motivo := r.URL.Query().Get("motivo")
 
-	PausarPlani()
+	pausePlani()
 	// Use pidExists to check if the PID exists in any of the queues
 	pcb, err := findPCB(pid)
 	if err != nil {
@@ -1097,13 +1092,13 @@ func FinalizarProceso(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Finaliza el proceso %v - Motivo: INTERRUPTED_BY_USER", pcb.Pid)
 	}
 	if pcb.State == "EXEC" {
-		SendInterrupt(pcb.Pid, "INTERRUPTED_BY_USER")
+		interruptToCPU(pcb.Pid, "INTERRUPTED_BY_USER")
 	} else {
-		eliminarProcesoCola(pcb.Pid)
+		unqueuProcess(pcb.Pid)
 		enqueueExitProcess(pcb)
 
 	}
-	ReanudarPlani()
+	resumePlani()
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -1144,7 +1139,7 @@ func deletePagesmemory(pid int) {
 	}
 }
 
-func EstadoProceso(w http.ResponseWriter, r *http.Request) {
+func GetProcessState(w http.ResponseWriter, r *http.Request) {
 	pidStr := r.PathValue("pid")
 	if pidStr == "" {
 		http.Error(w, "PID no especificado", http.StatusBadRequest)
@@ -1169,17 +1164,17 @@ func EstadoProceso(w http.ResponseWriter, r *http.Request) {
 	w.Write(stateResponse)
 }
 
-func IniciarPlanificacion(w http.ResponseWriter, r *http.Request) {
-	ReanudarPlani()
+func RestopPlanification(w http.ResponseWriter, r *http.Request) {
+	resumePlani()
 	w.WriteHeader(http.StatusOK)
 }
 
-func DetenerPlanificacion(w http.ResponseWriter, r *http.Request) {
-	PausarPlani()
+func StopPlanification(w http.ResponseWriter, r *http.Request) {
+	pausePlani()
 	w.WriteHeader(http.StatusOK)
 }
 
-func PausarPlani() {
+func pausePlani() {
 	pauseMutex.Lock()
 	defer pauseMutex.Unlock()
 	if !kernelPaused {
@@ -1189,7 +1184,7 @@ func PausarPlani() {
 	}
 }
 
-func ReanudarPlani() {
+func resumePlani() {
 	pauseMutex.Lock()
 	defer pauseMutex.Unlock()
 	if kernelPaused {
@@ -1199,7 +1194,7 @@ func ReanudarPlani() {
 	}
 }
 
-func EsperarSiPlaniPausado() {
+func waitIfPaused() {
 	pauseMutex.RLock()
 	if !kernelPaused {
 		pauseMutex.RUnlock()
@@ -1233,7 +1228,7 @@ func findPID(pid int) string {
 	return "PID not found"
 }
 
-func eliminarProcesoCola(pid int) error {
+func unqueuProcess(pid int) error {
 	var findIt = false
 	colas := []*[]PCB{&queueNew, &queueReady, &queueReadyVRR}
 	for _, cola := range colas {
@@ -1264,7 +1259,7 @@ func eliminarProcesoCola(pid int) error {
 	return errors.New("Proceso no encontrado")
 }
 
-func ListarProcesos(w http.ResponseWriter, r *http.Request) {
+func ListProcesses(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	queues := map[string][]PCB{
