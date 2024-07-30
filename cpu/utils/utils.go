@@ -34,12 +34,6 @@ type PCB struct { //ESTO NO VA ACA
 	CpuReg       RegisterCPU
 }
 
-type ExecutionContext struct {
-	Pid    int
-	State  string
-	CpuReg RegisterCPU
-}
-
 type RegisterCPU struct {
 	PC, EAX, EBX, ECX, EDX, SI, DI uint32
 	AX, BX, CX, DX                 uint8
@@ -79,12 +73,12 @@ type TLBEntry struct {
 	globalPosicionFila int       // Para FIFO
 }
 
-type bodyProcess struct {
+type BodyProcess struct {
 	Pid   int `json:"pid"`
 	Pages int `json:"pages,omitempty"`
 }
 
-type bodyPageTable struct {
+type BodyPageTable struct {
 	Pid  int `json:"pid"`
 	Page int `json:"page"`
 }
@@ -92,7 +86,8 @@ type bodyPageTable struct {
 type BodyFrame struct {
 	Frame int `json:"frame"`
 }
-type bodyRegisters struct {
+
+type BodyRegisters struct {
 	Pid       int   `json:"iopid"`
 	DirFisica []int `json:"dirFisica"`
 	LengthREG int   `json:"lengthREG"`
@@ -124,23 +119,21 @@ type FSstructure struct {
 
 /*------------------------------------------------- VAR GLOBALES --------------------------------------------------------*/
 
-var globalTLB []TLBEntry
-var globalTLBsize int
-var replacementAlgorithm string
-var globalPosicionFila int
-var interrupt bool = false
-var GLOBALrequestCPU KernelRequest
-var GLOBALcontextoDeEjecucion PCB //PCB recibido desde kernel
-var MemoryFrame int
-var GLOBALpageTam int
-var GLOBALdataMOV_IN []byte
+var (
+	globalTLB                 []TLBEntry
+	globalTLBsize             int
+	replacementAlgorithm      string
+	globalPosicionFila        int
+	interrupt                 bool = false
+	GLOBALrequestCPU          KernelRequest
+	GLOBALcontextoDeEjecucion PCB //PCB recibido desde kernel
+	MemoryFrame               int
+	GLOBALpageTam             int
+	GLOBALdataMOV_IN          []byte
 
-// var requestCPU KernelRequest
-var responseInterruptGlobal ResponseInterrupt
-
-/*func init() {
-	globals.ClientConfig = IniciarConfiguracion(os.Args[1]) // tiene que prender la confi cuando arranca
-}*/
+	//  requestCPU KernelRequest
+	responseInterruptGlobal ResponseInterrupt
+)
 
 func ConfigurarLogger() {
 
@@ -1121,7 +1114,7 @@ func TamRestantePagina(dirLog, tamPag int) int {
 // simulacion de la obtención de un marco desde la memoria
 func FetchFrameFromMemory(pid, pageNumber int) error {
 	memoryURL := fmt.Sprintf("http://%s:%d/getFramefromCPU", globals.ClientConfig.IPMemory, globals.ClientConfig.PortMemory)
-	var pageTable bodyPageTable
+	var pageTable BodyPageTable
 	pageTable.Pid = pid
 	pageTable.Page = pageNumber
 
@@ -1152,7 +1145,7 @@ func RecieveFramefromMemory(w http.ResponseWriter, r *http.Request) {
 
 func sendResizeMemory(tam int) {
 	memoriaURL := fmt.Sprintf("http://%s:%d/resizeProcess", globals.ClientConfig.IPMemory, globals.ClientConfig.PortMemory)
-	var process bodyProcess
+	var process BodyProcess
 	process.Pid = GLOBALcontextoDeEjecucion.Pid
 	process.Pages = tam
 
@@ -1171,7 +1164,7 @@ func sendResizeMemory(tam int) {
 
 func sendREGtoKernel(adress []int, length int, pid int) {
 	kernelURL := fmt.Sprintf("http://%s:%d/recieveREG", globals.ClientConfig.IpKernel, globals.ClientConfig.PortKernel)
-	var BodyRegisters bodyRegisters
+	var BodyRegisters BodyRegisters
 	BodyRegisters.Pid = pid
 	BodyRegisters.DirFisica = adress
 	BodyRegisters.LengthREG = length
