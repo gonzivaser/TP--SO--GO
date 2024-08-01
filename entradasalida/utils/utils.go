@@ -581,7 +581,7 @@ func IO_FS_DELETE(pathDialFS string, fileName string) {
 
 	updateBitMap(bitmap, bitmapFilePath)
 
-	deleteInBlockFile(pathDialFS, blocksToDelete, fileData.InitialBlock)
+	//deleteInBlockFile(pathDialFS, blocksToDelete, fileData.InitialBlock)
 
 	deleteInMetaDataStructure(fileName)
 }
@@ -658,11 +658,14 @@ func IO_FS_TRUNCATE(pathDialFS string, fileName string, length int) {
 			updateMetaDataFile(pathDialFS, fileName, fileData.InitialBlock, length)
 		} else {
 			log.Printf("No hay bloques contiguos disponibles")
+			dataInBlock := getDataInBlockFile(blocksFilePath, fileData.InitialBlock, fileData.Size)
+			log.Printf("Data in block: %s", dataInBlock)
 			truncateBitmap(bitmap, fileData.InitialBlock, bitmapFilePath, pathDialFS, fileName, fileData.Size, blocksFilePath)
 			firstFreeBlock := firstBitFree(bitmap)
 			assignBlocks(bitmap, firstFreeBlock, cantBloques)
 			showBitmap(bitmap)
 			updateBitMap(bitmap, bitmapFilePath)
+			writeBlocksFile(blocksFilePath, firstFreeBlock, dataInBlock)
 			updateMetaDataFile(pathDialFS, fileName, firstFreeBlock, length)
 		}
 	} else if length < fileData.Size {
@@ -708,6 +711,69 @@ func removeBlocks(bitmap *Bitmap, initialBlock int, totalBlocks int, blocksToRem
 	}
 }
 
+func getDataInBlockFile(blocksFilePath string, initialBlock int, size int) string {
+	// Abre el archivo bloques.dat para lectura
+	file, err := os.OpenFile(blocksFilePath, os.O_RDWR, 0644)
+	if err != nil {
+		log.Fatalf("error al abrir el archivo bloques.dat: %v", err)
+	}
+	defer file.Close()
+
+	var result strings.Builder
+
+	var blocksToDelete int
+	if size > config.TamanioBloqueDialFS {
+		blocksToDelete = (size + config.TamanioBloqueDialFS - 1) / config.TamanioBloqueDialFS
+	} else {
+		blocksToDelete = 1
+	}
+
+	for i := initialBlock; i < initialBlock+blocksToDelete; i++ {
+		posBloque := int64(i) * int64(config.TamanioBloqueDialFS)
+		buffer := make([]byte, config.TamanioBloqueDialFS)
+
+		// Lee el bloque en la posición calculada
+		_, err := file.ReadAt(buffer, posBloque)
+		if err != nil {
+			if err == io.EOF {
+				break // Fin del archivo
+			}
+			log.Fatalf("error al leer el bloque %d: %v", i, err)
+		}
+
+		// Añade el contenido del bloque al resultado
+		result.Write(buffer)
+	}
+
+	return result.String()
+}
+
+func writeBlocksFile(blocksFilePath string, initialBlock int, dataInBlock string) {
+	file, err := os.OpenFile(blocksFilePath, os.O_RDWR, 0644)
+	if err != nil {
+		log.Fatalf("error al abrir el archivo bloques.dat: %v", err)
+	}
+	defer file.Close()
+	posicionInicialDeEscritura := (initialBlock * config.TamanioBloqueDialFS)
+	log.Printf("Posicion de escritura: %d", posicionInicialDeEscritura)
+
+	// ME MUEVO A LA POSICION INICIAL DE ESCRITURA
+	_, err = file.Seek(int64(posicionInicialDeEscritura), 0)
+	if err != nil {
+		log.Fatalf("Error al mover el cursor del archivo de bloques '%s': %v", blocksFilePath, err)
+	}
+
+	// ESCRIBIR EN EL ARCHIVO DE BLOQUES
+	// Aquí deberías escribir los datos reales en lugar de "hola"
+	// Por ejemplo, podrías usar los datos de 'adress' y 'length'
+	dataToWrite := []byte(dataInBlock) // Reemplazar esto con los datos reales--->GLOBALmemoryContent
+	_, err = file.Write(dataToWrite)
+	if err != nil {
+		log.Fatalf("Error al escribir en el archivo de bloques '%s': %v", blocksFilePath, err)
+	}
+
+}
+
 func lookForContiguousBlocks(cantBloques int, initialBlock int, pathDialFS string) bool {
 	// Abrir el archivo de bitmap para lectura
 	bitmapFilePath := pathDialFS + "/bitmap.dat"
@@ -749,7 +815,7 @@ func truncateBitmap(bitmap *Bitmap, initialBlock int, bitmapFilePath string, pat
 		blocksToDelete = 1
 	}
 	removeBlocks(bitmap, initialBlock, blocksToDelete, blocksToDelete)
-	//removeBlocksFromFile(pathDialFS, blocksToDelete, initialBlock)
+	deleteInBlockFile(pathDialFS, blocksToDelete, initialBlock)
 	log.Printf("Bloques eliminados de mi archivo: %d", blocksToDelete)
 	showBitmap(bitmap)
 	deleteInMetaDataStructure(fileName)
@@ -761,8 +827,9 @@ func truncateBitmap(bitmap *Bitmap, initialBlock int, bitmapFilePath string, pat
 		newInitialBlock := moveZeros(bitmap, fileContent.InitialBlock, blocksPerFile, bitmapFilePath, blocksFilePath)
 		log.Printf("Nuevo bloque inicial, de %s: %d \n", fileContent.FileName, newInitialBlock)
 		updateMetaDataFile(pathDialFS, fileContent.FileName, newInitialBlock, fileContent.Size)
-		//updateBlocksFile(pathDialFS, newInitialBlock, fileContent.Size, fileContent.InitialBlock)
+
 	}
+
 }
 
 func moveZeros(bitmap *Bitmap, initialBlock int, cantBloques int, bitmapFilePath string, blockFilePath string) int {
@@ -816,7 +883,7 @@ func moveZeros(bitmap *Bitmap, initialBlock int, cantBloques int, bitmapFilePath
 	return newInitialBlock
 }
 
-/*func removeBlocksFromFile(pathDialFS string, blocksToDelete int, initialBlock int) error {
+func removeBlocksFromFile(pathDialFS string, blocksToDelete int, initialBlock int) error {
 	// Abre el archivo bloques.dat en modo lectura/escritura
 	blocksFilePath := filepath.Join(pathDialFS, "bloques.dat")
 	blocksFile, err := os.OpenFile(blocksFilePath, os.O_RDWR, 0644)
@@ -851,9 +918,9 @@ func moveZeros(bitmap *Bitmap, initialBlock int, cantBloques int, bitmapFilePath
 	}
 
 	return nil
-}*/
+}
 
-/*func displayFileContent(filePath string) error {
+func displayFileContent(filePath string) error {
 	file, err := os.Open(filePath)
 	if err != nil {
 		log.Fatalf("Error al abrir el archivo '%s': %v", filePath, err)
@@ -869,7 +936,7 @@ func moveZeros(bitmap *Bitmap, initialBlock int, cantBloques int, bitmapFilePath
 	fmt.Println(string(content))
 
 	return nil
-}*/
+}
 
 func getBlocksFile(fileName string) int {
 	var blocksToDelete int
@@ -983,22 +1050,6 @@ func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, r
 		log.Fatalf("Error al escribir en el archivo de bloques '%s': %v", blocksFilePath, err)
 	}
 
-	// Mover el cursor al inicio del bloque para leer el contenido
-	/*_, err = blocksFile.Seek(int64(bloqueInicialDelArchivo*config.TamanioBloqueDialFS), 0)
-	if err != nil {
-		log.Fatalf("Error al mover el cursor para leer: %v", err)
-	}*/
-
-	// Leer el contenido del archivo
-	/*fileContent := make([]byte, config.TamanioBloqueDialFS*config.CantidadBloquesDialFS) // Asumiendo que el archivo ocupa un bloque
-	bytesRead, err := blocksFile.Read(fileContent)
-	if err != nil && err != io.EOF {
-		log.Fatalf("Error al leer el contenido del archivo: %v", err)
-	}
-
-	// Mostrar el contenido del archivo
-	fmt.Printf("Contenido del archivo %s después de la escritura:\n", fileName)
-	fmt.Println(string(fileContent[:bytesRead]))*/
 }
 
 /* ------------------------------------------ FUNCIONES DE FS_READ ------------------------------------------------------ */
