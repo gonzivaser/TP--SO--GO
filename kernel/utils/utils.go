@@ -1081,7 +1081,7 @@ func FinishProcess(w http.ResponseWriter, r *http.Request) {
 	pcb, err := findPCB(pid)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		ReanudarKernel()
+		resumePlani()
 		return
 	}
 	//log.Printf("Finalizing process %v - Reason: <SUCCESS / INVALID_RESOURCE / INVALID_WRITE> con estado %v", pcb.Pid, pcb.State)
