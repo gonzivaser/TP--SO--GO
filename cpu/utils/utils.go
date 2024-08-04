@@ -34,12 +34,6 @@ type PCB struct { //ESTO NO VA ACA
 	CpuReg       RegisterCPU
 }
 
-type ExecutionContext struct {
-	Pid    int
-	State  string
-	CpuReg RegisterCPU
-}
-
 type RegisterCPU struct {
 	PC, EAX, EBX, ECX, EDX, SI, DI uint32
 	AX, BX, CX, DX                 uint8
@@ -79,12 +73,12 @@ type TLBEntry struct {
 	globalPosicionFila int       // Para FIFO
 }
 
-type bodyProcess struct {
+type BodyProcess struct {
 	Pid   int `json:"pid"`
 	Pages int `json:"pages,omitempty"`
 }
 
-type bodyPageTable struct {
+type BodyPageTable struct {
 	Pid  int `json:"pid"`
 	Page int `json:"page"`
 }
@@ -92,7 +86,8 @@ type bodyPageTable struct {
 type BodyFrame struct {
 	Frame int `json:"frame"`
 }
-type bodyRegisters struct {
+
+type BodyRegisters struct {
 	Pid       int   `json:"iopid"`
 	DirFisica []int `json:"dirFisica"`
 	LengthREG int   `json:"lengthREG"`
@@ -124,23 +119,22 @@ type FSstructure struct {
 
 /*------------------------------------------------- VAR GLOBALES --------------------------------------------------------*/
 
-var globalTLB []TLBEntry
-var globalTLBsize int
-var replacementAlgorithm string
-var globalPosicionFila int
-var interrupt bool = false
-var GLOBALrequestCPU KernelRequest
-var GLOBALcontextoDeEjecucion PCB //PCB recibido desde kernel
-var MemoryFrame int
-var GLOBALpageTam int
-var GLOBALdataMOV_IN []byte
+var (
+	global_TLB           []TLBEntry
+	global_TLBsize       int
+	replacementAlgorithm string
+	globalPosicionFila   int
 
-// var requestCPU KernelRequest
-var responseInterruptGlobal ResponseInterrupt
+	global_requestCPU          KernelRequest
+	global_contextoDeEjecucion PCB //PCB recibido desde kernel
 
-/*func init() {
-	globals.ClientConfig = IniciarConfiguracion(os.Args[1]) // tiene que prender la confi cuando arranca
-}*/
+	memoryFrame       int
+	global_pageTam    int
+	global_dataMOV_IN []byte
+
+	interrupt                bool = false
+	global_responseInterrupt ResponseInterrupt
+)
 
 func ConfigurarLogger() {
 
@@ -153,17 +147,17 @@ func ConfigurarLogger() {
 }
 
 func init() {
-	globals.ClientConfig = IniciarConfiguracion(os.Args[1]) // tiene que prender la confi cuando arranca
+	globals.ClientConfig = InitializeConfiguracion(os.Args[1]) // tiene que prender la confi cuando arranca
 
 	if globals.ClientConfig != nil {
-		globalTLBsize = globals.ClientConfig.NumberFellingTLB
+		global_TLBsize = globals.ClientConfig.NumberFellingTLB
 		replacementAlgorithm = globals.ClientConfig.AlgorithmTLB
 	} else {
 		log.Fatal("ClientConfig is not initialized")
 	}
 }
 
-func IniciarConfiguracion(filePath string) *globals.Config {
+func InitializeConfiguracion(filePath string) *globals.Config {
 	var config *globals.Config
 	configFile, err := os.Open(filePath)
 	if err != nil {
@@ -177,67 +171,50 @@ func IniciarConfiguracion(filePath string) *globals.Config {
 	return config
 }
 
-func ReceivePCB(w http.ResponseWriter, r *http.Request) {
-	// HAGO UN LOG PARA CHEQUEAR RECEPCION
+/*------------------------------Ciclo de instrucción---------------------------------*/
 
-	err := json.NewDecoder(r.Body).Decode(&GLOBALcontextoDeEjecucion)
+func ReceiveContextFromKernel(w http.ResponseWriter, r *http.Request) {
+
+	err := json.NewDecoder(r.Body).Decode(&global_contextoDeEjecucion)
 	if err != nil {
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
 		return
 	}
 
-	InstructionCycle(GLOBALcontextoDeEjecucion)
+	instructionCycle(global_contextoDeEjecucion)
 	w.WriteHeader(http.StatusOK)
 }
 
-func InstructionCycle(contextoDeEjecucion PCB) {
-	GLOBALrequestCPU = KernelRequest{}
+func instructionCycle(contextoDeEjecucion PCB) {
+	global_requestCPU = KernelRequest{}
 
 	for {
 		log.Printf("PID: %d - FETCH - Program Counter: %d\n", contextoDeEjecucion.Pid, contextoDeEjecucion.CpuReg.PC)
-		line, _ := Fetch(int(contextoDeEjecucion.CpuReg.PC), contextoDeEjecucion.Pid)
+		line, _ := fetch(int(contextoDeEjecucion.CpuReg.PC), contextoDeEjecucion.Pid)
 
 		contextoDeEjecucion.CpuReg.PC++
-		GLOBALrequestCPU.PcbUpdated = contextoDeEjecucion
-		instruction, _ := Decode(line)
+		global_requestCPU.PcbUpdated = contextoDeEjecucion
+		instruction, _ := decode(line)
 
 		log.Printf("PID: %d - Ejecutando: %s - %s.", contextoDeEjecucion.Pid, instruction, line)
-		Execute(instruction, line, &contextoDeEjecucion)
+		execute(instruction, line, &contextoDeEjecucion)
 
-		if (responseInterruptGlobal.Interrupt && responseInterruptGlobal.Pid == contextoDeEjecucion.Pid) || interrupt {
-			responseInterruptGlobal.Interrupt = false
+		if (global_responseInterrupt.Interrupt && global_responseInterrupt.Pid == contextoDeEjecucion.Pid) || interrupt {
+			global_responseInterrupt.Interrupt = false
 			interrupt = false
 			break
 		}
 
 	}
-	if GLOBALrequestCPU.MotivoDesalojo == "" {
-		GLOBALrequestCPU.MotivoDesalojo = responseInterruptGlobal.Motivo
+	if global_requestCPU.MotivoDesalojo == "" {
+		global_requestCPU.MotivoDesalojo = global_responseInterrupt.Motivo
 	}
-	GLOBALrequestCPU.PcbUpdated = contextoDeEjecucion
-	responsePCBtoKernel(GLOBALrequestCPU)
+	global_requestCPU.PcbUpdated = contextoDeEjecucion
+	sendContexttoKernel(global_requestCPU)
 
 }
 
-func responsePCBtoKernel(requestCPU KernelRequest) {
-	kernelURL := fmt.Sprintf("http://%s:%d/syscall", globals.ClientConfig.IpKernel, globals.ClientConfig.PortKernel)
-
-	requestJSON, err := json.Marshal(requestCPU)
-	if err != nil {
-		return
-	}
-	resp, err := http.Post(kernelURL, "application/json", bytes.NewBuffer(requestJSON))
-	if err != nil {
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return
-	}
-}
-
-func Fetch(pc int, pid int) ([]string, error) {
+func fetch(pc int, pid int) ([]string, error) {
 	memoriaURL := fmt.Sprintf("http://%s:%d/getInstructionFromPid?pid=%d&programCounter=%d", globals.ClientConfig.IPMemory, globals.ClientConfig.PortMemory, pid, pc)
 	resp, err := http.Get(memoriaURL)
 	if err != nil {
@@ -263,7 +240,7 @@ func Fetch(pc int, pid int) ([]string, error) {
 	return instructions, nil
 }
 
-func Decode(instruction []string) (string, error) {
+func decode(instruction []string) (string, error) {
 	// Esta función se va a complejizar con la traducción de las direcciones fisicas y logicas
 	words := strings.Fields(instruction[0])
 	if len(instruction) == 0 {
@@ -272,23 +249,23 @@ func Decode(instruction []string) (string, error) {
 	return words[0], nil
 }
 
-func Execute(instruction string, line []string, contextoDeEjecucion *PCB) error {
+func execute(instruction string, line []string, contextoDeEjecucion *PCB) error {
 
 	words := strings.Fields(line[0])
 
 	switch instruction {
 	case "SET": // Change the type of the switch case expression from byte to string
-		err := SetCampo(&contextoDeEjecucion.CpuReg, words[1], words[2])
+		err := setField(&contextoDeEjecucion.CpuReg, words[1], words[2])
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "SUM":
-		err := Suma(&contextoDeEjecucion.CpuReg, words[1], words[2])
+		err := sumFields(&contextoDeEjecucion.CpuReg, words[1], words[2])
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "SUB":
-		err := Resta(&contextoDeEjecucion.CpuReg, words[1], words[2])
+		err := subtractFields(&contextoDeEjecucion.CpuReg, words[1], words[2])
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
@@ -317,7 +294,7 @@ func Execute(instruction string, line []string, contextoDeEjecucion *PCB) error 
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
-		sendResizeMemory(tam)
+		sendResizeToMemory(tam)
 
 	case "MOV_IN":
 		err := MOV_IN(words, contextoDeEjecucion)
@@ -335,12 +312,12 @@ func Execute(instruction string, line []string, contextoDeEjecucion *PCB) error 
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "WAIT":
-		err := CheckWait(nil, nil, contextoDeEjecucion, words[1])
+		err := SendWaitToKernel(nil, nil, contextoDeEjecucion, words[1])
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "SIGNAL":
-		err := CheckSignal(nil, nil, contextoDeEjecucion.Pid, instruction, words[1])
+		err := SendSignalToKernel(nil, nil, contextoDeEjecucion.Pid, instruction, words[1])
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 
@@ -371,7 +348,7 @@ func Execute(instruction string, line []string, contextoDeEjecucion *PCB) error 
 			return fmt.Errorf("error en execute: %s", err)
 		}
 	case "EXIT":
-		err := TerminarProceso(&contextoDeEjecucion.CpuReg, "FINALIZADO")
+		err := endedProcess(&contextoDeEjecucion.CpuReg, "FINALIZADO")
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
@@ -381,8 +358,26 @@ func Execute(instruction string, line []string, contextoDeEjecucion *PCB) error 
 	return nil
 }
 
-func TerminarProceso(registerCPU *RegisterCPU, motivo string) error {
-	GLOBALrequestCPU = KernelRequest{
+func sendContexttoKernel(requestCPU KernelRequest) {
+	kernelURL := fmt.Sprintf("http://%s:%d/syscall", globals.ClientConfig.IpKernel, globals.ClientConfig.PortKernel)
+
+	requestJSON, err := json.Marshal(requestCPU)
+	if err != nil {
+		return
+	}
+	resp, err := http.Post(kernelURL, "application/json", bytes.NewBuffer(requestJSON))
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return
+	}
+}
+
+func endedProcess(registerCPU *RegisterCPU, motivo string) error {
+	global_requestCPU = KernelRequest{
 		MotivoDesalojo: motivo,
 	}
 
@@ -391,7 +386,9 @@ func TerminarProceso(registerCPU *RegisterCPU, motivo string) error {
 	return nil
 }
 
-func SetCampo(r *RegisterCPU, campo string, valor interface{}) error {
+/*------------------------------Instrucciones---------------------------------*/
+
+func setField(r *RegisterCPU, campo string, valor interface{}) error {
 	// Obtener el valor reflect.Value de la estructura Persona
 	valorRef := reflect.ValueOf(r)
 
@@ -436,7 +433,7 @@ func SetCampo(r *RegisterCPU, campo string, valor interface{}) error {
 	return nil
 }
 
-func Suma(registerCPU *RegisterCPU, s1, s2 string) error {
+func sumFields(registerCPU *RegisterCPU, s1, s2 string) error {
 	valorRef := reflect.ValueOf(registerCPU)
 
 	campoDestinoRef := valorRef.Elem().FieldByName(s1)
@@ -479,7 +476,7 @@ func Suma(registerCPU *RegisterCPU, s1, s2 string) error {
 	return nil
 }
 
-func Resta(registerCPU *RegisterCPU, s1, s2 string) error {
+func subtractFields(registerCPU *RegisterCPU, s1, s2 string) error {
 	valorRef := reflect.ValueOf(registerCPU)
 
 	campoDestinoRef := valorRef.Elem().FieldByName(s1)
@@ -548,7 +545,7 @@ func JNZ(registerCPU *RegisterCPU, reg, valor string) error {
 
 func MOV_IN(words []string, contextoEjecucion *PCB) error {
 	REGdireccion := words[2]
-	valueDireccion := verificarRegistro(REGdireccion, contextoEjecucion)
+	valueDireccion := verifyRegister(REGdireccion, contextoEjecucion)
 
 	REGdatos := words[1]
 
@@ -563,25 +560,25 @@ func MOV_IN(words []string, contextoEjecucion *PCB) error {
 		return fmt.Errorf("registro no soportado: %s", REGdatos)
 	}
 
-	direcciones := TranslateAddress(contextoEjecucion.Pid, valueDireccion, GLOBALpageTam, tamREGdatos)
+	direcciones := translateAddress(contextoEjecucion.Pid, valueDireccion, global_pageTam, tamREGdatos)
 
-	err1 := LeerMemoria(contextoEjecucion.Pid, direcciones, tamREGdatos)
+	err1 := readToMemory(contextoEjecucion.Pid, direcciones, tamREGdatos)
 	if err1 != nil {
 		return fmt.Errorf("error leyendo memoria: %s", err1)
 	}
 
-	//buf := bytes.NewReader(GLOBALdataMOV_IN)
+	//buf := bytes.NewReader(global_dataMOV_IN)
 	if tamREGdatos == 1 {
-		result := stringToUint8(string(GLOBALdataMOV_IN))
+		result := stringToUint8(string(global_dataMOV_IN))
 		log.Printf("PID: %d - Acción: LEER - Dirección Física: %d - Valor: %d", contextoEjecucion.Pid, direcciones[0], result)
-		err3 := SetCampo(&contextoEjecucion.CpuReg, REGdatos, result)
+		err3 := setField(&contextoEjecucion.CpuReg, REGdatos, result)
 		if err3 != nil {
 			return fmt.Errorf("error en execute: %s", err3)
 		}
 	} else {
-		result := stringToInteger(string(GLOBALdataMOV_IN))
+		result := stringToInteger(string(global_dataMOV_IN))
 		log.Printf("PID: %d - Acción: LEER - Dirección Física: %d - Valor: %d", contextoEjecucion.Pid, direcciones[0], result)
-		err3 := SetCampo(&contextoEjecucion.CpuReg, REGdatos, result)
+		err3 := setField(&contextoEjecucion.CpuReg, REGdatos, result)
 		if err3 != nil {
 			return fmt.Errorf("error en execute: %s", err3)
 		}
@@ -611,10 +608,10 @@ func stringToUint8(s string) uint8 {
 
 func MOV_OUT(words []string, contextoEjecucion *PCB) error {
 	REGdireccion := words[1]
-	valueDireccion := verificarRegistro(REGdireccion, contextoEjecucion)
+	valueDireccion := verifyRegister(REGdireccion, contextoEjecucion)
 
 	REGdatos := words[2]
-	valueDatos := verificarRegistro(REGdatos, contextoEjecucion)
+	valueDatos := verifyRegister(REGdatos, contextoEjecucion)
 
 	var valueDatosBytes []byte
 	switch REGdatos {
@@ -626,8 +623,8 @@ func MOV_OUT(words []string, contextoEjecucion *PCB) error {
 	default:
 		return fmt.Errorf("registro no soportado: %s", REGdatos)
 	}
-	direcciones := TranslateAddress(contextoEjecucion.Pid, valueDireccion, GLOBALpageTam, len(valueDatosBytes))
-	err := EscribirMemoria(contextoEjecucion.Pid, direcciones, valueDatosBytes)
+	direcciones := translateAddress(contextoEjecucion.Pid, valueDireccion, global_pageTam, len(valueDatosBytes))
+	err := writeToMemory(contextoEjecucion.Pid, direcciones, valueDatosBytes)
 	if err != nil {
 		return err
 	}
@@ -641,25 +638,25 @@ func COPY_STRING(words []string, contextoEjecucion *PCB) error {
 	if err != nil {
 		return err
 	}
-	valorSI := verificarRegistro("SI", contextoEjecucion)
-	direccionesSI := TranslateAddress(contextoEjecucion.Pid, valorSI, GLOBALpageTam, tam)
+	valorSI := verifyRegister("SI", contextoEjecucion)
+	direccionesSI := translateAddress(contextoEjecucion.Pid, valorSI, global_pageTam, tam)
 
-	err1 := LeerMemoria(contextoEjecucion.Pid, direccionesSI, tam)
+	err1 := readToMemory(contextoEjecucion.Pid, direccionesSI, tam)
 	if err1 != nil {
 		return err1
 	}
-	log.Printf("PID: %d - Acción: LEER - Dirección Física: %v - Valor: %s", contextoEjecucion.Pid, direccionesSI[0], GLOBALdataMOV_IN)
-	valorDI := verificarRegistro("DI", contextoEjecucion)
-	direccionesDI := TranslateAddress(contextoEjecucion.Pid, valorDI, GLOBALpageTam, tam)
-	err2 := EscribirMemoria(contextoEjecucion.Pid, direccionesDI, GLOBALdataMOV_IN)
+	log.Printf("PID: %d - Acción: LEER - Dirección Física: %v - Valor: %s", contextoEjecucion.Pid, direccionesSI[0], global_dataMOV_IN)
+	valorDI := verifyRegister("DI", contextoEjecucion)
+	direccionesDI := translateAddress(contextoEjecucion.Pid, valorDI, global_pageTam, tam)
+	err2 := writeToMemory(contextoEjecucion.Pid, direccionesDI, global_dataMOV_IN)
 	if err2 != nil {
 		return err2
 	}
-	log.Printf("PID: %d - Acción: ESCRIBIR - Dirección Física: %d - Valor: %s", contextoEjecucion.Pid, direccionesDI[0], GLOBALdataMOV_IN)
+	log.Printf("PID: %d - Acción: ESCRIBIR - Dirección Física: %d - Valor: %s", contextoEjecucion.Pid, direccionesDI[0], global_dataMOV_IN)
 	return nil
 }
 
-func LeerMemoria(pid int, direccion []int, size int) error {
+func readToMemory(pid int, direccion []int, size int) error {
 	memoriaURL := fmt.Sprintf("http://%s:%d/readMemory", globals.ClientConfig.IPMemory, globals.ClientConfig.PortMemory)
 	req := MemoryReadRequest{
 		PID:     pid,
@@ -686,7 +683,7 @@ func LeerMemoria(pid int, direccion []int, size int) error {
 	return nil
 }
 
-func RecieveMOV_IN(w http.ResponseWriter, r *http.Request) {
+func RecieveMOV_INFromMemory(w http.ResponseWriter, r *http.Request) {
 	var Content []byte
 	err := json.NewDecoder(r.Body).Decode(&Content)
 	if err != nil {
@@ -694,11 +691,11 @@ func RecieveMOV_IN(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	GLOBALdataMOV_IN = Content
+	global_dataMOV_IN = Content
 	w.WriteHeader(http.StatusOK)
 }
 
-func EscribirMemoria(pid int, direcciones []int, data []byte) error {
+func writeToMemory(pid int, direcciones []int, data []byte) error {
 	memoriaURL := fmt.Sprintf("http://%s:%d/writeMemory", globals.ClientConfig.IPMemory, globals.ClientConfig.PortMemory)
 	var req MemoryReadRequest
 	req.PID = pid
@@ -732,7 +729,7 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 		if err != nil {
 			return err
 		}
-		GLOBALrequestCPU = KernelRequest{
+		global_requestCPU = KernelRequest{
 			PcbUpdated:     *contextoEjecucion,
 			MotivoDesalojo: "INTERRUPCION POR IO",
 			IoType:         "GENERICA",
@@ -741,14 +738,14 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 		}
 	case "IO_STDIN_READ":
 		adressREG := words[2]
-		valueAdress1 := verificarRegistro(adressREG, contextoEjecucion)
+		valueAdress1 := verifyRegister(adressREG, contextoEjecucion)
 
 		lengthREG := words[3]
-		valueLength1 := verificarRegistro(lengthREG, contextoEjecucion)
+		valueLength1 := verifyRegister(lengthREG, contextoEjecucion)
 
-		direcciones := TranslateAddress(contextoEjecucion.Pid, valueAdress1, GLOBALpageTam, valueLength1)
-		sendREGtoKernel(direcciones, valueLength1, contextoEjecucion.Pid)
-		GLOBALrequestCPU = KernelRequest{
+		direcciones := translateAddress(contextoEjecucion.Pid, valueAdress1, global_pageTam, valueLength1)
+		sendREGToKernel(direcciones, valueLength1, contextoEjecucion.Pid)
+		global_requestCPU = KernelRequest{
 			PcbUpdated:     *contextoEjecucion,
 			MotivoDesalojo: "INTERRUPCION POR IO",
 			IoType:         "STDIN",
@@ -757,14 +754,14 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 		}
 	case "IO_STDOUT_WRITE":
 		adressREG := words[2]
-		valueAdress := verificarRegistro(adressREG, contextoEjecucion)
+		valueAdress := verifyRegister(adressREG, contextoEjecucion)
 
 		lengthREG := words[3]
-		valueLength := verificarRegistro(lengthREG, contextoEjecucion)
+		valueLength := verifyRegister(lengthREG, contextoEjecucion)
 
-		direcciones := TranslateAddress(contextoEjecucion.Pid, valueAdress, GLOBALpageTam, valueLength)
-		sendREGtoKernel(direcciones, valueLength, contextoEjecucion.Pid)
-		GLOBALrequestCPU = KernelRequest{
+		direcciones := translateAddress(contextoEjecucion.Pid, valueAdress, global_pageTam, valueLength)
+		sendREGToKernel(direcciones, valueLength, contextoEjecucion.Pid)
+		global_requestCPU = KernelRequest{
 			PcbUpdated:     *contextoEjecucion,
 			MotivoDesalojo: "INTERRUPCION POR IO",
 			IoType:         "STDOUT",
@@ -773,7 +770,7 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 		}
 	case "IO_FS_CREATE":
 		fileName := words[2]
-		GLOBALrequestCPU = KernelRequest{
+		global_requestCPU = KernelRequest{
 			PcbUpdated:     *contextoEjecucion,
 			MotivoDesalojo: "INTERRUPCION POR IO",
 			IoType:         "DialFS",
@@ -785,7 +782,7 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 
 	case "IO_FS_DELETE":
 		fileName := words[2]
-		GLOBALrequestCPU = KernelRequest{
+		global_requestCPU = KernelRequest{
 			PcbUpdated:     *contextoEjecucion,
 			MotivoDesalojo: "INTERRUPCION POR IO",
 			IoType:         "DialFS",
@@ -797,8 +794,8 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 	case "IO_FS_TRUNCATE":
 		fileName := words[2]
 		regTamano := words[3]
-		valueLength := verificarRegistro(regTamano, contextoEjecucion)
-		GLOBALrequestCPU = KernelRequest{
+		valueLength := verifyRegister(regTamano, contextoEjecucion)
+		global_requestCPU = KernelRequest{
 			PcbUpdated:     *contextoEjecucion,
 			MotivoDesalojo: "INTERRUPCION POR IO",
 			IoType:         "DialFS",
@@ -811,17 +808,17 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 		fileName := words[2]
 
 		regDirec := words[3]
-		valueAdress := verificarRegistro(regDirec, contextoEjecucion)
+		valueAdress := verifyRegister(regDirec, contextoEjecucion)
 
 		regTamano := words[4]
-		valueLength := verificarRegistro(regTamano, contextoEjecucion)
+		valueLength := verifyRegister(regTamano, contextoEjecucion)
 
 		regPuntero := words[5]
-		valuePuntero := verificarRegistro(regPuntero, contextoEjecucion)
+		valuePuntero := verifyRegister(regPuntero, contextoEjecucion)
 
-		direcFisica := TranslateAddress(contextoEjecucion.Pid, valueAdress, GLOBALpageTam, valueLength)
+		direcFisica := translateAddress(contextoEjecucion.Pid, valueAdress, global_pageTam, valueLength)
 
-		GLOBALrequestCPU = KernelRequest{
+		global_requestCPU = KernelRequest{
 			PcbUpdated:     *contextoEjecucion,
 			MotivoDesalojo: "INTERRUPCION POR IO",
 			IoType:         "DialFS",
@@ -834,16 +831,16 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 		fileName := words[2]
 
 		regDirec := words[3]
-		valueAdress := verificarRegistro(regDirec, contextoEjecucion)
+		valueAdress := verifyRegister(regDirec, contextoEjecucion)
 
 		regTamano := words[4]
-		valueLength := verificarRegistro(regTamano, contextoEjecucion)
+		valueLength := verifyRegister(regTamano, contextoEjecucion)
 
 		regPuntero := words[5]
-		valuePuntero := verificarRegistro(regPuntero, contextoEjecucion)
+		valuePuntero := verifyRegister(regPuntero, contextoEjecucion)
 
-		direcFisica := TranslateAddress(contextoEjecucion.Pid, valueAdress, GLOBALpageTam, valueLength)
-		GLOBALrequestCPU = KernelRequest{
+		direcFisica := translateAddress(contextoEjecucion.Pid, valueAdress, global_pageTam, valueLength)
+		global_requestCPU = KernelRequest{
 			PcbUpdated:     *contextoEjecucion,
 			MotivoDesalojo: "INTERRUPCION POR IO",
 			IoType:         "DialFS",
@@ -858,7 +855,7 @@ func IO(kind string, words []string, contextoEjecucion *PCB) error {
 	return nil
 }
 
-func verificarRegistro(registerName string, contextoEjecucion *PCB) int {
+func verifyRegister(registerName string, contextoEjecucion *PCB) int {
 	var registerValue int
 	switch registerName {
 	case "AX":
@@ -887,7 +884,7 @@ func verificarRegistro(registerName string, contextoEjecucion *PCB) int {
 	return registerValue
 }
 
-func CheckSignal(w http.ResponseWriter, r *http.Request, pid int, motivo string, recurso string) error {
+func SendSignalToKernel(w http.ResponseWriter, r *http.Request, pid int, motivo string, recurso string) error {
 	waitRequest := ResponseWait{
 		Recurso: recurso,
 		Pid:     pid,
@@ -922,7 +919,7 @@ func CheckSignal(w http.ResponseWriter, r *http.Request, pid int, motivo string,
 		return err
 	}
 	if signalResponse.Success == "exit" {
-		err := TerminarProceso(&GLOBALcontextoDeEjecucion.CpuReg, "INVALID_RESOURCE")
+		err := endedProcess(&global_contextoDeEjecucion.CpuReg, "INVALID_RESOURCE")
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
@@ -930,7 +927,7 @@ func CheckSignal(w http.ResponseWriter, r *http.Request, pid int, motivo string,
 	return nil
 }
 
-func CheckWait(w http.ResponseWriter, r *http.Request, registerCPU *PCB, recurso string) error {
+func SendWaitToKernel(w http.ResponseWriter, r *http.Request, registerCPU *PCB, recurso string) error {
 	waitRequest := ResponseWait{
 		Recurso: recurso,
 		Pid:     registerCPU.Pid,
@@ -966,12 +963,12 @@ func CheckWait(w http.ResponseWriter, r *http.Request, registerCPU *PCB, recurso
 	}
 	if waitResponse.Success == "false" {
 		interrupt = true
-		GLOBALrequestCPU = KernelRequest{
+		global_requestCPU = KernelRequest{
 			MotivoDesalojo: "WAIT",
 			Recurso:        recurso,
 		}
 	} else if waitResponse.Success == "exit" {
-		err := TerminarProceso(&GLOBALcontextoDeEjecucion.CpuReg, "INVALID_RESOURCE")
+		err := endedProcess(&global_contextoDeEjecucion.CpuReg, "INVALID_RESOURCE")
 		if err != nil {
 			return fmt.Errorf("error en execute: %s", err)
 		}
@@ -980,93 +977,9 @@ func CheckWait(w http.ResponseWriter, r *http.Request, registerCPU *PCB, recurso
 	return nil
 }
 
-func Checkinterrupts(w http.ResponseWriter, r *http.Request) { // A chequear
+/*------------------------------TLB & MMU---------------------------------*/
 
-	var responseInterruptLocal ResponseInterrupt
-
-	err := json.NewDecoder(r.Body).Decode(&responseInterruptLocal)
-	if err != nil {
-		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
-		return
-	}
-
-	if responseInterruptLocal.Motivo == "INTERRUPTED_BY_USER" {
-		// Siempre procesar INTERRUPTED_BY_USER inmediatamente
-		responseInterruptGlobal = responseInterruptLocal
-	} else if responseInterruptLocal.Motivo == "CLOCK" {
-		// Verificar si ya hay una interrupción pendiente
-		if responseInterruptGlobal.Interrupt && responseInterruptGlobal.Motivo == "INTERRUPTED_BY_USER" {
-			// Ya hay una interrupción de mayor prioridad, ignorar CLOCK
-		} else {
-			// No hay interrupción de mayor prioridad, procesar CLOCK
-			responseInterruptGlobal = responseInterruptLocal
-		}
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(interrupt)
-}
-
-func CheckTLB(pid, page int) (int, bool) { //Verifica si la etrada ya estaba en la globalTLB. Si se usa LRU, actualiza el tiempo de acceso
-	for i, entry := range globalTLB {
-		if entry.PID == pid && entry.Pagina == page {
-			if replacementAlgorithm == "LRU" {
-				globalTLB[i].UltimoAcceso = time.Now()
-			}
-			return entry.Frame, true
-		}
-	}
-	return -1, false
-}
-
-func ReplaceTLBEntry(pid, page, frame int) { //Reemplazo una entrada de globalTLB según el algoritmo de reemplazo
-	newEntry := TLBEntry{
-		PID:                pid,
-		Pagina:             page,
-		Frame:              frame,
-		UltimoAcceso:       time.Now(),
-		globalPosicionFila: globalPosicionFila,
-	}
-
-	if len(globalTLB) < globalTLBsize {
-		globalTLB = append(globalTLB, newEntry) //Si la globalTLB no está llena, agrego la entrada
-	} else {
-		if replacementAlgorithm == "FIFO" {
-			victima := 0
-			for i, entry := range globalTLB {
-				if entry.globalPosicionFila < globalTLB[victima].globalPosicionFila {
-					victima = i
-				}
-			}
-			globalTLB[victima] = newEntry
-		} else if replacementAlgorithm == "LRU" {
-			victima := 0
-			for i, entry := range globalTLB {
-				if entry.UltimoAcceso.Before(globalTLB[victima].UltimoAcceso) {
-					victima = i
-				}
-			}
-			globalTLB[victima] = newEntry
-		}
-	}
-	globalPosicionFila++
-}
-
-func TranslateHandler(w http.ResponseWriter, r *http.Request) {
-	var req TranslationRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	// Realizar la traducción
-	addresses := TranslateAddress(req.PID, req.DireccionLogica, req.TamPag, req.TamData)
-
-	// Responder con las direcciones físicas
-	res := TranslationResponse{DireccionesFisicas: addresses}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(res)
-}
-
-func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
+func translateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 	var DireccionesFisicas []int
 	cache := make(map[int]int)    // Mapa para no buscar 10 veces el mismo marco
 	tlbHits := make(map[int]bool) // Mapa para registrar los TLB hits por página
@@ -1074,23 +987,23 @@ func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 	for i := 0; i < TamData; i++ {
 		pageNumber := int(math.Floor(float64(DireccionLogica) / float64(TamPag)))
 		pageOffset := DireccionLogica - (pageNumber * TamPag)
-		frame, found := CheckTLB(pid, pageNumber)
+		frame, found := checkTLB(pid, pageNumber)
 
 		if !found {
 			if cachedFrame, ok := cache[pageNumber]; ok {
 				frame = cachedFrame
 			} else {
 				log.Printf("PID: %d - TLB MISS - Página: %d", pid, pageNumber)
-				err := FetchFrameFromMemory(pid, pageNumber)
+				err := requestFrameToMemory(pid, pageNumber)
 				if err != nil {
 					fmt.Println("Error al obtener el marco desde la memoria")
 					return nil
 				}
-				frame = MemoryFrame
+				frame = memoryFrame
 				cache[pageNumber] = frame
 				log.Printf("PID: %d - OBTENER MARCO - Página: %d - Marco: %d", pid, pageNumber, frame)
 				if globals.ClientConfig.NumberFellingTLB > 0 {
-					ReplaceTLBEntry(pid, pageNumber, MemoryFrame)
+					replaceTLBEntry(pid, pageNumber, memoryFrame)
 				}
 			}
 		} else {
@@ -1108,20 +1021,55 @@ func TranslateAddress(pid, DireccionLogica, TamPag, TamData int) []int {
 	return DireccionesFisicas
 }
 
-func TamRestantePagina(dirLog, tamPag int) int {
-	// Calcular el offset dentro de la página actual
-	offsetEnPagina := dirLog % tamPag
+func replaceTLBEntry(pid, page, frame int) { //Reemplazo una entrada de global_TLB según el algoritmo de reemplazo
+	newEntry := TLBEntry{
+		PID:                pid,
+		Pagina:             page,
+		Frame:              frame,
+		UltimoAcceso:       time.Now(),
+		globalPosicionFila: globalPosicionFila,
+	}
 
-	// Calcular el tamaño restante en la página actual
-	tamRestante := tamPag - offsetEnPagina
+	if len(global_TLB) < global_TLBsize {
+		global_TLB = append(global_TLB, newEntry) //Si la global_TLB no está llena, agrego la entrada
+	} else {
+		if replacementAlgorithm == "FIFO" {
+			victima := 0
+			for i, entry := range global_TLB {
+				if entry.globalPosicionFila < global_TLB[victima].globalPosicionFila {
+					victima = i
+				}
+			}
+			global_TLB[victima] = newEntry
+		} else if replacementAlgorithm == "LRU" {
+			victima := 0
+			for i, entry := range global_TLB {
+				if entry.UltimoAcceso.Before(global_TLB[victima].UltimoAcceso) {
+					victima = i
+				}
+			}
+			global_TLB[victima] = newEntry
+		}
+	}
+	globalPosicionFila++
+}
 
-	return tamRestante
+func checkTLB(pid, page int) (int, bool) { //Verifica si la etrada ya estaba en la global_TLB. Si se usa LRU, actualiza el tiempo de acceso
+	for i, entry := range global_TLB {
+		if entry.PID == pid && entry.Pagina == page {
+			if replacementAlgorithm == "LRU" {
+				global_TLB[i].UltimoAcceso = time.Now()
+			}
+			return entry.Frame, true
+		}
+	}
+	return -1, false
 }
 
 // simulacion de la obtención de un marco desde la memoria
-func FetchFrameFromMemory(pid, pageNumber int) error {
+func requestFrameToMemory(pid, pageNumber int) error {
 	memoryURL := fmt.Sprintf("http://%s:%d/getFramefromCPU", globals.ClientConfig.IPMemory, globals.ClientConfig.PortMemory)
-	var pageTable bodyPageTable
+	var pageTable BodyPageTable
 	pageTable.Pid = pid
 	pageTable.Page = pageNumber
 
@@ -1145,15 +1093,15 @@ func RecieveFramefromMemory(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
 		return
 	}
-	MemoryFrame = bodyFrame.Frame
+	memoryFrame = bodyFrame.Frame
 
 	w.WriteHeader(http.StatusOK)
 }
 
-func sendResizeMemory(tam int) {
+func sendResizeToMemory(tam int) {
 	memoriaURL := fmt.Sprintf("http://%s:%d/resizeProcess", globals.ClientConfig.IPMemory, globals.ClientConfig.PortMemory)
-	var process bodyProcess
-	process.Pid = GLOBALcontextoDeEjecucion.Pid
+	var process BodyProcess
+	process.Pid = global_contextoDeEjecucion.Pid
 	process.Pages = tam
 
 	bodyResizeJSON, err := json.Marshal(process)
@@ -1169,9 +1117,9 @@ func sendResizeMemory(tam int) {
 
 }
 
-func sendREGtoKernel(adress []int, length int, pid int) {
+func sendREGToKernel(adress []int, length int, pid int) {
 	kernelURL := fmt.Sprintf("http://%s:%d/recieveREG", globals.ClientConfig.IpKernel, globals.ClientConfig.PortKernel)
-	var BodyRegisters bodyRegisters
+	var BodyRegisters BodyRegisters
 	BodyRegisters.Pid = pid
 	BodyRegisters.DirFisica = adress
 	BodyRegisters.LengthREG = length
@@ -1210,12 +1158,38 @@ func sendFSDataToKernel(fileName string, instructionFS string, regTamano int, re
 	defer resp.Body.Close()
 }
 
-func ReceiveTamPage(w http.ResponseWriter, r *http.Request) {
+func ReceiveTamPageFromMemory(w http.ResponseWriter, r *http.Request) {
 	var req BodyPageTam
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	GLOBALpageTam = req.PageTam
+	global_pageTam = req.PageTam
 	w.WriteHeader(http.StatusOK)
+}
+
+func CheckinterruptsFromKernel(w http.ResponseWriter, r *http.Request) { // A chequear
+
+	var responseInterruptLocal ResponseInterrupt
+
+	err := json.NewDecoder(r.Body).Decode(&responseInterruptLocal)
+	if err != nil {
+		http.Error(w, "Error al decodificar los datos JSON", http.StatusInternalServerError)
+		return
+	}
+
+	if responseInterruptLocal.Motivo == "INTERRUPTED_BY_USER" {
+		// Siempre procesar INTERRUPTED_BY_USER inmediatamente
+		global_responseInterrupt = responseInterruptLocal
+	} else if responseInterruptLocal.Motivo == "CLOCK" {
+		// Verificar si ya hay una interrupción pendiente
+		if global_responseInterrupt.Interrupt && global_responseInterrupt.Motivo == "INTERRUPTED_BY_USER" {
+			// Ya hay una interrupción de mayor prioridad, ignorar CLOCK
+		} else {
+			// No hay interrupción de mayor prioridad, procesar CLOCK
+			global_responseInterrupt = responseInterruptLocal
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(interrupt)
 }
