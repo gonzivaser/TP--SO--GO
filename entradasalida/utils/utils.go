@@ -20,33 +20,6 @@ import (
 	"github.com/sisoputnfrba/tp-golang/entradasalida/globals"
 )
 
-func ConfigurarLogger(interfazNombre string, config *globals.Config) {
-	var logFile *os.File
-	var err error
-
-	if config.Tipo == "DialFS" {
-		// Para DialFS, crear un archivo de log específico
-		logFileName := fmt.Sprintf("%s_DialFS.log", interfazNombre)
-		logFile, err = os.OpenFile(logFileName, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
-		if err != nil {
-			panic(err)
-		}
-	} else {
-		// Para otros tipos, usar el archivo de log general
-		logFile, err = os.OpenFile("entradasalida.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	mw := io.MultiWriter(os.Stdout, logFile)
-	log.SetOutput(mw)
-
-	// Configurar el prefijo del log para incluir el nombre de la interfaz
-	log.SetPrefix(fmt.Sprintf("[%s] ", interfazNombre))
-	log.SetFlags(log.Ldate | log.Ltime)
-}
-
 func IniciarConfiguracion(filePath string) *globals.Config {
 	var config *globals.Config
 	configFile, err := os.Open(filePath)
@@ -67,8 +40,6 @@ type ProcessData struct {
 	LengthREG       int
 	DireccionFisica []int
 }
-
-var processDataMap sync.Map
 
 /*---------------------------------------------------- STRUCTS ------------------------------------------------------*/
 type BodyRequestPort struct {
@@ -139,24 +110,49 @@ type BlockFile struct {
 	FreeBlocks  []bool // Un slice para rastrear si un bloque está libre
 }
 
-/*--------------------------- ESTRUCTURA DEL METADATA -----------------------------*/
+var (
+	metaDataStructure []FileContent
+	// NOMBRE DEL ARCHIVO E INSTRUCCION
 
-var metaDataStructure []FileContent
+	fileName      string
+	fsInstruction string
+	fsRegTam      int
+	fsRegDirec    []int
+	fsRegPuntero  int
 
-/*--------------------------- NOMBRE DEL ARCHIVO E INSTRUCCION -----------------------------*/
+	GLOBALmemoryContent string
+	config              *globals.Config
+	processDataMap      sync.Map
+)
 
-var fileName string
-var fsInstruction string
-var fsRegTam int
-var fsRegDirec []int
-var fsRegPuntero int
+/*-------------------------------- INICIAR CONFIGURACION ------------------------------------------------------*/
 
-/*--------------------------------------------------- VAR GLOBALES ------------------------------------------------------*/
+func ConfigurarLogger(interfazNombre string, config *globals.Config) {
+	var logFile *os.File
+	var err error
 
-var GLOBALmemoryContent string
-var config *globals.Config
+	if config.Tipo == "DialFS" {
+		// Para DialFS, crear un archivo de log específico
+		logFileName := fmt.Sprintf("%s_DialFS.log", interfazNombre)
+		logFile, err = os.OpenFile(logFileName, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		// Para otros tipos, usar el archivo de log general
+		logFile, err = os.OpenFile("entradasalida.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+		if err != nil {
+			panic(err)
+		}
+	}
 
-/*-------------------------------------------- INICIAR CONFIGURACION ------------------------------------------------------*/
+	mw := io.MultiWriter(os.Stdout, logFile)
+	log.SetOutput(mw)
+
+	// Configurar el prefijo del log para incluir el nombre de la interfaz
+	log.SetPrefix(fmt.Sprintf("[%s] ", interfazNombre))
+	log.SetFlags(log.Ldate | log.Ltime)
+}
 
 func LoadConfig(filename string) (*globals.Config, error) {
 	data, err := os.ReadFile(filename)
@@ -173,7 +169,7 @@ func LoadConfig(filename string) (*globals.Config, error) {
 	return &config, nil
 }
 
-func Iniciar(w http.ResponseWriter, r *http.Request) {
+func StartIOFromKernel(w http.ResponseWriter, r *http.Request) {
 	var payload Payload
 	err := json.NewDecoder(r.Body).Decode(&payload)
 	if err != nil {
@@ -234,20 +230,7 @@ func createDirectory(path string) {
 
 /*-------------------------------------------------- ENDPOINTS ------------------------------------------------------*/
 
-func FinalizarProceso(pid int) {
-	kernelURL := fmt.Sprintf("http://%s:%d/process?pid=%d", config.IPKernel, config.PuertoKernel, pid)
-	req, err := http.NewRequest("DELETE", kernelURL, nil)
-	if err != nil {
-		log.Fatalf("Error al crear la solicitud: %v", err)
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		log.Fatalf("Error al enviar la solicitud al módulo de kernel: %v", err)
-	}
-	defer resp.Body.Close()
-}
-
-func SendPortOfInterfaceToKernel(nombreInterfaz string, config *globals.Config) error {
+func SendInterfaceToKernel(nombreInterfaz string, config *globals.Config) error {
 	kernelURL := fmt.Sprintf("http://%s:%d/SendPortOfInterfaceToKernel", config.IPKernel, config.PuertoKernel)
 
 	interfaceData := BodyRequestPort{
@@ -274,8 +257,21 @@ func SendPortOfInterfaceToKernel(nombreInterfaz string, config *globals.Config) 
 	return nil
 }
 
+func finishProcessToKernel(pid int) {
+	kernelURL := fmt.Sprintf("http://%s:%d/process?pid=%d", config.IPKernel, config.PuertoKernel, pid)
+	req, err := http.NewRequest("DELETE", kernelURL, nil)
+	if err != nil {
+		log.Fatalf("Error al crear la solicitud: %v", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Fatalf("Error al enviar la solicitud al módulo de kernel: %v", err)
+	}
+	defer resp.Body.Close()
+}
+
 // STDOUT, FS_WRITE  leer en memoria y traer lo leido con "ReceiveContentFromMemory"
-func SendAdressToMemory(ReadRequest MemoryRequest) error {
+func sendAdressToMemory(ReadRequest MemoryRequest) error {
 	memoriaURL := fmt.Sprintf("http://%s:%d/readMemory", config.IPMemoria, config.PuertoMemoria)
 
 	adressResponseTest, err := json.Marshal(ReadRequest)
@@ -297,7 +293,7 @@ func SendAdressToMemory(ReadRequest MemoryRequest) error {
 }
 
 // STDIN, FS_READ  escribir en memoria
-func SendInputToMemory(pid int, input string, address []int) error {
+func sendInputToMemory(pid int, input string, address []int) error {
 	bodyRequest := MemoryRequest{
 		PID:     pid,
 		Data:    []byte(input),
@@ -314,7 +310,7 @@ func SendInputToMemory(pid int, input string, address []int) error {
 	resp, err := http.Post(memoriaURL, "application/json", bytes.NewBuffer(inputResponseTest))
 	if err != nil {
 		//fmt.Printf("Error al enviar la solicitud al módulo de memoria: %v", err)
-		FinalizarProceso(pid)
+		finishProcessToKernel(pid)
 	}
 	defer resp.Body.Close()
 
@@ -325,7 +321,7 @@ func SendInputToMemory(pid int, input string, address []int) error {
 	return nil
 }
 
-func RecieveREG(w http.ResponseWriter, r *http.Request) {
+func RecieveREGFromCPU(w http.ResponseWriter, r *http.Request) {
 	var requestRegister BodyRequestRegister
 
 	err := json.NewDecoder(r.Body).Decode(&requestRegister)
@@ -379,7 +375,7 @@ func ReceiveContentFromMemory(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Content received correctly"))
 }
 
-/*----------------------------------------- FUNCIONES AUXILIARES --------------------------------------------------*/
+/*---------------------------------------------- INTERFACES -------------------------------------------------------*/
 
 func getProcessData(pid int) (ProcessData, bool) {
 	data, ok := processDataMap.Load(pid)
@@ -388,8 +384,6 @@ func getProcessData(pid int) (ProcessData, bool) {
 	}
 	return data.(ProcessData), true
 }
-
-/*---------------------------------------------- INTERFACES -------------------------------------------------------*/
 
 // INTERFAZ STDOUT (IO_STDOUT_WRITE)
 func (Interfaz *InterfazIO) IO_STDOUT_WRITE(address []int, length int, pid int) {
@@ -403,7 +397,7 @@ func (Interfaz *InterfazIO) IO_STDOUT_WRITE(address []int, length int, pid int) 
 		Port:    config.Puerto,
 	}
 
-	err1 := SendAdressToMemory(req)
+	err1 := sendAdressToMemory(req)
 	if err1 != nil {
 		log.Fatalf("Error al leer desde la memoria: %v", err1)
 	}
@@ -447,7 +441,7 @@ func (Interfaz *InterfazIO) IO_STDIN_READ(address []int, lengthREG int, pid int)
 	}
 
 	// Guardar el texto en la memoria en la dirección especificada
-	err1 := SendInputToMemory(pid, input, address)
+	err1 := sendInputToMemory(pid, input, address)
 	if err1 != nil {
 		log.Printf("Error al escribir en la memoria: %v", err)
 	}
@@ -465,12 +459,11 @@ func (interfaz *InterfazIO) FILE_SYSTEM(pid int) {
 	blocksSize := interfaz.Config.TamanioBloqueDialFS
 	blocksCount := interfaz.Config.CantidadBloquesDialFS
 	sizeFile := blocksSize * blocksCount
-	bitmapSize := blocksCount / 8
 	unitWorkTimeFS := interfaz.Config.UnidadDeTiempo
 
 	// CHEQUEO EXISTENCIA DE ARCHIVOS BLOQUES.DAT Y BITMAP.DAT, DE NO SER ASI, LOS CREO
 	ensureExistingMetaDataFiles(pathDialFS)
-	EnsureIfFileExists(pathDialFS, blocksSize, blocksCount, sizeFile, bitmapSize)
+	ensureIfFileExists(pathDialFS, blocksSize, blocksCount, sizeFile)
 
 	switch fsInstruction {
 	case "IO_FS_CREATE":
@@ -501,7 +494,7 @@ func (interfaz *InterfazIO) FILE_SYSTEM(pid int) {
 
 func IO_FS_CREATE(pathDialFS string, fileName string) {
 	// CREO ARCHIVO
-	crearArchivo(pathDialFS, fileName)
+	createFile(pathDialFS, fileName)
 
 	// ABRO BITMAP Y LO PASO A SLICE
 	bitmapFilePath := pathDialFS + "/bitmap.dat"
@@ -539,7 +532,7 @@ func firstBitFree(bitmap *Bitmap) int {
 	return -1
 }
 
-func crearArchivo(path string, fileName string) {
+func createFile(path string, fileName string) {
 	filePath := path + "/" + fileName
 	file, err := os.Create(filePath)
 	if err != nil {
@@ -552,7 +545,7 @@ func crearArchivo(path string, fileName string) {
 
 func IO_FS_DELETE(pathDialFS string, fileName string) {
 	// PRIMERO ELIMINO EL ARCHIVO
-	eliminarArchivo(fileName, pathDialFS)
+	deleteFile(fileName, pathDialFS)
 
 	// UNA VEZ REMOVIDO EL ARCHIVO, TENGO QUE ACTUALIZAR BITMAP Y ARCHIVO DE BLOQUES
 	var fileData FileContent
@@ -613,7 +606,7 @@ func deleteInBlockFile(pathDialFS string, blocksToDelete int, initialBlock int) 
 	return nil
 }
 
-func eliminarArchivo(fileName string, pathDialFS string) {
+func deleteFile(fileName string, pathDialFS string) {
 	filePath := pathDialFS + "/" + fileName
 	err := os.Remove(filePath)
 	if err != nil {
@@ -625,7 +618,7 @@ func eliminarArchivo(fileName string, pathDialFS string) {
 
 func IO_FS_TRUNCATE(pathDialFS string, fileName string, length int) {
 	// VERIFICO EXISTENCIA DE ARCHIVO
-	verificarExistenciaDeArchivo(pathDialFS, fileName)
+	verifyExistenceOfFile(pathDialFS, fileName)
 	/*for i, fileContent := range metaDataStructure {
 		log.Printf("Archivo: %d ", i)
 		log.Printf("Archivo: %s ", fileContent.FileName)
@@ -785,8 +778,8 @@ func lookForContiguousBlocks(cantBloques int, initialBlock int, pathDialFS strin
 	}
 
 	// Crear un nuevo Bitmap y llenarlo con los datos leídos
-	bitmap := NewBitmap()
-	err = bitmap.FromBytes(bitmapBytes)
+	bitmap := newBitmap()
+	err = bitmap.fromBytes(bitmapBytes)
 	if err != nil {
 		log.Fatalf("Error al convertir bytes a bitmap: %v", err)
 	}
@@ -883,62 +876,6 @@ func moveZeros(bitmap *Bitmap, initialBlock int, cantBloques int, bitmapFilePath
 	return newInitialBlock
 }
 
-/*
-func removeBlocksFromFile(pathDialFS string, blocksToDelete int, initialBlock int) error {
-	// Abre el archivo bloques.dat en modo lectura/escritura
-	blocksFilePath := filepath.Join(pathDialFS, "bloques.dat")
-	blocksFile, err := os.OpenFile(blocksFilePath, os.O_RDWR, 0644)
-	if err != nil {
-		log.Fatalf("Error al abrir el archivo de bloques '%s': %v", blocksFilePath, err)
-	}
-	defer blocksFile.Close()
-
-	// Calcula la posición inicial para comenzar a eliminar
-	startPosition := initialBlock * config.TamanioBloqueDialFS
-
-	// Recorre la cantidad de bloques a eliminar
-	for i := 0; i < blocksToDelete; i++ {
-		// Mueve el cursor al bloque actual
-		_, err := blocksFile.Seek(int64(startPosition+i*config.TamanioBloqueDialFS), 0)
-		if err != nil {
-			log.Fatalf("Error al mover el cursor del archivo de bloques '%s': %v", blocksFilePath, err)
-		}
-
-		// Escribe ceros en el bloque (o marca como libre)
-		zeroBlock := make([]byte, config.TamanioBloqueDialFS)
-		_, err = blocksFile.Write(zeroBlock)
-		if err != nil {
-			log.Fatalf("Error al escribir en el archivo de bloques '%s': %v", blocksFilePath, err)
-		}
-	}
-
-	// Mostrar el contenido completo del archivo
-	err = displayFileContent(blocksFilePath)
-	if err != nil {
-		log.Fatalf("Error al mostrar el contenido del archivo '%s': %v", blocksFilePath, err)
-	}
-
-	return nil
-}
-
-func displayFileContent(filePath string) error {
-	file, err := os.Open(filePath)
-	if err != nil {
-		log.Fatalf("Error al abrir el archivo '%s': %v", filePath, err)
-	}
-	defer file.Close()
-
-	content, err := io.ReadAll(file)
-	if err != nil {
-		log.Fatalf("Error al leer el contenido del archivo '%s': %v", filePath, err)
-	}
-
-	fmt.Println("Contenido del archivo bloques.dat:")
-	fmt.Println(string(content))
-
-	return nil
-}*/
-
 func getBlocksFile(fileName string) int {
 	var blocksToDelete int
 	for _, fileContent := range metaDataStructure {
@@ -959,7 +896,7 @@ func getBlocksFile(fileName string) int {
 
 func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, regPuntero int, pid int) {
 	// VERIFICO EXISTENCIA DE ARCHIVO
-	verificarExistenciaDeArchivo(pathDialFS, fileName)
+	verifyExistenceOfFile(pathDialFS, fileName)
 
 	req := MemoryRequest{
 		PID:     pid,
@@ -969,13 +906,13 @@ func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, r
 		Port:    config.Puerto,
 	}
 
-	err := SendAdressToMemory(req)
+	err := sendAdressToMemory(req)
 	if err != nil {
 		log.Fatalf("Error al leer desde la memoria: %v", err)
 	}
 
 	// VERIFICO EXISTENCIA DE ARCHIVO
-	verificarExistenciaDeArchivo(pathDialFS, fileName)
+	verifyExistenceOfFile(pathDialFS, fileName)
 
 	// TENGO QUE ABRIR EL ARCHIVO DE BLOQUES.DAT
 	blocksFilePath := filepath.Join(pathDialFS, "bloques.dat")
@@ -1013,7 +950,7 @@ func IO_FS_WRITE(pathDialFS string, fileName string, adress []int, length int, r
 
 func IO_FS_READ(pathDialFS string, fileName string, address []int, length int, regPuntero int, pid int) {
 	// VERIFICO EXISTENCIA DE ARCHIVO
-	verificarExistenciaDeArchivo(pathDialFS, fileName)
+	verifyExistenceOfFile(pathDialFS, fileName)
 
 	// TENGO QUE ABRIR EL ARCHIVO DE BLOQUES.DAT
 	blocksFilePath := pathDialFS + "/bloques.dat"
@@ -1043,7 +980,7 @@ func IO_FS_READ(pathDialFS string, fileName string, address []int, length int, r
 	// TENGO QUE ESCRIBIR EL CONTENIDO LEIDO EN MEMORIA A PARTIR DE LA DIRECCION FISICA INDICADA EN ADDRESS
 	// Llamo a endpoint para escribir el contenido en memoria
 
-	err1 := SendInputToMemory(pid, string(contenidoLeidoDeArchivo), address)
+	err1 := sendInputToMemory(pid, string(contenidoLeidoDeArchivo), address)
 	if err1 != nil {
 		log.Fatalf("Error al leer desde la memoria: %v", err)
 	}
@@ -1051,7 +988,22 @@ func IO_FS_READ(pathDialFS string, fileName string, address []int, length int, r
 
 /* ------------------------------------- CREAR ARCHIVOS DE BLOQUES Y BITMAP ------------------------------------------------------ */
 
-func CreateBlockFile(path string, blocksSize int, blocksCount int, sizeFile int) (*BlockFile, error) {
+func ensureIfFileExists(pathDialFS string, blocksSize int, blocksCount int, sizeFile int) {
+
+	// pathDialFS completa para bloques.dat
+	blockFilePath := pathDialFS + "/bloques.dat"
+	if _, err := os.Stat(blockFilePath); os.IsNotExist(err) {
+		createBlockFile(pathDialFS, blocksSize, blocksCount, sizeFile)
+	}
+
+	// pathDialFS completa para bitmap.dat
+	bitmapFilePath := pathDialFS + "/bitmap.dat"
+	if _, err := os.Stat(bitmapFilePath); os.IsNotExist(err) {
+		createBitmapFile(pathDialFS)
+	}
+}
+
+func createBlockFile(path string, blocksSize int, blocksCount int, sizeFile int) (*BlockFile, error) {
 
 	filePath := path + "/bloques.dat"
 
@@ -1075,7 +1027,7 @@ func CreateBlockFile(path string, blocksSize int, blocksCount int, sizeFile int)
 	}, nil
 }
 
-func CreateBitmapFile(path string, blocksCount int, bitmapSize int) {
+func createBitmapFile(path string) {
 	filePath := path + "/bitmap.dat"
 
 	bitmapFile, err := os.Create(filePath)
@@ -1084,9 +1036,9 @@ func CreateBitmapFile(path string, blocksCount int, bitmapSize int) {
 	}
 	defer bitmapFile.Close()
 
-	bitmap := NewBitmap()
+	bitmap := newBitmap()
 
-	bitmapBytes := bitmap.ToBytes()
+	bitmapBytes := bitmap.toBytes()
 	_, err = bitmapFile.Write(bitmapBytes)
 	if err != nil {
 		log.Fatalf("Error al inicializar el archivo de bitmap '%s': %v", filePath, err)
@@ -1098,22 +1050,7 @@ func CreateBitmapFile(path string, blocksCount int, bitmapSize int) {
 	}
 }
 
-func EnsureIfFileExists(pathDialFS string, blocksSize int, blocksCount int, sizeFile int, bitmapSize int) {
-
-	// pathDialFS completa para bloques.dat
-	blockFilePath := pathDialFS + "/bloques.dat"
-	if _, err := os.Stat(blockFilePath); os.IsNotExist(err) {
-		CreateBlockFile(pathDialFS, blocksSize, blocksCount, sizeFile)
-	}
-
-	// pathDialFS completa para bitmap.dat
-	bitmapFilePath := pathDialFS + "/bitmap.dat"
-	if _, err := os.Stat(bitmapFilePath); os.IsNotExist(err) {
-		CreateBitmapFile(pathDialFS, blocksCount, bitmapSize)
-	}
-}
-
-func verificarExistenciaDeArchivo(path string, fileName string) {
+func verifyExistenceOfFile(path string, fileName string) {
 	filePath := path + "/" + fileName
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		log.Fatalf("El archivo '%s' no existe", fileName)
@@ -1122,7 +1059,7 @@ func verificarExistenciaDeArchivo(path string, fileName string) {
 
 /* --------------------------------------------- METODOS DEL BITMAP ------------------------------------------------------ */
 
-func NewBitmap() *Bitmap {
+func newBitmap() *Bitmap {
 	return &Bitmap{
 		bits:       make([]int, config.CantidadBloquesDialFS),
 		blockCount: config.CantidadBloquesDialFS,
@@ -1130,7 +1067,7 @@ func NewBitmap() *Bitmap {
 	}
 }
 
-func (b *Bitmap) FromBytes(bytes []byte) error {
+func (b *Bitmap) fromBytes(bytes []byte) error {
 	expectedBytes := (b.blockCount * b.blockSize) / 8
 	if len(bytes) != expectedBytes {
 		return fmt.Errorf("invalid byte slice length: expected %d bytes, got %d", expectedBytes, len(bytes))
@@ -1147,7 +1084,7 @@ func (b *Bitmap) FromBytes(bytes []byte) error {
 	return nil
 }
 
-func (b *Bitmap) ToBytes() []byte {
+func (b *Bitmap) toBytes() []byte {
 	bytes := make([]byte, (b.blockCount*b.blockSize)/8)
 	for i := 0; i < b.blockCount; i++ {
 		if b.bits[i] == 1 {
@@ -1202,8 +1139,8 @@ func readAndCopyBitMap(bitmapFilePath string) *Bitmap {
 		log.Fatalf("Error al leer el archivo de bitmap '%s': %v", bitmapFilePath, err)
 	}
 
-	bitmap := NewBitmap()
-	err = bitmap.FromBytes(bitmapBytes)
+	bitmap := newBitmap()
+	err = bitmap.fromBytes(bitmapBytes)
 	if err != nil {
 		log.Fatalf("Error al convertir bytes a bitmap: %v", err)
 	}
@@ -1212,7 +1149,7 @@ func readAndCopyBitMap(bitmapFilePath string) *Bitmap {
 }
 
 func updateBitMap(bitmap *Bitmap, bitmapFilePath string) {
-	modifiedBitmapBytes := bitmap.ToBytes()
+	modifiedBitmapBytes := bitmap.toBytes()
 
 	err := os.WriteFile(bitmapFilePath, modifiedBitmapBytes, 0644)
 	if err != nil {

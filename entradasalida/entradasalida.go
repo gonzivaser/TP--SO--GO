@@ -19,13 +19,13 @@ func main() {
 		log.Fatalf("Error al cargar la configuración desde '%s': %v", pathToConfig, err)
 	}
 	utils.ConfigurarLogger(interfaceName, config)
-	utils.SendPortOfInterfaceToKernel(interfaceName, config)
+	utils.SendInterfaceToKernel(interfaceName, config)
 	Puerto := config.Puerto
 
 	//http.HandleFunc("GET /input", utils.Prueba)
-	http.HandleFunc("POST /recieveREG", utils.RecieveREG)
+	http.HandleFunc("POST /recieveREG", utils.RecieveREGFromCPU)
 	http.HandleFunc("POST /recieveFSDATA", utils.RecieveFSDataFromKernel)
-	http.HandleFunc("/interfaz", utils.Iniciar)
+	http.HandleFunc("/interfaz", utils.StartIOFromKernel)
 	http.HandleFunc("/receiveContentFromMemory", utils.ReceiveContentFromMemory)
 
 	// Cargar la configuración desde el archivo
